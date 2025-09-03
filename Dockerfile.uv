@@ -1,0 +1,51 @@
+FROM python:3.10-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies and curl for health check
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv using the more reliable method
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    echo 'export PATH="/root/.cargo/bin:$PATH"' >> ~/.bashrc
+
+# Set PATH for uv
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Verify uv installation and show location
+RUN ls -la /root/.cargo/bin/ || echo "cargo bin directory not found" && \
+    which uv || echo "uv not in PATH" && \
+    /root/.cargo/bin/uv --version || echo "direct path to uv failed"
+
+# Copy project files for dependency installation
+COPY pyproject.toml .
+COPY requirements.txt .
+
+# Create virtual environment and install dependencies with uv
+RUN uv venv /app/.venv
+ENV VIRTUAL_ENV=/app/.venv
+ENV PATH="/app/.venv/bin:${PATH}"
+
+# Install dependencies using uv (much faster than pip)
+RUN uv pip install -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Create necessary directories
+RUN mkdir -p data/uploads data/cache
+
+# Expose Streamlit port
+EXPOSE 8501
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8501/_stcore/health || exit 1
+
+# Run the application
+CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
