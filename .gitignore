@@ -170,14 +170,12 @@ cython_debug/
 data/
 uploads/
 cache/
-*.csv
 *.xlsx
 *.xls
 *.pdf
 *.docx
 *.doc
 *.txt
-*.json
 *.parquet
 
 # Vector database storage

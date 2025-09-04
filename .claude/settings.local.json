@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(del uv.lock)",
+      "Bash(uv sync:*)",
+      "Read(/c:\\temp/**)",
+      "Read(/c:\\temp/**)",
+      "Read(/c:\\temp/**)",
+      "Read(/c:\\temp/**)",
+      "Read(/c:\\temp/**)",
+      "Read(/c:\\temp/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
