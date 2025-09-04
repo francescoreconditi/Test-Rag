@@ -936,3 +936,119 @@ print("Scelto:", prompt_name)
   2. alzare/abbassare `min_score_to_win`;
   3. creare prompt ulteriori (es. **budget**, **ordini d’acquisto**, **HR**…).
 * In caso di documenti misti (es. report mensile con sezione vendite + magazzino), puoi eseguire il router **per chunk** (vedi il preprocessore che abbiamo fatto) e poi **fondere** i risultati.
+
+
+
+
+
+
+
+Ottima domanda. Nel tuo `llm_service.py` io inserirei la scelta del prompt **in un metodo dedicato all’analisi documentale**, separato dai flussi che lavorano solo su CSV. Così non “sporchiamo” `generate_business_insights` (che resta centrato sui dati tabellari) e hai un entry-point chiaro per i PDF/testi RAG.
+
+Di seguito una proposta minima e pulita:
+
+1. **Importa il router** all’inizio
+
+```python
+from prompt_router import choose_prompt  # nuovo import
+```
+
+2. **Aggiungi un metodo** per analizzare documenti (usa `choose_prompt`)
+
+```python
+class LLMService:
+    ...
+    def analyze_document(self, file_name: str, analysis_text: str) -> str:
+        """
+        Analizza un documento (PDF/testo) selezionando automaticamente il prompt migliore.
+        Usa la pipeline: preprocess → choose_prompt → LLM.
+        """
+        try:
+            prompt_name, prompt_text, debug = choose_prompt(file_name=file_name, analysis_text=analysis_text)
+            logger.info(f"[Router] Scelto prompt: {prompt_name} | scores={debug.get('scores')} | len={debug.get('length_chars')}")
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "Sei un analista aziendale senior. "
+                            "Lavora ESCLUSIVAMENTE sul testo fornito, cita le pagine come richiesto dal prompt, "
+                            "e rispondi SEMPRE in italiano."
+                        ),
+                    },
+                    {"role": "user", "content": prompt_text},
+                ],
+                temperature=self.temperature - 0.1,   # output più stabile su estrazioni
+                max_tokens=min(self.max_tokens * 2, 4096),  # spesso serve più spazio
+            )
+            return response.choices[0].message.content
+
+        except Exception as e:
+            logger.error(f"Error analyzing document: {str(e)}")
+            return f"Impossibile analizzare il documento: {str(e)}"
+```
+
+3. **(Opzionale)**: se vuoi sfruttare il router anche quando passi un contesto RAG dentro `generate_business_insights`, puoi fare un **ramoscello** che, se `rag_context` sembra un documento lungo, applica il router per generare un **riassunto strutturato** da inserire nella risposta finale:
+
+```python
+    def generate_business_insights(self, csv_analysis: Dict[str, Any], rag_context: Optional[str] = None) -> str:
+        try:
+            structured_rag = None
+            # Heuristica: se il contesto è lungo e contiene tag di pagina, trattalo come documento
+            if rag_context and (len(rag_context) > 2000 or "[p." in rag_context):
+                # Usa un filename “logico” se non ce l’hai
+                prompt_name, prompt_text, _ = choose_prompt(file_name="documento_rag.txt", analysis_text=rag_context)
+                logger.info(f"[Router/RAG] Prompt scelto per RAG: {prompt_name}")
+                rag_resp = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": "Sei un analista. Rispondi solo in italiano."},
+                        {"role": "user", "content": prompt_text},
+                    ],
+                    temperature=self.temperature - 0.1,
+                    max_tokens=self.max_tokens,
+                )
+                structured_rag = rag_resp.choices[0].message.content
+
+            # Prompt originale su CSV + (eventuale) estratto strutturato dal RAG
+            prompt = self._build_insights_prompt(csv_analysis, rag_context=structured_rag or rag_context)
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "Sei un analista aziendale senior italiano... (testo tuo)"},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+            )
+            return response.choices[0].message.content
+
+        except Exception as e:
+            logger.error(f"Error generating insights: {str(e)}")
+            return f"Unable to generate insights: {str(e)}"
+```
+
+4. **Come lo richiami** dal resto dell’app
+
+* Se parti da un PDF pre-processato (con lo script `pdf_preprocess.py`), dopo aver ottenuto `analysis_text` (o i chunk), chiami:
+
+```python
+svc = LLMService()
+# caso semplice: un blocco unico
+result = svc.analyze_document(file_name="Bilancio_2024.pdf", analysis_text=analysis_text)
+```
+
+* Se usi **chunking**, puoi iterare sui chunk, poi chiedere al modello un **merge** finale dei JSON (se i prompt specialistici producono JSON); ma tienilo come step separato per non complicare ora il servizio.
+
+---
+
+### Perché qui?
+
+* **Separazione di responsabilità**: `analyze_document` è il punto unico dove avviene la scelta del prompt e la chiamata al modello per i **documenti**. Le funzioni che lavorano su **CSV** restano invariate e pulite.
+* **Riutilizzabilità**: puoi usare `analyze_document` ovunque nel codice senza duplicare la logica del router.
+* **Evolvibilità**: se in futuro aggiungi nuove casistiche (es. “budget” o “ordini d’acquisto”), modifichi solo `prompt_router.py`.
+
+Se vuoi, ti mostro anche una mini-versione che gestisce automaticamente **lista di chunk** (con merge JSON alla fine).

@@ -1,9 +1,10 @@
 """LLM Service for intelligent analysis and insights generation."""
 
-from typing import Dict, List, Any, Optional
 import json
 import logging
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
 from openai import OpenAI
 
 from config.settings import settings
@@ -14,77 +15,73 @@ logger = logging.getLogger(__name__)
 
 class LLMService:
     """Service for LLM-based analysis and natural language generation."""
-    
+
     def __init__(self):
         """Initialize OpenAI client."""
         self.client = OpenAI(api_key=settings.openai_api_key)
         self.model = settings.llm_model
         self.temperature = settings.temperature
         self.max_tokens = settings.max_tokens
-    
-    def generate_business_insights(self, csv_analysis: Dict[str, Any], 
-                                  rag_context: Optional[str] = None) -> str:
+
+    def generate_business_insights(self, csv_analysis: Dict[str, Any], rag_context: Optional[str] = None) -> str:
         """Generate comprehensive business insights from analysis data."""
         try:
             # Prepare the prompt
             prompt = self._build_insights_prompt(csv_analysis, rag_context)
-            
+
             # Call OpenAI API
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {
                         "role": "system",
-                        "content": "Sei un analista aziendale senior italiano che fornisce approfondimenti strategici basati su dati finanziari e documenti aziendali. Fornisci raccomandazioni chiare e attuabili. CRITICO: Devi rispondere ESCLUSIVAMENTE in lingua italiana. Non utilizzare MAI termini inglesi. Traduci tutti i concetti business in italiano (es. 'revenue' = 'fatturato', 'growth' = 'crescita', 'performance' = 'prestazioni', ecc.)."
+                        "content": "Sei un analista aziendale senior italiano che fornisce approfondimenti strategici basati su dati finanziari e documenti aziendali. Fornisci raccomandazioni chiare e attuabili. CRITICO: Devi rispondere ESCLUSIVAMENTE in lingua italiana. Non utilizzare MAI termini inglesi. Traduci tutti i concetti business in italiano (es. 'revenue' = 'fatturato', 'growth' = 'crescita', 'performance' = 'prestazioni', ecc.).",
                     },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
+                    {"role": "user", "content": prompt},
                 ],
                 temperature=self.temperature,
-                max_tokens=self.max_tokens
+                max_tokens=self.max_tokens,
             )
-            
+
             return response.choices[0].message.content
-            
+
         except Exception as e:
             logger.error(f"Error generating insights: {str(e)}")
             return f"Unable to generate insights: {str(e)}"
-    
+
     def _build_insights_prompt(self, csv_analysis: Dict[str, Any], rag_context: Optional[str]) -> str:
         """Build comprehensive prompt for insights generation."""
         prompt_parts = ["Per favore analizza i seguenti dati aziendali e fornisci approfondimenti strategici:\n"]
-        
+
         # Add CSV analysis data
-        if 'summary' in csv_analysis:
+        if "summary" in csv_analysis:
             prompt_parts.append("\n## Metriche Finanziarie:")
-            for key, value in csv_analysis['summary'].items():
+            for key, value in csv_analysis["summary"].items():
                 prompt_parts.append(f"- {key}: {value}")
-        
-        if 'trends' in csv_analysis:
+
+        if "trends" in csv_analysis:
             prompt_parts.append("\n## Tendenze:")
-            if 'yoy_growth' in csv_analysis['trends']:
-                for growth in csv_analysis['trends']['yoy_growth']:
+            if "yoy_growth" in csv_analysis["trends"]:
+                for growth in csv_analysis["trends"]["yoy_growth"]:
                     prompt_parts.append(
                         f"- Anno {growth['year']}: {growth['growth_percentage']}% crescita "
                         f"(variazione: {growth['absolute_change']:,.2f})"
                     )
-        
-        if 'ratios' in csv_analysis:
+
+        if "ratios" in csv_analysis:
             prompt_parts.append("\n## Rapporti Finanziari:")
-            for ratio, value in csv_analysis['ratios'].items():
+            for ratio, value in csv_analysis["ratios"].items():
                 prompt_parts.append(f"- {ratio}: {value}%")
-        
-        if 'insights' in csv_analysis:
+
+        if "insights" in csv_analysis:
             prompt_parts.append("\n## Osservazioni Iniziali:")
-            for insight in csv_analysis['insights']:
+            for insight in csv_analysis["insights"]:
                 prompt_parts.append(f"- {insight}")
-        
+
         # Add RAG context if available
         if rag_context:
             prompt_parts.append(f"\n## Contesto Aggiuntivo dai Documenti:\n{rag_context}")
-        
+
         prompt_parts.append("""
         
 IMPORTANTE: Rispondi ESCLUSIVAMENTE in italiano. Non usare MAI termini inglesi.
@@ -100,50 +97,47 @@ Per favore fornisci:
 NON utilizzare mai termini come: "Executive Summary", "Key Strengths", "Growth", "Revenue", "Performance", ecc.
 Usa sempre la traduzione italiana: "Riepilogo Esecutivo", "Punti di Forza", "Crescita", "Fatturato", "Prestazioni", ecc.
         """)
-        
-        return '\n'.join(prompt_parts)
-    
+
+        return "\n".join(prompt_parts)
+
     def compare_periods_narrative(self, comparison_data: Dict[str, Any]) -> str:
         """Generate narrative comparison between periods."""
         try:
             prompt = self._build_comparison_prompt(comparison_data)
-            
+
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {
                         "role": "system",
-                        "content": "Sei un analista finanziario che spiega i cambiamenti periodo su periodo nelle metriche aziendali. IMPORTANTE: Rispondi SEMPRE in italiano."
+                        "content": "Sei un analista finanziario che spiega i cambiamenti periodo su periodo nelle metriche aziendali. IMPORTANTE: Rispondi SEMPRE in italiano.",
                     },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
+                    {"role": "user", "content": prompt},
                 ],
                 temperature=self.temperature,
-                max_tokens=self.max_tokens // 2
+                max_tokens=self.max_tokens // 2,
             )
-            
+
             return response.choices[0].message.content
-            
+
         except Exception as e:
             logger.error(f"Error generating comparison narrative: {str(e)}")
             return "Unable to generate comparison narrative."
-    
+
     def _build_comparison_prompt(self, comparison_data: Dict[str, Any]) -> str:
         """Build prompt for period comparison."""
         prompt_parts = ["Analizza il seguente confronto tra periodi:\n"]
-        
-        if 'differences' in comparison_data:
+
+        if "differences" in comparison_data:
             prompt_parts.append("\n## Variazioni Assolute:")
-            for metric, diff in comparison_data['differences'].items():
+            for metric, diff in comparison_data["differences"].items():
                 prompt_parts.append(f"- {metric}: {diff:+,.2f}")
-        
-        if 'percentage_changes' in comparison_data:
+
+        if "percentage_changes" in comparison_data:
             prompt_parts.append("\n## Variazioni Percentuali:")
-            for metric, pct in comparison_data['percentage_changes'].items():
+            for metric, pct in comparison_data["percentage_changes"].items():
                 prompt_parts.append(f"- {metric}: {pct:+.1f}%")
-        
+
         prompt_parts.append("""
         
 Per favore fornisci una narrazione chiara e concisa che:
@@ -152,15 +146,15 @@ Per favore fornisci una narrazione chiara e concisa che:
 3. Identifichi modelli o correlazioni
 4. Suggerisca implicazioni per il business
         """)
-        
-        return '\n'.join(prompt_parts)
-    
+
+        return "\n".join(prompt_parts)
+
     def answer_business_question(self, question: str, context: Dict[str, Any]) -> str:
         """Answer specific business questions using available context."""
         try:
             # Build context-aware prompt
             context_str = json.dumps(context, indent=2, default=str)
-            
+
             prompt = f"""
 Basandoti sui seguenti dati e analisi aziendali:
 
@@ -174,44 +168,43 @@ Per favore fornisci una risposta dettagliata e basata sui dati che:
 3. Fornisca approfondimenti attuabili dove rilevante
 4. Riconosca eventuali limitazioni nei dati disponibili
             """
-            
+
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {
                         "role": "system",
-                        "content": "Sei un esperto di business intelligence. Rispondi alle domande con precisione usando i dati forniti, e dichiara chiaramente quando le informazioni sono insufficienti. IMPORTANTE: Rispondi SEMPRE in italiano."
+                        "content": "Sei un esperto di business intelligence. Rispondi alle domande con precisione usando i dati forniti, e dichiara chiaramente quando le informazioni sono insufficienti. IMPORTANTE: Rispondi SEMPRE in italiano.",
                     },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
+                    {"role": "user", "content": prompt},
                 ],
                 temperature=self.temperature,
-                max_tokens=self.max_tokens
+                max_tokens=self.max_tokens,
             )
-            
+
             return response.choices[0].message.content
-            
+
         except Exception as e:
             logger.error(f"Error answering question: {str(e)}")
             return f"Unable to process question: {str(e)}"
-    
-    def generate_executive_report(self, 
-                                 csv_analysis: Dict[str, Any],
-                                 rag_insights: Optional[str] = None,
-                                 custom_sections: Optional[List[str]] = None) -> str:
+
+    def generate_executive_report(
+        self,
+        csv_analysis: Dict[str, Any],
+        rag_insights: Optional[str] = None,
+        custom_sections: Optional[List[str]] = None,
+    ) -> str:
         """Generate comprehensive executive report."""
         try:
             sections = custom_sections or [
                 "Riepilogo Esecutivo",
                 "Performance Finanziaria",
                 "Evidenze Operative",
-                "Posizione di Mercato", 
+                "Posizione di Mercato",
                 "Raccomandazioni",
-                "Prossimi Passi"
+                "Prossimi Passi",
             ]
-            
+
             prompt = f"""
 Genera un report esecutivo professionale basato sui seguenti dati:
 
@@ -219,10 +212,10 @@ Genera un report esecutivo professionale basato sui seguenti dati:
 {json.dumps(csv_analysis, indent=2, default=str)}
 
 ## Approfondimenti dai Documenti:
-{rag_insights or 'Nessun contesto documentale aggiuntivo disponibile'}
+{rag_insights or "Nessun contesto documentale aggiuntivo disponibile"}
 
 Per favore crea un report completo con queste sezioni:
-{chr(10).join(f'- {section}' for section in sections)}
+{chr(10).join(f"- {section}" for section in sections)}
 
 IMPORTANTE: Scrivi tutto il report in italiano perfetto. Non usare MAI termini inglesi.
 
@@ -230,35 +223,32 @@ Formatta il report in modo professionale con intestazioni chiare e punti elenco 
 Includi metriche e percentuali specifiche per supportare tutte le affermazioni.
 Usa terminologia aziendale italiana (fatturato, crescita, prestazioni, margini, ecc.)
             """
-            
+
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {
                         "role": "system",
-                        "content": "Sei un consulente esecutivo di livello C che prepara report strategici per le riunioni del consiglio. Sii conciso ma completo, basato sui dati e orientato all'azione. IMPORTANTE: Rispondi SEMPRE in italiano."
+                        "content": "Sei un consulente esecutivo di livello C che prepara report strategici per le riunioni del consiglio. Sii conciso ma completo, basato sui dati e orientato all'azione. IMPORTANTE: Rispondi SEMPRE in italiano.",
                     },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
+                    {"role": "user", "content": prompt},
                 ],
                 temperature=self.temperature - 0.2,  # Lower temperature for more focused output
-                max_tokens=self.max_tokens * 2  # Allow longer reports
+                max_tokens=self.max_tokens * 2,  # Allow longer reports
             )
-            
+
             return response.choices[0].message.content
-            
+
         except Exception as e:
             logger.error(f"Error generating executive report: {str(e)}")
             return f"Unable to generate report: {str(e)}"
-    
+
     def identify_anomalies_explanation(self, anomalies: List[Dict[str, Any]]) -> str:
         """Generate explanations for detected anomalies."""
         try:
             if not anomalies:
                 return "Nessuna anomalia significativa rilevata nel dataset corrente."
-            
+
             prompt = f"""
 Analizza le seguenti anomalie rilevate nei dati aziendali:
 
@@ -270,29 +260,26 @@ Per ogni anomalia, fornisci:
 3. Impatto aziendale potenziale
 4. Azioni immediate suggerite
             """
-            
+
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {
                         "role": "system",
-                        "content": "Sei un analista del rischio specializzato nel rilevamento e nell'investigazione di anomalie aziendali. IMPORTANTE: Rispondi SEMPRE in italiano."
+                        "content": "Sei un analista del rischio specializzato nel rilevamento e nell'investigazione di anomalie aziendali. IMPORTANTE: Rispondi SEMPRE in italiano.",
                     },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
+                    {"role": "user", "content": prompt},
                 ],
                 temperature=self.temperature,
-                max_tokens=self.max_tokens
+                max_tokens=self.max_tokens,
             )
-            
+
             return response.choices[0].message.content
-            
+
         except Exception as e:
             logger.error(f"Error explaining anomalies: {str(e)}")
             return "Unable to analyze anomalies."
-    
+
     def generate_action_items(self, analysis: Dict[str, Any], priority_count: int = 10) -> List[Dict[str, str]]:
         """Generate prioritized action items from analysis."""
         try:
@@ -312,32 +299,30 @@ Formatta la tua risposta come un array JSON con oggetti contenenti:
 
 Concentrati su azioni realistiche e implementabili che affrontino direttamente gli approfondimenti dai dati.
             """
-            
+
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {
                         "role": "system",
-                        "content": "Sei uno stratega aziendale che crea raccomandazioni attuabili. Restituisci solo JSON valido. IMPORTANTE: Tutti i testi nell'JSON devono essere in italiano."
+                        "content": "Sei uno stratega aziendale che crea raccomandazioni attuabili. Restituisci solo JSON valido. IMPORTANTE: Tutti i testi nell'JSON devono essere in italiano.",
                     },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
+                    {"role": "user", "content": prompt},
                 ],
                 temperature=self.temperature,
-                max_tokens=self.max_tokens
+                max_tokens=self.max_tokens,
             )
-            
+
             content = response.choices[0].message.content
             # Extract JSON from response
             import re
-            json_match = re.search(r'\[.*\]', content, re.DOTALL)
+
+            json_match = re.search(r"\[.*\]", content, re.DOTALL)
             if json_match:
                 return json.loads(json_match.group())
             else:
                 return []
-            
+
         except Exception as e:
             logger.error(f"Error generating action items: {str(e)}")
             return []
