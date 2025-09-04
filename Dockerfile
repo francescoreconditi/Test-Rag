@@ -19,7 +19,6 @@ ENV UV_CACHE_DIR=/tmp/uv-cache
 
 # Copy project files for dependency installation
 COPY pyproject.toml .
-COPY requirements.txt .
 
 # Create virtual environment and install dependencies with uv
 RUN /root/.local/bin/uv venv .venv --python 3.10
@@ -27,7 +26,7 @@ ENV VIRTUAL_ENV=/app/.venv
 ENV PATH="/app/.venv/bin:${PATH}"
 
 # Install dependencies using uv (much faster than pip)
-RUN /root/.local/bin/uv pip install -r requirements.txt
+RUN /root/.local/bin/uv sync
 
 # Copy application code
 COPY . .
