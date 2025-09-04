@@ -134,22 +134,28 @@ class RAGEngine:
                 storage_context=StorageContext.from_defaults(vector_store=self.vector_store)
             )
     
-    def index_documents(self, file_paths: List[str], metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def index_documents(self, file_paths: List[str], metadata: Optional[Dict[str, Any]] = None, original_names: Optional[List[str]] = None, permanent_paths: Optional[List[str]] = None) -> Dict[str, Any]:
         """Index documents from file paths."""
         results = {
             'indexed_files': [],
             'failed_files': [],
             'total_chunks': 0,
-            'errors': []
+            'errors': [],
+            'document_analyses': {}  # Store automatic analyses
         }
         
-        for file_path in file_paths:
+        for i, file_path in enumerate(file_paths):
             try:
                 path = Path(file_path)
                 if not path.exists():
                     results['failed_files'].append(file_path)
                     results['errors'].append(f"File not found: {file_path}")
                     continue
+                
+                # Use original filename if provided, otherwise use current filename
+                display_name = original_names[i] if original_names and i < len(original_names) else path.name
+                # Get permanent path for PDF viewing
+                permanent_path = permanent_paths[i] if permanent_paths and i < len(permanent_paths) else None
                 
                 # Load document based on file type
                 if path.suffix.lower() == '.pdf':
@@ -166,11 +172,17 @@ class RAGEngine:
                 # Add metadata to documents
                 for doc in documents:
                     doc.metadata = doc.metadata or {}
-                    doc.metadata.update({
-                        'source': file_path,
+                    doc_metadata = {
+                        'source': display_name,  # Nome file leggibile
                         'indexed_at': datetime.now().isoformat(),
-                        'file_type': path.suffix.lower()
-                    })
+                        'file_type': path.suffix.lower(),
+                        'document_size': len(doc.text) if hasattr(doc, 'text') else 0
+                    }
+                    # Add permanent path for PDF viewing (only for PDFs)
+                    if permanent_path and path.suffix.lower() == '.pdf':
+                        doc_metadata['pdf_path'] = permanent_path
+                    
+                    doc.metadata.update(doc_metadata)
                     if metadata:
                         doc.metadata.update(metadata)
                 
@@ -180,6 +192,12 @@ class RAGEngine:
                 
                 # Add nodes to index
                 self.index.insert_nodes(nodes)
+                
+                # Generate automatic analysis of the document content
+                if documents:
+                    full_text = '\n'.join([doc.text for doc in documents])
+                    analysis = self.analyze_document_content(full_text, display_name)
+                    results['document_analyses'][display_name] = analysis
                 
                 results['indexed_files'].append(file_path)
                 results['total_chunks'] += len(nodes)
@@ -191,6 +209,68 @@ class RAGEngine:
                 logger.error(f"Error indexing {file_path}: {str(e)}")
         
         return results
+    
+    def clean_metadata_paths(self) -> bool:
+        """Remove temporary paths from existing document metadata."""
+        try:
+            logger.info("Cleaning metadata paths from existing documents...")
+            # Use the same logic as delete_documents to ensure clean slate
+            return self.delete_documents("*")
+        except Exception as e:
+            logger.error(f"Error cleaning metadata: {str(e)}")
+            return False
+    
+    def analyze_document_content(self, document_text: str, file_name: str) -> str:
+        """Generate automatic analysis of document content like NotebookLM."""
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=settings.openai_api_key)
+            
+            # Truncate text if too long (keep first 3000 chars for analysis)
+            analysis_text = document_text[:3000] if len(document_text) > 3000 else document_text
+            
+            prompt = f"""
+Analizza il seguente documento "{file_name}" e fornisci un riepilogo dettagliato e professionale in italiano:
+
+CONTENUTO DEL DOCUMENTO:
+{analysis_text}
+
+Per favore fornisci:
+
+1. **Tipo di documento**: (es. Report finanziario, Contratto, Presentazione, ecc.)
+
+2. **Oggetto principale**: Una frase che descriva l'argomento centrale
+
+3. **Elementi chiave identificati**: (3-5 punti principali)
+
+4. **Dati quantitativi rilevanti**: (se presenti - numeri, percentuali, date importanti)
+
+5. **Conclusioni o raccomandazioni**: (se presenti nel documento)
+
+Scrivi in italiano professionale, come farebbe un analista aziendale esperto. Il testo deve essere scorrevole e informativo, simile a una sintesi esecutiva.
+"""
+            
+            response = client.chat.completions.create(
+                model=settings.llm_model,
+                messages=[
+                    {
+                        "role": "system", 
+                        "content": "Sei un analista aziendale esperto che crea sintesi professionali di documenti. Rispondi sempre in italiano perfetto e in modo strutturato e chiaro."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                temperature=0.3,  # Lower temperature for more focused analysis
+                max_tokens=800
+            )
+            
+            return response.choices[0].message.content
+            
+        except Exception as e:
+            logger.error(f"Error analyzing document content: {str(e)}")
+            return f"Analisi automatica non disponibile per questo documento. Contenuto indicizzato correttamente per le ricerche."
     
     def _load_pdf(self, file_path: str, metadata: Optional[Dict[str, Any]] = None) -> List[Document]:
         """Load and parse PDF documents."""
@@ -368,11 +448,30 @@ class RAGEngine:
     def delete_documents(self, source_filter: str) -> bool:
         """Delete documents by source filter."""
         try:
-            # This would require implementing filtering in Qdrant
-            # For now, we'll recreate the collection
-            self._setup_collection()
+            # Delete the entire collection and recreate it
+            logger.info(f"Deleting collection: {self.collection_name}")
+            
+            # Delete the collection completely
+            try:
+                self.client.delete_collection(self.collection_name)
+                logger.info(f"Collection {self.collection_name} deleted successfully")
+            except Exception as e:
+                logger.warning(f"Collection might not exist: {str(e)}")
+            
+            # Recreate the collection from scratch
+            vector_size = 1536  # OpenAI text-embedding-3-small dimension
+            self.client.create_collection(
+                collection_name=self.collection_name,
+                vectors_config=VectorParams(
+                    size=vector_size,
+                    distance=Distance.COSINE
+                )
+            )
+            logger.info(f"Created fresh collection: {self.collection_name}")
+            
+            # Reinitialize the index
             self._initialize_index()
-            logger.info(f"Cleared all documents from collection")
+            logger.info(f"Successfully cleared all documents from collection")
             return True
             
         except Exception as e:
