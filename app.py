@@ -63,7 +63,7 @@ def main():
     """Main application function."""
     
     # Header
-    st.markdown('<h1 class="main-header">📊 Business Intelligence RAG System</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">📊 Sistema di Business Intelligence RAG</h1>', unsafe_allow_html=True)
     
     # Initialize session state
     if 'services' not in st.session_state:
@@ -78,12 +78,12 @@ def main():
     
     # Sidebar
     with st.sidebar:
-        st.header("🔧 Configuration")
+        st.header("🔧 Configurazione")
         
         # Navigation
         page = st.selectbox(
-            "Select Module",
-            ["📈 Data Analysis", "📚 Document RAG", "🤖 AI Insights", "📊 Dashboard", "⚙️ Settings"]
+            "Seleziona Modulo",
+            ["📈 Analisi Dati", "📚 RAG Documenti", "🤖 Approfondimenti IA", "📊 Cruscotto", "⚙️ Impostazioni"]
         )
         
         st.divider()
@@ -91,35 +91,35 @@ def main():
         # Quick Stats
         if st.session_state.services['rag_engine']:
             stats = st.session_state.services['rag_engine'].get_index_stats()
-            st.metric("Indexed Vectors", stats.get('total_vectors', 0))
+            st.metric("Vettori Indicizzati", stats.get('total_vectors', 0))
         
         if st.session_state.csv_analysis:
-            st.metric("Data Loaded", "✅ Active")
+            st.metric("Dati Caricati", "✅ Attivi")
     
     # Main content based on selected page
-    if page == "📈 Data Analysis":
+    if page == "📈 Analisi Dati":
         show_data_analysis()
-    elif page == "📚 Document RAG":
+    elif page == "📚 RAG Documenti":
         show_document_rag()
-    elif page == "🤖 AI Insights":
+    elif page == "🤖 Approfondimenti IA":
         show_ai_insights()
-    elif page == "📊 Dashboard":
+    elif page == "📊 Cruscotto":
         show_dashboard()
-    elif page == "⚙️ Settings":
+    elif page == "⚙️ Impostazioni":
         show_settings()
 
 def show_data_analysis():
     """Show data analysis page."""
-    st.header("📈 Financial Data Analysis")
+    st.header("📈 Analisi Dati Finanziari")
     
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        st.subheader("Upload CSV Data")
+        st.subheader("Carica Dati CSV")
         uploaded_file = st.file_uploader(
-            "Choose a CSV file with financial data",
+            "Scegli un file CSV con dati finanziari",
             type=['csv'],
-            help="Upload balance sheets, revenue reports, or any structured business data"
+            help="Carica bilanci, report sui ricavi, o qualsiasi dato aziendale strutturato"
         )
         
         if uploaded_file:
@@ -133,32 +133,32 @@ def show_data_analysis():
                 analyzer = st.session_state.services['csv_analyzer']
                 df = analyzer.load_csv(tmp_path)
                 
-                st.success(f"✅ Loaded {len(df)} records with {len(df.columns)} columns")
+                st.success(f"✅ Caricati {len(df)} record con {len(df.columns)} colonne")
                 
                 # Display data preview
-                st.subheader("Data Preview")
+                st.subheader("Anteprima Dati")
                 st.dataframe(df.head(10), use_container_width=True)
                 
                 # Column selection for analysis
                 with col2:
-                    st.subheader("Analysis Configuration")
+                    st.subheader("Configurazione Analisi")
                     
                     numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
                     
                     year_col = st.selectbox(
-                        "Year/Period Column",
+                        "Colonna Anno/Periodo",
                         options=[col for col in df.columns if 'year' in col.lower() or 'anno' in col.lower() or 'period' in col.lower()] + ['None'],
                         index=0
                     )
                     
                     revenue_col = st.selectbox(
-                        "Revenue Column",
+                        "Colonna Fatturato",
                         options=[col for col in numeric_cols if 'revenue' in col.lower() or 'fatturato' in col.lower() or 'sales' in col.lower()] + numeric_cols,
                         index=0 if any('revenue' in col.lower() or 'fatturato' in col.lower() for col in numeric_cols) else len(numeric_cols)-1
                     )
                     
-                    if st.button("🔍 Analyze Data", type="primary"):
-                        with st.spinner("Analyzing financial data..."):
+                    if st.button("🔍 Analizza Dati", type="primary"):
+                        with st.spinner("Analizzando dati finanziari..."):
                             # Perform analysis
                             if year_col != 'None':
                                 analysis = analyzer.analyze_balance_sheet(
@@ -183,19 +183,19 @@ def show_data_analysis():
                 os.unlink(tmp_path)
                 
             except Exception as e:
-                st.error(f"Error analyzing data: {str(e)}")
+                st.error(f"Errore nell'analisi dei dati: {str(e)}")
 
 def display_analysis_results(analysis, df):
     """Display analysis results with visualizations."""
-    st.subheader("📊 Analysis Results")
+    st.subheader("📊 Risultati Analisi")
     
     # Tabs for different views
-    tab1, tab2, tab3, tab4 = st.tabs(["Summary", "Trends", "Visualizations", "Recommendations"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Riepilogo", "Tendenze", "Visualizzazioni", "Raccomandazioni"])
     
     with tab1:
         # Summary metrics
         if 'summary' in analysis:
-            st.subheader("Key Metrics")
+            st.subheader("Metriche Principali")
             cols = st.columns(3)
             for i, (key, value) in enumerate(analysis['summary'].items()):
                 with cols[i % 3]:
@@ -203,14 +203,15 @@ def display_analysis_results(analysis, df):
         
         # Insights
         if 'insights' in analysis and analysis['insights']:
-            st.subheader("💡 Key Insights")
-            for insight in analysis['insights']:
-                st.markdown(f'<div class="insight-box">{insight}</div>', unsafe_allow_html=True)
+            st.subheader("💡 Approfondimenti Chiave")
+            for i, insight in enumerate(analysis['insights']):
+                # Debug: stampa il tipo e il valore
+                st.write(f"**{i+1}.** {insight}")
     
     with tab2:
         # Trends
         if 'trends' in analysis and 'yoy_growth' in analysis['trends']:
-            st.subheader("Growth Trends")
+            st.subheader("Tendenze di Crescita")
             
             growth_data = analysis['trends']['yoy_growth']
             if growth_data:
@@ -224,31 +225,31 @@ def display_analysis_results(analysis, df):
                     marker_color=['green' if g['growth_percentage'] > 0 else 'red' for g in growth_data]
                 ))
                 fig.update_layout(
-                    title="Year-over-Year Growth (%)",
-                    xaxis_title="Year",
-                    yaxis_title="Growth %",
+                    title="Crescita Anno su Anno (%)",
+                    xaxis_title="Anno",
+                    yaxis_title="Crescita %",
                     showlegend=False
                 )
                 st.plotly_chart(fig, use_container_width=True)
     
     with tab3:
         # Visualizations
-        st.subheader("Data Visualizations")
+        st.subheader("Visualizzazioni Dati")
         
         # Allow user to create custom charts
         col1, col2 = st.columns(2)
         with col1:
-            chart_type = st.selectbox("Chart Type", ["Line", "Bar", "Scatter", "Pie"])
+            chart_type = st.selectbox("Tipo Grafico", ["Linea", "Barre", "Dispersione", "Torta"])
         with col2:
             numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
             if numeric_cols:
-                y_axis = st.selectbox("Select Metric", numeric_cols)
+                y_axis = st.selectbox("Seleziona Metrica", numeric_cols)
                 
-                if chart_type == "Line":
+                if chart_type == "Linea":
                     fig = px.line(df, y=y_axis, title=f"{y_axis} Trend")
-                elif chart_type == "Bar":
+                elif chart_type == "Barre":
                     fig = px.bar(df, y=y_axis, title=f"{y_axis} Distribution")
-                elif chart_type == "Scatter":
+                elif chart_type == "Dispersione":
                     if len(numeric_cols) > 1:
                         x_axis = st.selectbox("X-Axis", [c for c in numeric_cols if c != y_axis])
                         fig = px.scatter(df, x=x_axis, y=y_axis, title=f"{y_axis} vs {x_axis}")
@@ -261,32 +262,32 @@ def display_analysis_results(analysis, df):
     
     with tab4:
         # Recommendations
-        st.subheader("📋 Strategic Recommendations")
+        st.subheader("📋 Raccomandazioni Strategiche")
         
-        if st.button("Generate AI Recommendations"):
-            with st.spinner("Generating recommendations..."):
+        if st.button("Genera Raccomandazioni IA"):
+            with st.spinner("Generando raccomandazioni..."):
                 llm_service = st.session_state.services['llm_service']
                 insights = llm_service.generate_business_insights(analysis)
                 st.markdown(insights)
 
 def show_document_rag():
     """Show document RAG page."""
-    st.header("📚 Document Analysis (RAG)")
+    st.header("📚 Analisi Documenti (RAG)")
     
     col1, col2 = st.columns([1, 1])
     
     with col1:
-        st.subheader("📄 Upload Documents")
+        st.subheader("📄 Carica Documenti")
         uploaded_files = st.file_uploader(
-            "Choose documents for analysis",
+            "Scegli documenti per l'analisi",
             type=['pdf', 'txt', 'docx', 'md'],
             accept_multiple_files=True,
-            help="Upload business reports, contracts, or any relevant documents"
+            help="Carica report aziendali, contratti, o qualsiasi documento rilevante"
         )
         
         if uploaded_files:
-            if st.button("🔄 Index Documents", type="primary"):
-                with st.spinner("Indexing documents..."):
+            if st.button("🔄 Indicizza Documenti", type="primary"):
+                with st.spinner("Indicizzando documenti..."):
                     file_paths = []
                     
                     # Save uploaded files temporarily
@@ -302,9 +303,9 @@ def show_document_rag():
                     
                     # Display results
                     if results['indexed_files']:
-                        st.success(f"✅ Successfully indexed {len(results['indexed_files'])} documents with {results['total_chunks']} chunks")
+                        st.success(f"✅ Indicizzati con successo {len(results['indexed_files'])} documenti con {results['total_chunks']} blocchi")
                     if results['failed_files']:
-                        st.error(f"❌ Failed to index {len(results['failed_files'])} files")
+                        st.error(f"❌ Fallita indicizzazione di {len(results['failed_files'])} file")
                         for error in results['errors']:
                             st.error(error)
                     
@@ -313,23 +314,23 @@ def show_document_rag():
                         os.unlink(path)
     
     with col2:
-        st.subheader("🔍 Query Documents")
+        st.subheader("🔍 Interroga Documenti")
         
         # Query interface
         query = st.text_area(
-            "Ask questions about your documents",
-            placeholder="e.g., What are the main business risks mentioned? What was the strategic focus for 2024?",
+            "Fai domande sui tuoi documenti",
+            placeholder="es., Quali sono i principali rischi aziendali menzionati? Qual era il focus strategico per il 2024?",
             height=100
         )
         
         col1_query, col2_query = st.columns([1, 1])
         with col1_query:
-            top_k = st.slider("Number of sources", min_value=1, max_value=10, value=5)
+            top_k = st.slider("Numero di fonti", min_value=1, max_value=10, value=5)
         with col2_query:
-            use_context = st.checkbox("Include CSV analysis context", value=bool(st.session_state.csv_analysis))
+            use_context = st.checkbox("Includi contesto analisi CSV", value=bool(st.session_state.csv_analysis))
         
-        if st.button("🤔 Ask Question", type="primary", disabled=not query):
-            with st.spinner("Searching and analyzing documents..."):
+        if st.button("🤔 Fai Domanda", type="primary", disabled=not query):
+            with st.spinner("Cercando e analizzando documenti..."):
                 rag_engine = st.session_state.services['rag_engine']
                 
                 if use_context and st.session_state.csv_analysis:
@@ -346,33 +347,33 @@ def show_document_rag():
     # Display RAG response
     if st.session_state.rag_response:
         st.divider()
-        st.subheader("📝 Answer")
+        st.subheader("📝 Risposta")
         st.markdown(st.session_state.rag_response['answer'])
         
         if st.session_state.rag_response['sources']:
-            st.subheader("📚 Sources")
+            st.subheader("📚 Fonti")
             for i, source in enumerate(st.session_state.rag_response['sources'], 1):
-                with st.expander(f"Source {i} (Score: {source['score']:.3f})"):
+                with st.expander(f"Fonte {i} (Punteggio: {source['score']:.3f})"):
                     st.text(source['text'])
                     if source['metadata']:
                         st.json(source['metadata'])
 
 def show_ai_insights():
     """Show AI insights page."""
-    st.header("🤖 AI-Powered Insights")
+    st.header("🤖 Approfondimenti Basati sull'IA")
     
     if not st.session_state.csv_analysis:
-        st.warning("⚠️ Please analyze CSV data first in the Data Analysis section")
+        st.warning("⚠️ Per favore analizza prima i dati CSV nella sezione Analisi Dati")
         return
     
     # Tabs for different AI features
-    tab1, tab2, tab3, tab4 = st.tabs(["Business Insights", "Executive Report", "Q&A", "Action Items"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Approfondimenti Aziendali", "Report Esecutivo", "Domande e Risposte", "Azioni da Intraprendere"])
     
     with tab1:
-        st.subheader("💡 Comprehensive Business Insights")
+        st.subheader("💡 Approfondimenti Aziendali Completi")
         
-        if st.button("Generate Insights", type="primary"):
-            with st.spinner("Generating comprehensive insights..."):
+        if st.button("Genera Approfondimenti", type="primary"):
+            with st.spinner("Generando approfondimenti completi..."):
                 llm_service = st.session_state.services['llm_service']
                 
                 # Get RAG context if available
@@ -388,18 +389,18 @@ def show_ai_insights():
                 st.markdown(insights)
     
     with tab2:
-        st.subheader("📋 Executive Report")
+        st.subheader("📋 Report Esecutivo")
         
         # Custom sections input
         custom_sections = st.multiselect(
-            "Select report sections",
-            ["Executive Summary", "Financial Performance", "Operational Highlights",
-             "Market Position", "Risk Assessment", "Recommendations", "Next Steps"],
-            default=["Executive Summary", "Financial Performance", "Recommendations"]
+            "Seleziona sezioni del report",
+            ["Riepilogo Esecutivo", "Performance Finanziaria", "Evidenze Operative",
+             "Posizione di Mercato", "Valutazione del Rischio", "Raccomandazioni", "Prossimi Passi"],
+            default=["Riepilogo Esecutivo", "Performance Finanziaria", "Raccomandazioni"]
         )
         
-        if st.button("Generate Executive Report", type="primary"):
-            with st.spinner("Preparing executive report..."):
+        if st.button("Genera Report Esecutivo", type="primary"):
+            with st.spinner("Preparando report esecutivo..."):
                 llm_service = st.session_state.services['llm_service']
                 
                 report = llm_service.generate_executive_report(
@@ -412,23 +413,23 @@ def show_ai_insights():
                 
                 # Download button
                 st.download_button(
-                    label="📥 Download Report",
+                    label="📥 Scarica Report",
                     data=report,
                     file_name=f"executive_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md",
                     mime="text/markdown"
                 )
     
     with tab3:
-        st.subheader("❓ Business Q&A")
+        st.subheader("❓ Domande e Risposte Aziendali")
         
         question = st.text_area(
-            "Ask specific business questions",
-            placeholder="e.g., What factors contributed to the revenue change? What are the main cost drivers?",
+            "Fai domande aziendali specifiche",
+            placeholder="es., Quali fattori hanno contribuito al cambiamento del fatturato? Quali sono i principali driver dei costi?",
             height=100
         )
         
-        if st.button("Get Answer", type="primary", disabled=not question):
-            with st.spinner("Processing question..."):
+        if st.button("Ottieni Risposta", type="primary", disabled=not question):
+            with st.spinner("Elaborando domanda..."):
                 llm_service = st.session_state.services['llm_service']
                 
                 # Combine all context
@@ -442,12 +443,12 @@ def show_ai_insights():
                 st.markdown(answer)
     
     with tab4:
-        st.subheader("✅ Action Items Generator")
+        st.subheader("✅ Generatore di Azioni")
         
-        priority_count = st.slider("Number of action items", min_value=5, max_value=20, value=10)
+        priority_count = st.slider("Numero di azioni", min_value=5, max_value=20, value=10)
         
-        if st.button("Generate Action Items", type="primary"):
-            with st.spinner("Creating prioritized action items..."):
+        if st.button("Genera Azioni", type="primary"):
+            with st.spinner("Creando azioni prioritizzate..."):
                 llm_service = st.session_state.services['llm_service']
                 
                 action_items = llm_service.generate_action_items(
@@ -456,42 +457,82 @@ def show_ai_insights():
                 )
                 
                 if action_items:
-                    # Display as table
-                    df_actions = pd.DataFrame(action_items)
+                    # Traduci le chiavi in italiano se necessario
+                    for action in action_items:
+                        if 'action' not in action and 'azione' in action:
+                            action['action'] = action.pop('azione')
+                        if 'priority' not in action and 'priorita' in action:
+                            action['priority'] = action.pop('priorita')
+                        if 'timeline' not in action and 'tempistica' in action:
+                            action['timeline'] = action.pop('tempistica')
+                        if 'impact' not in action and 'impatto' in action:
+                            action['impact'] = action.pop('impatto')
+                        if 'owner' not in action and 'responsabile' in action:
+                            action['owner'] = action.pop('responsabile')
                     
-                    # Color code by priority
-                    def highlight_priority(row):
-                        colors = {
-                            'high': 'background-color: #ffcccc',
-                            'medium': 'background-color: #ffffcc',
-                            'low': 'background-color: #ccffcc'
-                        }
-                        return [colors.get(row['priority'], '')] * len(row)
+                    # Display as cards per migliore leggibilità
+                    priority_order = {'alta': 1, 'high': 1, 'media': 2, 'medium': 2, 'bassa': 3, 'low': 3}
+                    sorted_actions = sorted(action_items, key=lambda x: priority_order.get(x.get('priority', 'media').lower(), 2))
                     
-                    styled_df = df_actions.style.apply(highlight_priority, axis=1)
-                    st.dataframe(styled_df, use_container_width=True)
+                    for i, action in enumerate(sorted_actions, 1):
+                        priority = action.get('priority', 'media').lower()
+                        
+                        # Colori per priorità
+                        if priority in ['alta', 'high']:
+                            color = "🔴"
+                            bg_color = "#ffebee"
+                        elif priority in ['media', 'medium']:
+                            color = "🟡"
+                            bg_color = "#fff8e1"
+                        else:
+                            color = "🟢"
+                            bg_color = "#e8f5e8"
+                        
+                        with st.container():
+                            st.markdown(f"""
+                            <div style="background-color: {bg_color}; padding: 15px; border-radius: 10px; margin: 10px 0; border-left: 4px solid #2196F3;">
+                                <h4>{color} Azione {i}: {action.get('action', 'N/A')}</h4>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                                    <div><strong>📊 Priorità:</strong> {action.get('priority', 'N/A').title()}</div>
+                                    <div><strong>⏰ Tempistica:</strong> {action.get('timeline', 'N/A')}</div>
+                                    <div><strong>💪 Impatto:</strong> {action.get('impact', 'N/A')}</div>
+                                    <div><strong>👤 Responsabile:</strong> {action.get('owner', 'N/A')}</div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
                     
                     # Download as CSV
+                    df_actions = pd.DataFrame(action_items)
+                    # Traduci le colonne per il CSV
+                    df_actions.columns = [
+                        col.replace('action', 'azione')
+                           .replace('priority', 'priorita')
+                           .replace('timeline', 'tempistica') 
+                           .replace('impact', 'impatto')
+                           .replace('owner', 'responsabile')
+                        for col in df_actions.columns
+                    ]
+                    
                     csv = df_actions.to_csv(index=False)
                     st.download_button(
-                        label="📥 Download Action Items",
+                        label="📥 Scarica Azioni",
                         data=csv,
-                        file_name=f"action_items_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        file_name=f"azioni_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                         mime="text/csv"
                     )
                 else:
-                    st.error("Failed to generate action items")
+                    st.error("Fallita generazione delle azioni")
 
 def show_dashboard():
     """Show dashboard page."""
-    st.header("📊 Executive Dashboard")
+    st.header("📊 Cruscotto Esecutivo")
     
     if not st.session_state.csv_analysis:
-        st.info("📈 Load data in the Data Analysis section to see the dashboard")
+        st.info("📈 Carica dati nella sezione Analisi Dati per vedere il cruscotto")
         return
     
     # Key metrics row
-    st.subheader("Key Performance Indicators")
+    st.subheader("Indicatori Chiave di Performance")
     metrics = st.session_state.csv_analysis.get('summary', {})
     
     if metrics:
@@ -521,9 +562,9 @@ def show_dashboard():
                     marker=dict(size=8)
                 ))
                 fig.update_layout(
-                    title="Revenue Growth Trend",
-                    xaxis_title="Year",
-                    yaxis_title="Growth %",
+                    title="Trend di Crescita Fatturato",
+                    xaxis_title="Anno",
+                    yaxis_title="Crescita %",
                     height=350
                 )
                 st.plotly_chart(fig, use_container_width=True)
@@ -540,98 +581,98 @@ def show_dashboard():
                     marker_color='#2ca02c'
                 ))
                 fig.update_layout(
-                    title="Financial Ratios",
-                    xaxis_title="Ratio",
-                    yaxis_title="Percentage",
+                    title="Rapporti Finanziari",
+                    xaxis_title="Rapporto",
+                    yaxis_title="Percentuale",
                     height=350
                 )
                 st.plotly_chart(fig, use_container_width=True)
     
     # Insights section
-    st.subheader("💡 Key Insights")
+    st.subheader("💡 Approfondimenti Chiave")
     if 'insights' in st.session_state.csv_analysis:
         for insight in st.session_state.csv_analysis['insights'][:5]:
             st.info(insight)
     
     # RAG stats
     if st.session_state.services['rag_engine']:
-        st.subheader("📚 Document Repository")
+        st.subheader("📚 Repository Documenti")
         stats = st.session_state.services['rag_engine'].get_index_stats()
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Total Vectors", stats.get('total_vectors', 0))
+            st.metric("Vettori Totali", stats.get('total_vectors', 0))
         with col2:
-            st.metric("Vector Dimension", stats.get('vector_dimension', 0))
+            st.metric("Dimensione Vettori", stats.get('vector_dimension', 0))
         with col3:
-            st.metric("Distance Metric", stats.get('distance_metric', 'N/A'))
+            st.metric("Metrica Distanza", stats.get('distance_metric', 'N/A'))
 
 def show_settings():
     """Show settings page."""
-    st.header("⚙️ Settings")
+    st.header("⚙️ Impostazioni")
     
     # Display current configuration
-    st.subheader("Current Configuration")
+    st.subheader("Configurazione Corrente")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("### OpenAI Settings")
-        st.info(f"Model: {settings.llm_model}")
-        st.info(f"Embedding Model: {settings.embedding_model}")
-        st.info(f"Temperature: {settings.temperature}")
-        st.info(f"Max Tokens: {settings.max_tokens}")
+        st.markdown("### Impostazioni OpenAI")
+        st.info(f"Modello: {settings.llm_model}")
+        st.info(f"Modello Embedding: {settings.embedding_model}")
+        st.info(f"Temperatura: {settings.temperature}")
+        st.info(f"Token Massimi: {settings.max_tokens}")
     
     with col2:
-        st.markdown("### Qdrant Settings")
+        st.markdown("### Impostazioni Qdrant")
         st.info(f"Host: {settings.qdrant_host}")
         st.info(f"Port: {settings.qdrant_port}")
-        st.info(f"Collection: {settings.qdrant_collection_name}")
+        st.info(f"Collezione: {settings.qdrant_collection_name}")
     
     st.divider()
     
     # Instructions
-    st.subheader("📝 Configuration Instructions")
+    st.subheader("📝 Istruzioni di Configurazione")
     
     st.markdown("""
-    To modify settings:
+    Per modificare le impostazioni:
     
-    1. Create a `.env` file in the project root
-    2. Copy contents from `.env.example`
-    3. Add your OpenAI API key
-    4. Adjust other parameters as needed
-    5. Restart the application
+    1. Crea un file `.env` nella root del progetto
+    2. Copia il contenuto da `.env.example`
+    3. Aggiungi la tua chiave API OpenAI
+    4. Modifica altri parametri se necessario
+    5. Riavvia l'applicazione
     
-    ### Required Environment Variables:
-    - `OPENAI_API_KEY`: Your OpenAI API key
-    - `QDRANT_HOST`: Qdrant server host (default: localhost)
-    - `QDRANT_PORT`: Qdrant server port (default: 6333)
+    ### Variabili di Ambiente Richieste:
+    - `OPENAI_API_KEY`: La tua chiave API OpenAI
+    - `QDRANT_HOST`: Host del server Qdrant (default: localhost)
+    - `QDRANT_PORT`: Porta del server Qdrant (default: 6333)
     
-    ### Optional Configuration:
-    - `LLM_MODEL`: OpenAI model to use (default: gpt-4-turbo-preview)
-    - `CHUNK_SIZE`: Document chunk size (default: 512)
-    - `TEMPERATURE`: LLM temperature (default: 0.7)
+    ### Configurazione Opzionale:
+    - `LLM_MODEL`: Modello OpenAI da usare (default: gpt-4-turbo-preview)
+    - `CHUNK_SIZE`: Dimensione blocchi documenti (default: 512)
+    - `TEMPERATURE`: Temperatura LLM (default: 0.7)
     """)
     
     st.divider()
     
     # Data management
-    st.subheader("🗑️ Data Management")
+    st.subheader("🗑️ Gestione Dati")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        if st.button("Clear Vector Database", type="secondary"):
+        if st.button("Pulisci Database Vettoriale", type="secondary"):
             if st.session_state.services['rag_engine'].delete_documents("*"):
-                st.success("✅ Vector database cleared")
+                st.success("✅ Database vettoriale pulito")
                 st.rerun()
             else:
-                st.error("❌ Failed to clear vector database")
+                st.error("❌ Fallita pulizia database vettoriale")
     
     with col2:
-        if st.button("Reset Session", type="secondary"):
+        if st.button("Resetta Sessione", type="secondary"):
             st.session_state.csv_analysis = None
             st.session_state.rag_response = None
-            st.success("✅ Session reset")
+            st.success("✅ Sessione resettata")
             st.rerun()
 
 if __name__ == "__main__":

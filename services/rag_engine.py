@@ -277,7 +277,7 @@ class RAGEngine:
         try:
             if not self.index:
                 return {
-                    'answer': "No documents have been indexed yet.",
+                    'answer': "Nessun documento è stato ancora indicizzato.",
                     'sources': [],
                     'confidence': 0
                 }
@@ -286,11 +286,15 @@ class RAGEngine:
             query_engine = self.index.as_query_engine(
                 similarity_top_k=top_k,
                 response_mode="tree_summarize",
-                verbose=settings.debug_mode
+                verbose=settings.debug_mode,
+                streaming=False
             )
             
+            # Aggiungi prompt per rispondere in italiano
+            query_text_it = f"Per favore rispondi in italiano. {query_text}"
+            
             # Execute query
-            response = query_engine.query(query_text)
+            response = query_engine.query(query_text_it)
             
             # Extract source information
             sources = []
@@ -321,12 +325,12 @@ class RAGEngine:
         try:
             # Enhance query with context
             enhanced_query = f"""
-            Based on the following business data context:
+            Basandoti sul seguente contesto di dati aziendali:
             {self._format_context(context_data)}
             
-            Question: {query_text}
+            Domanda: {query_text}
             
-            Please provide a detailed answer considering both the documents and the business data provided.
+            Per favore fornisci una risposta dettagliata considerando sia i documenti che i dati aziendali forniti. Rispondi in italiano.
             """
             
             return self.query(enhanced_query, top_k=top_k)
@@ -344,18 +348,18 @@ class RAGEngine:
         formatted_parts = []
         
         if 'summary' in context_data:
-            formatted_parts.append("Summary metrics:")
+            formatted_parts.append("Metriche di riepilogo:")
             for key, value in context_data['summary'].items():
                 formatted_parts.append(f"- {key}: {value}")
         
         if 'trends' in context_data:
-            formatted_parts.append("\nTrends:")
+            formatted_parts.append("\nTendenze:")
             if 'yoy_growth' in context_data['trends']:
                 for growth in context_data['trends']['yoy_growth'][-2:]:  # Last 2 years
-                    formatted_parts.append(f"- Year {growth['year']}: {growth['growth_percentage']}% growth")
+                    formatted_parts.append(f"- Anno {growth['year']}: {growth['growth_percentage']}% crescita")
         
         if 'insights' in context_data:
-            formatted_parts.append("\nKey insights:")
+            formatted_parts.append("\nApprofondimenti chiave:")
             for insight in context_data['insights'][:3]:  # Top 3 insights
                 formatted_parts.append(f"- {insight}")
         

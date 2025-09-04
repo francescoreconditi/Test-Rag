@@ -78,11 +78,11 @@ class CSVAnalyzer:
                     
                     # Trend direction
                     if avg_growth > 5:
-                        analysis['insights'].append("Strong positive growth trend detected")
+                        analysis['insights'].append("Rilevato forte trend di crescita positiva")
                     elif avg_growth < -5:
-                        analysis['insights'].append("Declining revenue trend - attention needed")
+                        analysis['insights'].append("Trend di fatturato in calo - richiede attenzione")
                     else:
-                        analysis['insights'].append("Stable revenue trend")
+                        analysis['insights'].append("Trend di fatturato stabile")
         
         # Analyze profitability if columns exist
         profit_columns = ['utile', 'profit', 'ebitda', 'risultato']
@@ -95,9 +95,9 @@ class CSVAnalyzer:
                         profit_change = profits[-1] - profits[-2]
                         analysis['summary'][f'{col}_change'] = profit_change
                         if profit_change > 0:
-                            analysis['insights'].append(f"Profitability improved: {col} increased by {profit_change:,.2f}")
+                            analysis['insights'].append(f"Redditività migliorata: {col} aumentato di {profit_change:,.2f}")
                         else:
-                            analysis['insights'].append(f"Profitability declined: {col} decreased by {abs(profit_change):,.2f}")
+                            analysis['insights'].append(f"Redditività diminuita: {col} diminuito di {abs(profit_change):,.2f}")
         
         # Calculate financial ratios
         if revenue_column in df.columns:
@@ -117,7 +117,7 @@ class CSVAnalyzer:
                 std = np.std(values)
                 latest = values[-1]
                 if abs(latest - mean) > 2 * std:
-                    analysis['insights'].append(f"Anomaly detected in {col}: latest value significantly deviates from historical average")
+                    analysis['insights'].append(f"Anomalia rilevata in {col}: il valore più recente devia significativamente dalla media storica")
         
         return analysis
     
@@ -143,9 +143,9 @@ class CSVAnalyzer:
                 
                 # Generate insights
                 if abs(pct_change) > 20:
-                    direction = "increased" if pct_change > 0 else "decreased"
+                    direction = "aumentato" if pct_change > 0 else "diminuito"
                     comparison['insights'].append(
-                        f"{metric} {direction} significantly by {abs(pct_change):.1f}%"
+                        f"{metric} {direction} significativamente del {abs(pct_change):.1f}%"
                     )
         
         return comparison
@@ -190,19 +190,19 @@ class CSVAnalyzer:
         summary_parts = []
         
         # Dataset overview
-        summary_parts.append(f"Dataset contains {len(df)} records with {len(df.columns)} columns.")
+        summary_parts.append(f"Il dataset contiene {len(df)} record con {len(df.columns)} colonne.")
         
         # Numeric columns analysis
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         if len(numeric_cols) > 0:
-            summary_parts.append(f"Found {len(numeric_cols)} numeric metrics to analyze.")
+            summary_parts.append(f"Trovate {len(numeric_cols)} metriche numeriche da analizzare.")
             
             for col in numeric_cols[:5]:  # Limit to first 5 columns
                 mean_val = df[col].mean()
                 max_val = df[col].max()
                 min_val = df[col].min()
                 summary_parts.append(
-                    f"{col}: ranges from {min_val:,.2f} to {max_val:,.2f}, average {mean_val:,.2f}"
+                    f"{col}: varia da {min_val:,.2f} a {max_val:,.2f}, media {mean_val:,.2f}"
                 )
         
         # Temporal analysis if date column exists
@@ -210,8 +210,8 @@ class CSVAnalyzer:
         if date_cols:
             try:
                 dates = pd.to_datetime(df[date_cols[0]])
-                date_range = f"from {dates.min().date()} to {dates.max().date()}"
-                summary_parts.append(f"Time period covered: {date_range}")
+                date_range = f"dal {dates.min().date()} al {dates.max().date()}"
+                summary_parts.append(f"Periodo temporale coperto: {date_range}")
             except:
                 pass
         
@@ -231,22 +231,22 @@ class CSVAnalyzer:
             if 'yoy_growth' in analysis['trends']:
                 latest_growth = analysis['trends']['yoy_growth'][-1]['growth_percentage']
                 if latest_growth < 0:
-                    recommendations.append("Revenue is declining - consider reviewing pricing strategy and market positioning")
+                    recommendations.append("Il fatturato è in calo - considera di rivedere la strategia di prezzo e il posizionamento di mercato")
                 elif latest_growth < 5:
-                    recommendations.append("Moderate growth detected - explore opportunities for expansion")
+                    recommendations.append("Rilevata crescita moderata - esplora opportunità di espansione")
                 else:
-                    recommendations.append("Strong growth momentum - ensure operations can scale accordingly")
+                    recommendations.append("Forte slancio di crescita - assicurati che le operazioni possano scalare di conseguenza")
         
         # Check ratios
         if 'ratios' in analysis:
             for ratio_name, value in analysis['ratios'].items():
                 if 'margin' in ratio_name and value < 10:
-                    recommendations.append(f"Low {ratio_name} ({value}%) - review cost structure and pricing")
+                    recommendations.append(f"Basso {ratio_name} ({value}%) - rivedi struttura dei costi e prezzi")
         
         # Check efficiency
         if 'efficiency_ratio' in analysis.get('summary', {}):
             efficiency = analysis['summary']['efficiency_ratio']
             if efficiency > 80:
-                recommendations.append("High cost-to-revenue ratio - identify areas for cost optimization")
+                recommendations.append("Alto rapporto costi/fatturato - identifica aree per l'ottimizzazione dei costi")
         
         return recommendations
