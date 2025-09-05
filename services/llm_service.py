@@ -2,12 +2,12 @@
 
 import json
 import logging
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from openai import OpenAI
 
 from config.settings import settings
+from services.prompt_router import choose_prompt
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -23,11 +23,11 @@ class LLMService:
         self.temperature = settings.temperature
         self.max_tokens = settings.max_tokens
 
-    def generate_business_insights(self, csv_analysis: Dict[str, Any], rag_context: Optional[str] = None) -> str:
+    def generate_business_insights(self, csv_analysis: Dict[str, Any], rag_context: Optional[str] = None, document_name: Optional[str] = None) -> str:
         """Generate comprehensive business insights from analysis data."""
         try:
             # Prepare the prompt
-            prompt = self._build_insights_prompt(csv_analysis, rag_context)
+            prompt = self._build_insights_prompt(csv_analysis, rag_context, document_name)
 
             # Call OpenAI API
             response = self.client.chat.completions.create(
@@ -49,7 +49,7 @@ class LLMService:
             logger.error(f"Error generating insights: {str(e)}")
             return f"Unable to generate insights: {str(e)}"
 
-    def _build_insights_prompt(self, csv_analysis: Dict[str, Any], rag_context: Optional[str]) -> str:
+    def _build_insights_prompt(self, csv_analysis: Dict[str, Any], rag_context: Optional[str], document_name: Optional[str] = None) -> str:
         """Build comprehensive prompt for insights generation."""
         prompt_parts = ["Per favore analizza i seguenti dati aziendali e fornisci approfondimenti strategici:\n"]
 
@@ -326,3 +326,62 @@ Concentrati su azioni realistiche e implementabili che affrontino direttamente g
         except Exception as e:
             logger.error(f"Error generating action items: {str(e)}")
             return []
+    
+    def analyze_document_with_prompt(self, document_text: str, file_name: str) -> Dict[str, Any]:
+        """Analyze a document using specialized prompt routing."""
+        try:
+            # Use prompt router to select appropriate prompt
+            prompt_name, prompt_text, debug_info = choose_prompt(file_name, document_text)
+            
+            logger.info(f"Using specialized prompt '{prompt_name}' for document '{file_name}'")
+            
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "Sei un analista aziendale esperto. Segui esattamente il formato richiesto nel prompt. Rispondi sempre in italiano perfetto.",
+                    },
+                    {"role": "user", "content": prompt_text},
+                ],
+                temperature=0.2,  # Lower for structured output
+                max_tokens=1500,
+            )
+            
+            content = response.choices[0].message.content
+            
+            # Try to extract JSON if present
+            json_data = None
+            summary = None
+            
+            # Extract JSON section
+            import re
+            json_match = re.search(r"<JSON>(.*?)</JSON>", content, re.DOTALL)
+            if json_match:
+                try:
+                    json_data = json.loads(json_match.group(1))
+                except json.JSONDecodeError:
+                    logger.warning("Failed to parse JSON from response")
+            
+            # Extract summary section
+            summary_match = re.search(r"<SINTESI>(.*?)</SINTESI>", content, re.DOTALL)
+            if summary_match:
+                summary = summary_match.group(1).strip()
+            
+            return {
+                "prompt_type": prompt_name,
+                "structured_data": json_data,
+                "summary": summary or content,
+                "raw_response": content,
+                "debug_info": debug_info
+            }
+            
+        except Exception as e:
+            logger.error(f"Error analyzing document: {str(e)}")
+            return {
+                "prompt_type": "error",
+                "structured_data": None,
+                "summary": f"Errore nell'analisi del documento: {str(e)}",
+                "raw_response": "",
+                "debug_info": {}
+            }

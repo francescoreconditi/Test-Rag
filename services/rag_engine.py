@@ -1,27 +1,21 @@
 """RAG Engine using LlamaIndex and Qdrant for document retrieval and analysis."""
 
-from typing import List, Dict, Any, Optional
-from pathlib import Path
 import logging
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from llama_index.core import (
-    VectorStoreIndex,
-    SimpleDirectoryReader,
-    Document,
-    StorageContext,
-    Settings
-)
+from llama_index.core import Document, Settings, SimpleDirectoryReader, StorageContext, VectorStoreIndex
 from llama_index.core.node_parser import SimpleNodeParser
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
 from llama_index.vector_stores.qdrant import QdrantVectorStore
-from llama_index.core.schema import TextNode
-
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct
+from qdrant_client.models import Distance, VectorParams
 
 from config.settings import settings
+from services.prompt_router import choose_prompt
+from services.format_helper import format_analysis_result
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -221,56 +215,49 @@ class RAGEngine:
             return False
     
     def analyze_document_content(self, document_text: str, file_name: str) -> str:
-        """Generate automatic analysis of document content like NotebookLM."""
+        """Generate automatic analysis of document content using specialized prompts."""
         try:
             from openai import OpenAI
             client = OpenAI(api_key=settings.openai_api_key)
             
-            # Truncate text if too long (keep first 3000 chars for analysis)
-            analysis_text = document_text[:3000] if len(document_text) > 3000 else document_text
+            # Truncate text if too long (keep first 8000 chars for analysis)
+            analysis_text = document_text[:8000] if len(document_text) > 8000 else document_text
             
-            prompt = f"""
-Analizza il seguente documento "{file_name}" e fornisci un riepilogo dettagliato e professionale in italiano:
-
-CONTENUTO DEL DOCUMENTO:
-{analysis_text}
-
-Per favore fornisci:
-
-1. **Tipo di documento**: (es. Report finanziario, Contratto, Presentazione, ecc.)
-
-2. **Oggetto principale**: Una frase che descriva l'argomento centrale
-
-3. **Elementi chiave identificati**: (3-5 punti principali)
-
-4. **Dati quantitativi rilevanti**: (se presenti - numeri, percentuali, date importanti)
-
-5. **Conclusioni o raccomandazioni**: (se presenti nel documento)
-
-Scrivi in italiano professionale, come farebbe un analista aziendale esperto. Il testo deve essere scorrevole e informativo, simile a una sintesi esecutiva.
-"""
+            # Use prompt router to select the best prompt
+            prompt_name, prompt_text, debug_info = choose_prompt(file_name, analysis_text)
+            
+            logger.info(f"Using prompt type '{prompt_name}' for document '{file_name}'")
+            logger.debug(f"Prompt selection debug info: {debug_info}")
             
             response = client.chat.completions.create(
                 model=settings.llm_model,
                 messages=[
                     {
                         "role": "system", 
-                        "content": "Sei un analista aziendale esperto che crea sintesi professionali di documenti. Rispondi sempre in italiano perfetto e in modo strutturato e chiaro."
+                        "content": "Sei un analista aziendale esperto che crea analisi professionali di documenti. Rispondi sempre in italiano perfetto e in modo strutturato e chiaro. Segui esattamente il formato richiesto nel prompt."
                     },
                     {
                         "role": "user",
-                        "content": prompt
+                        "content": prompt_text
                     }
                 ],
-                temperature=0.3,  # Lower temperature for more focused analysis
-                max_tokens=800
+                temperature=0.2,  # Lower temperature for more structured output
+                max_tokens=1500  # Increased for JSON + summary format
             )
             
-            return response.choices[0].message.content
+            analysis_result = response.choices[0].message.content
+            
+            # Add prompt type metadata to result for raw format
+            raw_result = f"[Analisi tipo: {prompt_name.upper()}]\n\n{analysis_result}"
+            
+            # Format the result for better readability
+            formatted_result = format_analysis_result(raw_result)
+            
+            return formatted_result
             
         except Exception as e:
             logger.error(f"Error analyzing document content: {str(e)}")
-            return f"Analisi automatica non disponibile per questo documento. Contenuto indicizzato correttamente per le ricerche."
+            return "Analisi automatica non disponibile per questo documento. Contenuto indicizzato correttamente per le ricerche."
     
     def _load_pdf(self, file_path: str, metadata: Optional[Dict[str, Any]] = None) -> List[Document]:
         """Load and parse PDF documents."""
@@ -471,7 +458,7 @@ Scrivi in italiano professionale, come farebbe un analista aziendale esperto. Il
             
             # Reinitialize the index
             self._initialize_index()
-            logger.info(f"Successfully cleared all documents from collection")
+            logger.info("Successfully cleared all documents from collection")
             return True
             
         except Exception as e:

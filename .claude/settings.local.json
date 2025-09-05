@@ -8,7 +8,13 @@
       "Read(/c:\\temp/**)",
       "Read(/c:\\temp/**)",
       "Read(/c:\\temp/**)",
-      "Read(/c:\\temp/**)"
+      "Read(/c:\\temp/**)",
+      "Bash(python test_prompt_router.py:*)",
+      "Bash(ruff check:*)",
+      "Bash(python -m pip:*)",
+      "Bash(uv pip:*)",
+      "Bash(python -m ruff check:*)",
+      "Bash(python test_format.py:*)"
     ],
     "deny": [],
     "ask": []
