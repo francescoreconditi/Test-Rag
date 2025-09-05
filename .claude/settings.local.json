@@ -17,7 +17,8 @@
       "Bash(python test_format.py:*)",
       "Bash(python test_prompt_selection.py:*)",
       "Bash(python test_formatter_debug.py:*)",
-      "Bash(python test:*)"
+      "Bash(python test:*)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []

@@ -424,6 +424,30 @@ def show_document_rag():
             height=100
         )
         
+        # Analysis type selection for queries
+        st.subheader("🎯 Tipo di Analisi per Query")
+        query_analysis_options = [
+            "Standard (RAG normale)",
+            "Bilancio - Analisi finanziaria dettagliata",
+            "Report Dettagliato - Investment memo style", 
+            "Fatturato - Focus vendite e revenue",
+            "Magazzino - Focus logistica",
+            "Contratto - Focus legale",
+            "Presentazione - Focus strategico"
+        ]
+        
+        selected_query_analysis = st.selectbox(
+            "Applica un tipo di analisi specializzata alla risposta:",
+            options=query_analysis_options,
+            index=0,
+            help="Puoi applicare un'analisi specializzata anche alle query sui documenti già indicizzati"
+        )
+        
+        # Extract analysis type from selection
+        query_analysis_type = None
+        if selected_query_analysis != "Standard (RAG normale)":
+            query_analysis_type = selected_query_analysis.split(" - ")[0].lower().replace(" ", "_")
+        
         col1_query, col2_query = st.columns([1, 1])
         with col1_query:
             top_k = st.slider("Numero di fonti", min_value=1, max_value=10, value=5)
@@ -436,6 +460,9 @@ def show_document_rag():
         if execute_query and query:
             # Show different spinner message for auto queries
             spinner_message = "Eseguendo query automatica..." if auto_execute else "Cercando e analizzando documenti..."
+            if query_analysis_type:
+                spinner_message = f"Applicando analisi {query_analysis_type.upper()}..."
+                
             with st.spinner(spinner_message):
                 rag_engine = st.session_state.services['rag_engine']
                 
@@ -443,10 +470,11 @@ def show_document_rag():
                     response = rag_engine.query_with_context(
                         query,
                         st.session_state.csv_analysis,
-                        top_k=top_k
+                        top_k=top_k,
+                        analysis_type=query_analysis_type
                     )
                 else:
-                    response = rag_engine.query(query, top_k=top_k)
+                    response = rag_engine.query(query, top_k=top_k, analysis_type=query_analysis_type)
                 
                 st.session_state.rag_response = response
     

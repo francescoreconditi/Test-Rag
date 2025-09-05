@@ -507,8 +507,8 @@ class RAGEngine:
             logger.error(f"Error loading DOCX {file_path}: {str(e)}")
             raise
     
-    def query(self, query_text: str, top_k: int = 5, filters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Query the indexed documents."""
+    def query(self, query_text: str, top_k: int = 5, filters: Optional[Dict[str, Any]] = None, analysis_type: Optional[str] = None) -> Dict[str, Any]:
+        """Query the indexed documents with optional specialized analysis."""
         try:
             if not self.index:
                 return {
@@ -524,6 +524,10 @@ class RAGEngine:
                 verbose=settings.debug_mode,
                 streaming=False
             )
+            
+            # If analysis_type is specified, enhance the query with specialized context
+            if analysis_type and analysis_type != "standard":
+                query_text = self._enhance_query_with_analysis_type(query_text, analysis_type)
             
             # Aggiungi prompt per rispondere in italiano
             query_text_it = f"Per favore rispondi in italiano. {query_text}"
@@ -541,10 +545,17 @@ class RAGEngine:
                         'metadata': node.node.metadata
                     })
             
+            # If specialized analysis is requested, post-process the response
+            if analysis_type and analysis_type != "standard":
+                response_text = self._apply_specialized_analysis(str(response), sources, query_text, analysis_type)
+            else:
+                response_text = str(response)
+            
             return {
-                'answer': str(response),
+                'answer': response_text,
                 'sources': sources,
-                'confidence': sources[0]['score'] if sources else 0
+                'confidence': sources[0]['score'] if sources else 0,
+                'analysis_type': analysis_type or 'standard'
             }
             
         except Exception as e:
@@ -555,7 +566,118 @@ class RAGEngine:
                 'confidence': 0
             }
     
-    def query_with_context(self, query_text: str, context_data: Dict[str, Any], top_k: int = 3) -> Dict[str, Any]:
+    def _enhance_query_with_analysis_type(self, query_text: str, analysis_type: str) -> str:
+        """Enhance query based on analysis type."""
+        enhancements = {
+            'bilancio': """Analizza questa domanda dal punto di vista finanziario e di bilancio. 
+                         Considera metriche come ricavi, EBITDA, margini, cash flow, PFN e covenant.
+                         Fornisci numeri specifici e confronti YoY quando disponibili.
+                         """,
+            'fatturato': """Analizza questa domanda focalizzandoti su vendite e fatturato.
+                          Considera ASP, volumi, mix prodotto/cliente, pipeline e forecast.
+                          Evidenzia trend di crescita e driver principali.
+                          """,
+            'magazzino': """Analizza questa domanda dal punto di vista logistico e di gestione scorte.
+                          Considera rotazione, OTIF, lead time, obsoleti e livelli di servizio.
+                          """,
+            'contratto': """Analizza questa domanda dal punto di vista legale e contrattuale.
+                          Considera obblighi, SLA, penali, responsabilità e clausole rilevanti.
+                          """,
+            'presentazione': """Analizza questa domanda estraendo i messaggi chiave e le raccomandazioni strategiche.
+                             Identifica obiettivi, milestone e next steps.
+                             """,
+            'report_dettagliato': """Fornisci un'analisi approfondita in stile investment memorandum.
+                                   Include executive summary, analisi per sezione, KPI, rischi e raccomandazioni.
+                                   Quantifica sempre le variazioni e usa confronti YoY/Budget.
+                                   """
+        }
+        
+        enhancement = enhancements.get(analysis_type, "")
+        if enhancement:
+            return f"{enhancement}\n\nDomanda: {query_text}"
+        return query_text
+    
+    def _apply_specialized_analysis(self, response: str, sources: List[Dict], query: str, analysis_type: str) -> str:
+        """Apply specialized post-processing based on analysis type."""
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=settings.openai_api_key)
+            
+            # Prepare source context
+            source_context = "\n\n".join([
+                f"Fonte {i+1} (rilevanza: {s['score']:.2f}):\n{s['text']}"
+                for i, s in enumerate(sources[:3])  # Use top 3 sources
+            ])
+            
+            # Create specialized prompt based on analysis type
+            specialized_prompts = {
+                'bilancio': f"""Riformula questa risposta con focus finanziario professionale:
+                            
+                            Risposta originale: {response}
+                            
+                            Fonti rilevanti:
+                            {source_context}
+                            
+                            Produci un'analisi finanziaria strutturata che include:
+                            - Metriche chiave con valori specifici
+                            - Trend e variazioni percentuali
+                            - Confronti con periodi precedenti
+                            - Implicazioni finanziarie
+                            
+                            Usa un tono da equity analyst professionale.""",
+                
+                'report_dettagliato': f"""Trasforma questa risposta in un briefing professionale dettagliato:
+                            
+                            Risposta originale: {response}
+                            
+                            Fonti rilevanti:
+                            {source_context}
+                            
+                            Struttura l'analisi come:
+                            ## Executive Summary
+                            [Sintesi in 2-3 righe]
+                            
+                            ## Analisi Dettagliata
+                            [Punti chiave con quantificazione]
+                            
+                            ## Implicazioni e Raccomandazioni
+                            [Azioni suggerite basate sui dati]
+                            
+                            Mantieni un tono professionale da investment analyst.""",
+                
+                'fatturato': f"""Riformula con focus su vendite e revenue:
+                            
+                            Risposta: {response}
+                            Fonti: {source_context}
+                            
+                            Evidenzia: driver di crescita, mix prodotto, trend vendite, forecast."""
+            }
+            
+            prompt = specialized_prompts.get(analysis_type)
+            if not prompt:
+                return response  # Return original if no specialized prompt
+            
+            # Get specialized analysis
+            completion = client.chat.completions.create(
+                model=settings.llm_model,
+                messages=[
+                    {"role": "system", "content": "Sei un analista esperto che fornisce analisi specializzate basate sul tipo di documento."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+                max_tokens=1000
+            )
+            
+            specialized_response = completion.choices[0].message.content
+            
+            # Add analysis type marker
+            return f"[Analisi {analysis_type.upper()}]\n\n{specialized_response}"
+            
+        except Exception as e:
+            logger.error(f"Error applying specialized analysis: {str(e)}")
+            return response  # Return original response on error
+    
+    def query_with_context(self, query_text: str, context_data: Dict[str, Any], top_k: int = 3, analysis_type: Optional[str] = None) -> Dict[str, Any]:
         """Query with additional context from CSV analysis."""
         try:
             # Enhance query with context
@@ -568,7 +690,7 @@ class RAGEngine:
             Per favore fornisci una risposta dettagliata considerando sia i documenti che i dati aziendali forniti. Rispondi in italiano.
             """
             
-            return self.query(enhanced_query, top_k=top_k)
+            return self.query(enhanced_query, top_k=top_k, analysis_type=analysis_type)
             
         except Exception as e:
             logger.error(f"Error in query with context: {str(e)}")
