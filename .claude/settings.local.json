@@ -18,7 +18,10 @@
       "Bash(python test_prompt_selection.py:*)",
       "Bash(python test_formatter_debug.py:*)",
       "Bash(python test:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(docker-compose:*)",
+      "Bash(curl:*)",
+      "Read(/C:\\temp/**)"
     ],
     "deny": [],
     "ask": []

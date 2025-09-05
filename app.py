@@ -88,7 +88,7 @@ def main():
         # Navigation
         page = st.selectbox(
             "Seleziona Modulo",
-            ["📈 Analisi Dati", "📚 RAG Documenti", "🤖 Approfondimenti IA", "📊 Cruscotto", "⚙️ Impostazioni"]
+            ["📈 Analisi Dati", "📚 RAG Documenti", "🔍 Explorer Database", "🤖 Approfondimenti IA", "📊 Cruscotto", "⚙️ Impostazioni"]
         )
         
         st.divider()
@@ -106,6 +106,8 @@ def main():
         show_data_analysis()
     elif page == "📚 RAG Documenti":
         show_document_rag()
+    elif page == "🔍 Explorer Database":
+        show_database_explorer()
     elif page == "🤖 Approfondimenti IA":
         show_ai_insights()
     elif page == "📊 Cruscotto":
@@ -855,6 +857,381 @@ def show_dashboard():
             st.metric("Dimensione Vettori", stats.get('vector_dimension', 0))
         with col3:
             st.metric("Metrica Distanza", stats.get('distance_metric', 'N/A'))
+
+def show_database_explorer():
+    """Show database explorer page."""
+    st.header("🔍 Explorer Database Qdrant")
+    
+    rag_engine = st.session_state.services['rag_engine']
+    
+    # Get database stats
+    stats = rag_engine.get_index_stats()
+    
+    # Top metrics row
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Vettori Totali", stats.get('total_vectors', 0))
+    with col2:
+        st.metric("Dimensioni Vettori", stats.get('vector_dimension', 0))
+    with col3:
+        st.metric("Collezione", stats.get('collection_name', 'N/A'))
+    with col4:
+        st.metric("Distanza", stats.get('distance_metric', 'N/A').split('.')[-1])
+    
+    if stats.get('total_vectors', 0) == 0:
+        st.warning("📭 Il database è vuoto. Carica alcuni documenti nella sezione 'RAG Documenti' per iniziare.")
+        return
+    
+    st.divider()
+    
+    # Create tabs for different views
+    tab1, tab2, tab3, tab4 = st.tabs(["📋 Panoramica Documenti", "🔍 Ricerca Semantica", "📄 Dettagli Chunk", "🛠️ Gestione"])
+    
+    with tab1:
+        st.subheader("📋 Documenti Indicizzati")
+        
+        # Get exploration data
+        with st.spinner("Caricando informazioni database..."):
+            exploration_data = rag_engine.explore_database(limit=50)
+        
+        if 'error' in exploration_data:
+            st.error(f"❌ Errore nel caricamento: {exploration_data['error']}")
+            return
+        
+        # Display summary stats
+        stats_data = exploration_data.get('stats', {})
+        if stats_data:
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Documenti Unici", stats_data.get('total_documents', 0))
+            with col2:
+                st.metric("Chunk Totali", stats_data.get('total_chunks', 0))
+            with col3:
+                st.metric("Dimensione Media Chunk", f"{stats_data.get('avg_chunk_size', 0)} bytes")
+            with col4:
+                total_size_mb = stats_data.get('total_size_bytes', 0) / (1024 * 1024)
+                st.metric("Dimensione Totale", f"{total_size_mb:.1f} MB")
+        
+        # File types breakdown
+        if stats_data.get('file_types'):
+            st.subheader("📊 Tipi di File")
+            file_types = stats_data['file_types']
+            fig = px.pie(
+                values=list(file_types.values()),
+                names=list(file_types.keys()),
+                title="Distribuzione Tipi di File"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Documents table
+        st.subheader("📄 Lista Documenti")
+        unique_sources = exploration_data.get('unique_sources', [])
+        
+        if unique_sources:
+            # Create a DataFrame for better display
+            docs_df = pd.DataFrame([
+                {
+                    'Nome File': doc['name'],
+                    'Tipo': doc['file_type'],
+                    'Chunk': doc['chunk_count'],
+                    'Pagine': doc['page_count'] if doc['page_count'] else 'N/A',
+                    'Dimensione': f"{doc['total_size']/1024:.1f} KB" if doc['total_size'] > 0 else 'N/A',
+                    'Indicizzato': doc['indexed_at'][:19] if doc['indexed_at'] != 'Unknown' else 'Unknown',
+                    'Analisi': '✅' if doc['has_analysis'] else '❌'
+                }
+                for doc in unique_sources
+            ])
+            
+            st.dataframe(
+                docs_df,
+                use_container_width=True,
+                column_config={
+                    "Nome File": st.column_config.TextColumn("Nome File", width="medium"),
+                    "Tipo": st.column_config.TextColumn("Tipo", width="small"),
+                    "Chunk": st.column_config.NumberColumn("Chunk", width="small"),
+                    "Pagine": st.column_config.TextColumn("Pagine", width="small"),
+                    "Dimensione": st.column_config.TextColumn("Dimensione", width="small"),
+                    "Indicizzato": st.column_config.DatetimeColumn("Indicizzato", width="medium"),
+                    "Analisi": st.column_config.TextColumn("Analisi", width="small")
+                }
+            )
+            
+            # Document actions
+            st.subheader("🛠️ Azioni sui Documenti")
+            selected_doc = st.selectbox(
+                "Seleziona documento per azioni dettagliate:",
+                options=[doc['name'] for doc in unique_sources],
+                help="Scegli un documento per vedere i dettagli o eliminarlo"
+            )
+            
+            if selected_doc:
+                selected_doc_info = next((doc for doc in unique_sources if doc['name'] == selected_doc), None)
+                if selected_doc_info:
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        if st.button("👁️ Visualizza Chunk", key="view_chunks"):
+                            st.session_state.explorer_selected_doc = selected_doc
+                            st.session_state.explorer_tab = "chunk_details"
+                            st.rerun()
+                    
+                    with col2:
+                        if st.button("🗑️ Elimina Documento", key="delete_doc", type="secondary"):
+                            if st.button("⚠️ Conferma Eliminazione", key="confirm_delete", type="primary"):
+                                with st.spinner(f"Eliminando {selected_doc}..."):
+                                    if rag_engine.delete_document_by_source(selected_doc):
+                                        st.success(f"✅ Documento '{selected_doc}' eliminato con successo")
+                                        st.rerun()
+                                    else:
+                                        st.error("❌ Errore durante l'eliminazione")
+                    
+                    with col3:
+                        if selected_doc_info.get('pdf_path') and Path(selected_doc_info['pdf_path']).exists():
+                            if st.button("📄 Visualizza PDF", key="view_pdf"):
+                                st.session_state.pdf_to_view = {
+                                    'path': selected_doc_info['pdf_path'],
+                                    'page': 1,
+                                    'source_name': selected_doc
+                                }
+                                st.success(f"PDF caricato per visualizzazione: {selected_doc}")
+                                st.rerun()
+        else:
+            st.info("Nessun documento trovato nel database.")
+    
+    with tab2:
+        st.subheader("🔍 Ricerca Semantica nel Database")
+        
+        search_query = st.text_input(
+            "Cerca contenuti nel database:",
+            placeholder="es., ricavi 2024, rischi aziendali, budget forecast",
+            help="Usa la ricerca semantica per trovare contenuti simili"
+        )
+        
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            search_limit = st.slider("Numero di risultati", min_value=5, max_value=50, value=10)
+        
+        if st.button("🔍 Cerca", disabled=not search_query):
+            with st.spinner("Cercando nel database..."):
+                search_results = rag_engine.search_in_database(search_query, limit=search_limit)
+            
+            if search_results:
+                st.success(f"✅ Trovati {len(search_results)} risultati")
+                
+                for i, result in enumerate(search_results, 1):
+                    with st.expander(f"Risultato {i}: {result['source']} (Score: {result['score']:.3f})"):
+                        col1, col2 = st.columns([2, 1])
+                        with col1:
+                            st.markdown(f"**Fonte:** {result['source']}")
+                            if result['page']:
+                                st.markdown(f"**Pagina:** {result['page']}")
+                            st.markdown(f"**Rilevanza:** {result['score']:.3f}")
+                        with col2:
+                            st.metric("Score", f"{result['score']:.3f}")
+                        
+                        st.markdown("**Contenuto:**")
+                        st.text(result['text'])
+            else:
+                st.warning("🔍 Nessun risultato trovato per la ricerca specificata")
+    
+    with tab3:
+        st.subheader("📄 Dettagli Chunk per Documento")
+        
+        # Check if we have a selected document from the overview tab
+        if hasattr(st.session_state, 'explorer_selected_doc') and hasattr(st.session_state, 'explorer_tab'):
+            if st.session_state.explorer_tab == "chunk_details":
+                selected_doc_for_chunks = st.session_state.explorer_selected_doc
+                # Clear the session state
+                del st.session_state.explorer_selected_doc
+                del st.session_state.explorer_tab
+            else:
+                selected_doc_for_chunks = None
+        else:
+            selected_doc_for_chunks = None
+        
+        # Get unique sources for selection
+        exploration_data = rag_engine.explore_database(limit=10)  # Quick call to get sources
+        unique_sources = exploration_data.get('unique_sources', [])
+        
+        if unique_sources:
+            doc_names = [doc['name'] for doc in unique_sources]
+            default_index = 0
+            
+            # If we have a pre-selected document, set it as default
+            if selected_doc_for_chunks and selected_doc_for_chunks in doc_names:
+                default_index = doc_names.index(selected_doc_for_chunks)
+            
+            selected_doc_chunks = st.selectbox(
+                "Seleziona documento per vedere i chunk:",
+                options=doc_names,
+                index=default_index,
+                help="Visualizza tutti i chunk (blocchi) di testo per il documento selezionato"
+            )
+            
+            if st.button("📋 Carica Chunk", key="load_chunks"):
+                with st.spinner(f"Caricando chunk per {selected_doc_chunks}..."):
+                    chunks = rag_engine.get_document_chunks(selected_doc_chunks)
+                
+                if chunks:
+                    st.success(f"✅ Trovati {len(chunks)} chunk per '{selected_doc_chunks}'")
+                    
+                    # Display chunks
+                    for i, chunk in enumerate(chunks, 1):
+                        with st.expander(f"Chunk {i}" + (f" (Pagina {chunk['page']})" if chunk['page'] else "")):
+                            col1, col2 = st.columns([3, 1])
+                            with col1:
+                                st.markdown(f"**ID:** {chunk['id']}")
+                                if chunk['page']:
+                                    st.markdown(f"**Pagina:** {chunk['page']}")
+                            with col2:
+                                st.metric("Dimensione", f"{len(chunk['text'])} caratteri")
+                            
+                            st.markdown("**Contenuto:**")
+                            st.text_area(
+                                "Testo del chunk:",
+                                value=chunk['text'],
+                                height=150,
+                                key=f"chunk_text_{i}",
+                                disabled=True
+                            )
+                else:
+                    st.warning(f"🔍 Nessun chunk trovato per '{selected_doc_chunks}'")
+        else:
+            st.info("Nessun documento disponibile per l'analisi dei chunk.")
+    
+    with tab4:
+        st.subheader("🛠️ Gestione Database")
+        
+        st.warning("⚠️ Le operazioni di gestione sono irreversibili. Procedi con cautela.")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("### Pulizia Database")
+            if st.button("🗑️ Elimina Tutti i Documenti", type="secondary"):
+                if st.button("⚠️ CONFERMA: Elimina Tutto", type="primary", key="confirm_delete_all"):
+                    with st.spinner("Eliminando tutto il database..."):
+                        if rag_engine.delete_documents("*"):
+                            st.success("✅ Database completamente pulito")
+                            # Clear session state
+                            if 'document_analyses' in st.session_state:
+                                del st.session_state.document_analyses
+                            if 'pdf_to_view' in st.session_state:
+                                del st.session_state.pdf_to_view
+                            st.rerun()
+                        else:
+                            st.error("❌ Errore durante la pulizia del database")
+        
+        with col2:
+            st.markdown("### Statistiche Avanzate")
+            if st.button("📊 Aggiorna Statistiche", key="refresh_stats"):
+                st.rerun()
+            
+            # Display collection info
+            collection_info = stats
+            if collection_info:
+                st.json({
+                    "Collezione": collection_info.get('collection_name'),
+                    "Vettori": collection_info.get('total_vectors'),
+                    "Dimensioni": collection_info.get('vector_dimension'),
+                    "Metrica": collection_info.get('distance_metric')
+                })
+    
+    # PDF Viewer Section (similar to RAG Documents page)
+    if hasattr(st.session_state, 'pdf_to_view') and st.session_state.pdf_to_view:
+        st.divider()
+        pdf_info = st.session_state.pdf_to_view
+        
+        col_header, col_close = st.columns([4, 1])
+        with col_header:
+            st.subheader(f"📄 {pdf_info['source_name']} - Pagina {pdf_info['page']}")
+        with col_close:
+            if st.button("❌ Chiudi PDF", key="close_pdf_explorer"):
+                del st.session_state.pdf_to_view
+                st.rerun()
+        
+        # Try to display PDF
+        try:
+            pdf_path = Path(pdf_info['path'])
+            if pdf_path.exists():
+                # Read PDF file
+                with open(pdf_path, 'rb') as f:
+                    pdf_bytes = f.read()
+                
+                # Display PDF using iframe
+                st.components.v1.iframe(
+                    src=f"data:application/pdf;base64,{__import__('base64').b64encode(pdf_bytes).decode()}",
+                    width=700,
+                    height=400,  # Reduced height to make room for alternatives
+                    scrolling=True
+                )
+                
+                # Always show alternative options since iframe often doesn't work
+                st.divider()
+                st.subheader("🔗 Opzioni Alternative")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    # Download button
+                    st.download_button(
+                        label="📥 Scarica PDF",
+                        data=pdf_bytes,
+                        file_name=pdf_info['source_name'],
+                        mime="application/pdf",
+                        help="Scarica il PDF e aprilo con il tuo lettore preferito"
+                    )
+                
+                with col2:
+                    # Copy path button
+                    if st.button("📋 Copia Path", key="copy_pdf_path"):
+                        st.code(str(pdf_path.absolute()), language="text")
+                        st.success("Path copiato! Puoi incollarlo nel browser o esplora file")
+                
+                # Info section
+                with st.expander("ℹ️ Informazioni PDF"):
+                    st.markdown(f"**Nome File**: {pdf_info['source_name']}")
+                    st.markdown(f"**Path Completo**: `{pdf_path.absolute()}`")
+                    st.markdown(f"**Dimensione**: {len(pdf_bytes)/1024:.1f} KB")
+                    st.markdown(f"**Pagine**: {pdf_info.get('total_pages', 'Non disponibile')}")
+                    
+                # Troubleshooting tips
+                with st.expander("💡 Se il PDF non si visualizza"):
+                    st.markdown("""
+                    **Possibili cause**:
+                    - Il browser blocca PDF embedded per sicurezza
+                    - Il file PDF è troppo grande per l'iframe
+                    - Impostazioni browser restrittive
+                    
+                    **Soluzioni**:
+                    1. **Usa il pulsante "📥 Scarica PDF"** (raccomandato)
+                    2. Copia il path e aprilo direttamente nel browser
+                    3. Copia il path e aprilo con Adobe Reader o altro lettore PDF
+                    4. Prova con un browser diverso (Firefox spesso funziona meglio)
+                    """)
+                
+                # Navigation controls
+                col1, col2, col3 = st.columns([1, 2, 1])
+                with col1:
+                    if st.button("⬅️ Pagina Precedente", disabled=pdf_info['page'] <= 1):
+                        st.session_state.pdf_to_view['page'] = max(1, pdf_info['page'] - 1)
+                        st.rerun()
+                with col2:
+                    st.write(f"Pagina {pdf_info['page']}")
+                with col3:
+                    if st.button("➡️ Pagina Successiva"):
+                        st.session_state.pdf_to_view['page'] = pdf_info['page'] + 1
+                        st.rerun()
+                        
+            else:
+                st.error(f"❌ File PDF non trovato: {pdf_path}")
+                del st.session_state.pdf_to_view
+                st.rerun()
+                
+        except Exception as e:
+            st.error(f"❌ Errore nel caricamento PDF: {str(e)}")
+            del st.session_state.pdf_to_view
+            st.rerun()
+
 
 def show_settings():
     """Show settings page."""

@@ -773,3 +773,304 @@ class RAGEngine:
                 'total_vectors': 0,
                 'error': str(e)
             }
+    
+    def explore_database(self, limit: int = 100, offset: int = 0, search_text: Optional[str] = None) -> Dict[str, Any]:
+        """Explore documents in the vector database with pagination and search."""
+        try:
+            from qdrant_client.models import Filter, FieldCondition, MatchText, PointIdsList
+            
+            # Get collection info
+            collection_info = self.client.get_collection(self.collection_name)
+            total_points = collection_info.points_count
+            
+            if total_points == 0:
+                return {
+                    'documents': [],
+                    'total_count': 0,
+                    'unique_sources': [],
+                    'stats': {}
+                }
+            
+            # Retrieve points with pagination
+            # Note: Qdrant doesn't support traditional pagination, so we use scroll
+            points, next_offset = self.client.scroll(
+                collection_name=self.collection_name,
+                limit=limit,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False  # Don't need vectors for exploration
+            )
+            
+            # Process points to extract document information
+            documents = []
+            source_set = set()
+            file_types = {}
+            total_size = 0
+            
+            for point in points:
+                payload = point.payload if point.payload else {}
+                
+                # Extract metadata
+                source = payload.get('source', 'Unknown')
+                source_set.add(source)
+                
+                doc_info = {
+                    'id': str(point.id),
+                    'source': source,
+                    'indexed_at': payload.get('indexed_at', 'Unknown'),
+                    'file_type': payload.get('file_type', 'Unknown'),
+                    'document_size': payload.get('document_size', 0),
+                    'page': payload.get('page', None),
+                    'total_pages': payload.get('total_pages', None),
+                    'pdf_path': payload.get('pdf_path', None),
+                    'text_preview': payload.get('_node_content', '')[:200] + '...' if payload.get('_node_content') else 'No content',
+                    'metadata': payload
+                }
+                
+                documents.append(doc_info)
+                
+                # Collect stats
+                file_type = doc_info['file_type']
+                file_types[file_type] = file_types.get(file_type, 0) + 1
+                total_size += doc_info['document_size']
+            
+            # Get unique sources with more details
+            unique_sources = self._get_unique_sources_details()
+            
+            return {
+                'documents': documents,
+                'total_count': total_points,
+                'current_page': offset // limit + 1,
+                'total_pages': (total_points + limit - 1) // limit,
+                'unique_sources': unique_sources,
+                'stats': {
+                    'total_documents': len(unique_sources),
+                    'total_chunks': total_points,
+                    'file_types': file_types,
+                    'total_size_bytes': total_size,
+                    'avg_chunk_size': total_size // total_points if total_points > 0 else 0
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error exploring database: {str(e)}")
+            return {
+                'documents': [],
+                'total_count': 0,
+                'unique_sources': [],
+                'stats': {},
+                'error': str(e)
+            }
+    
+    def _get_unique_sources_details(self) -> List[Dict[str, Any]]:
+        """Get detailed information about unique document sources."""
+        try:
+            # Use scroll to get all points and extract unique sources
+            all_points = []
+            offset = None
+            
+            while True:
+                points, next_offset = self.client.scroll(
+                    collection_name=self.collection_name,
+                    limit=100,
+                    offset=offset,
+                    with_payload=True,
+                    with_vectors=False
+                )
+                
+                if not points:
+                    break
+                    
+                all_points.extend(points)
+                offset = next_offset
+                
+                if offset is None:
+                    break
+            
+            # Group by source
+            sources_map = {}
+            for point in all_points:
+                payload = point.payload if point.payload else {}
+                source = payload.get('source', 'Unknown')
+                
+                if source not in sources_map:
+                    sources_map[source] = {
+                        'name': source,
+                        'file_type': payload.get('file_type', 'Unknown'),
+                        'indexed_at': payload.get('indexed_at', 'Unknown'),
+                        'chunk_count': 0,
+                        'total_size': 0,
+                        'pages': set(),
+                        'pdf_path': payload.get('pdf_path'),
+                        'has_analysis': False
+                    }
+                
+                sources_map[source]['chunk_count'] += 1
+                sources_map[source]['total_size'] += payload.get('document_size', 0)
+                
+                if payload.get('page'):
+                    sources_map[source]['pages'].add(payload.get('page'))
+            
+            # Convert to list and process
+            unique_sources = []
+            for source_info in sources_map.values():
+                source_info['page_count'] = len(source_info['pages']) if source_info['pages'] else None
+                source_info['pages'] = sorted(list(source_info['pages'])) if source_info['pages'] else []
+                
+                # Check if we have cached analysis for this document
+                if hasattr(self, '_last_document_texts') and source_info['name'] in self._last_document_texts:
+                    source_info['has_analysis'] = True
+                
+                unique_sources.append(source_info)
+            
+            # Sort by indexed date (most recent first)
+            unique_sources.sort(key=lambda x: x['indexed_at'], reverse=True)
+            
+            return unique_sources
+            
+        except Exception as e:
+            logger.error(f"Error getting unique sources: {str(e)}")
+            return []
+    
+    def get_document_chunks(self, source_name: str) -> List[Dict[str, Any]]:
+        """Get all chunks for a specific document source."""
+        try:
+            from qdrant_client.models import Filter, FieldCondition, MatchValue
+            
+            # Create filter for specific source
+            filter_condition = Filter(
+                must=[
+                    FieldCondition(
+                        key="source",
+                        match=MatchValue(value=source_name)
+                    )
+                ]
+            )
+            
+            # Retrieve all chunks for this source
+            chunks = []
+            offset = None
+            
+            while True:
+                points, next_offset = self.client.scroll(
+                    collection_name=self.collection_name,
+                    scroll_filter=filter_condition,
+                    limit=100,
+                    offset=offset,
+                    with_payload=True,
+                    with_vectors=False
+                )
+                
+                if not points:
+                    break
+                
+                for point in points:
+                    payload = point.payload if point.payload else {}
+                    chunk_info = {
+                        'id': str(point.id),
+                        'page': payload.get('page'),
+                        'text': payload.get('_node_content', '')[:500] if payload.get('_node_content') else 'No content',
+                        'size': payload.get('document_size', 0),
+                        'metadata': payload
+                    }
+                    chunks.append(chunk_info)
+                
+                offset = next_offset
+                if offset is None:
+                    break
+            
+            # Sort by page number if available
+            chunks.sort(key=lambda x: x['page'] if x['page'] else 0)
+            
+            return chunks
+            
+        except Exception as e:
+            logger.error(f"Error getting document chunks: {str(e)}")
+            return []
+    
+    def delete_document_by_source(self, source_name: str) -> bool:
+        """Delete all chunks for a specific document source."""
+        try:
+            from qdrant_client.models import Filter, FieldCondition, MatchValue
+            
+            # Create filter for specific source
+            filter_condition = Filter(
+                must=[
+                    FieldCondition(
+                        key="source",
+                        match=MatchValue(value=source_name)
+                    )
+                ]
+            )
+            
+            # Get all point IDs for this source
+            points_to_delete = []
+            offset = None
+            
+            while True:
+                points, next_offset = self.client.scroll(
+                    collection_name=self.collection_name,
+                    scroll_filter=filter_condition,
+                    limit=100,
+                    offset=offset,
+                    with_payload=False,
+                    with_vectors=False
+                )
+                
+                if not points:
+                    break
+                
+                points_to_delete.extend([point.id for point in points])
+                
+                offset = next_offset
+                if offset is None:
+                    break
+            
+            # Delete points
+            if points_to_delete:
+                self.client.delete(
+                    collection_name=self.collection_name,
+                    points_selector=points_to_delete
+                )
+                logger.info(f"Deleted {len(points_to_delete)} chunks for document '{source_name}'")
+                
+                # Clear from cache if present
+                if hasattr(self, '_last_document_texts') and source_name in self._last_document_texts:
+                    del self._last_document_texts[source_name]
+                
+                return True
+            else:
+                logger.warning(f"No chunks found for document '{source_name}'")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error deleting document: {str(e)}")
+            return False
+    
+    def search_in_database(self, search_query: str, limit: int = 20) -> List[Dict[str, Any]]:
+        """Search for specific content in the database using semantic search."""
+        try:
+            # Use the existing query infrastructure for semantic search
+            query_engine = self.index.as_query_engine(
+                similarity_top_k=limit,
+                response_mode="no_text"  # Just get the nodes, no synthesis
+            )
+            
+            response = query_engine.query(search_query)
+            
+            results = []
+            if hasattr(response, 'source_nodes'):
+                for node in response.source_nodes:
+                    results.append({
+                        'source': node.node.metadata.get('source', 'Unknown'),
+                        'page': node.node.metadata.get('page'),
+                        'score': node.score,
+                        'text': node.node.text[:300] + '...' if len(node.node.text) > 300 else node.node.text,
+                        'metadata': node.node.metadata
+                    })
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"Error searching in database: {str(e)}")
+            return []
