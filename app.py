@@ -1,20 +1,19 @@
 """Main Streamlit application for Business Intelligence RAG System."""
 
-import streamlit as st
+import os
+import tempfile
+from datetime import datetime
+from pathlib import Path
+
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from pathlib import Path
-import json
-from datetime import datetime
-import tempfile
-import os
-import base64
+import streamlit as st
 
-from services.csv_analyzer import CSVAnalyzer
-from services.rag_engine import RAGEngine
-from services.llm_service import LLMService
 from config.settings import settings
+from services.csv_analyzer import CSVAnalyzer
+from services.llm_service import LLMService
+from services.rag_engine import RAGEngine
 
 # Page configuration
 st.set_page_config(
@@ -291,8 +290,40 @@ def show_document_rag():
             help="Carica report aziendali, contratti, o qualsiasi documento rilevante"
         )
         
+        # Prompt selection
+        st.subheader("🎯 Tipo di Analisi")
+        prompt_options = ["Automatico (raccomandato)"] + [
+            f"{prompt_type.capitalize()} - {desc}" 
+            for prompt_type, desc in zip(
+                ["bilancio", "fatturato", "magazzino", "contratto", "presentazione", "generale"],
+                [
+                    "Analisi finanziaria per bilanci e report finanziari",
+                    "Analisi vendite e ricavi", 
+                    "Analisi logistica e gestione scorte",
+                    "Analisi legale e contrattuale",
+                    "Analisi di presentazioni e slide deck",
+                    "Analisi generica per qualsiasi tipo di documento"
+                ]
+            )
+        ]
+        
+        selected_prompt = st.selectbox(
+            "Seleziona il tipo di prompt per l'analisi:",
+            options=prompt_options,
+            index=0,
+            help="Il sistema sceglierà automaticamente il prompt migliore, ma puoi forzare un tipo specifico se necessario"
+        )
+
         if uploaded_files:
-            if st.button("🔄 Indicizza Documenti", type="primary"):
+            col_btn1, col_btn2 = st.columns([1, 1])
+            with col_btn1:
+                index_button = st.button("🔄 Indicizza Documenti", type="primary")
+            with col_btn2:
+                reanalyze_button = st.button("🔄 Ri-analizza con Prompt Selezionato", 
+                                           disabled=not hasattr(st.session_state, 'document_analyses') or not st.session_state.document_analyses,
+                                           help="Ri-esegui l'analisi dei documenti già indicizzati con il prompt selezionato")
+            
+            if index_button:
                 with st.spinner("Indicizzando documenti..."):
                     file_paths = []
                     original_names = []
@@ -318,13 +349,25 @@ def show_document_rag():
                             f.write(uploaded_file.getbuffer())
                         permanent_paths.append(str(permanent_path))
                     
+                    # Get the selected prompt type for analysis
+                    force_prompt_type = None
+                    if selected_prompt != "Automatico (raccomandato)":
+                        # Extract the prompt type from the selection (e.g., "Bilancio - ..." -> "bilancio")
+                        force_prompt_type = selected_prompt.split(" - ")[0].lower()
+
                     # Index documents with original names and permanent paths
                     rag_engine = st.session_state.services['rag_engine']
-                    results = rag_engine.index_documents(file_paths, original_names=original_names, permanent_paths=permanent_paths)
+                    results = rag_engine.index_documents(file_paths, original_names=original_names, permanent_paths=permanent_paths, force_prompt_type=force_prompt_type)
                     
                     # Display results
                     if results['indexed_files']:
                         st.success(f"✅ Indicizzati con successo {len(results['indexed_files'])} documenti con {results['total_chunks']} blocchi")
+                        
+                        # Show prompt type used
+                        if force_prompt_type:
+                            st.info(f"🎯 Utilizzato prompt specializzato: {selected_prompt}")
+                        else:
+                            st.info("🤖 Utilizzata selezione automatica del prompt ottimale per ogni documento")
                         
                         # Store document analyses in session state
                         if 'document_analyses' not in st.session_state:
@@ -339,6 +382,27 @@ def show_document_rag():
                     # Cleanup
                     for path in file_paths:
                         os.unlink(path)
+            
+            elif reanalyze_button and selected_prompt != "Automatico (raccomandato)":
+                # Re-analyze existing documents with the selected prompt
+                with st.spinner("Ri-analizzando documenti con il prompt selezionato..."):
+                    # Extract prompt type
+                    force_prompt_type = selected_prompt.split(" - ")[0].lower()
+                    
+                    # Re-analyze documents
+                    rag_engine = st.session_state.services['rag_engine']
+                    new_analyses = rag_engine.reanalyze_documents_with_prompt(force_prompt_type)
+                    
+                    if 'error' in new_analyses:
+                        st.error(f"❌ {new_analyses['error']}")
+                    else:
+                        # Update session state with new analyses
+                        st.session_state.document_analyses = new_analyses
+                        st.success(f"✅ Ri-analizzati {len(new_analyses)} documenti con prompt '{force_prompt_type.upper()}'")
+                        st.info(f"🎯 Utilizzato prompt specializzato: {selected_prompt}")
+            
+            elif reanalyze_button and selected_prompt == "Automatico (raccomandato)":
+                st.warning("⚠️ Seleziona un tipo di prompt specifico per ri-analizzare i documenti")
     
     with col2:
         st.subheader("🔍 Interroga Documenti")
@@ -431,13 +495,13 @@ def show_document_rag():
                 # Add some useful actions
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    if st.button(f"💬 Fai domande su questo documento", key=f"ask_{file_name}"):
+                    if st.button("💬 Fai domande su questo documento", key=f"ask_{file_name}"):
                         query_text = f"Analizza il contenuto di {file_name} e fornisci una panoramica completa"
                         st.session_state.auto_query = query_text
                         st.rerun()
                         
                 with col2:
-                    if st.button(f"🔗 Confronta con CSV", key=f"compare_{file_name}"):
+                    if st.button("🔗 Confronta con CSV", key=f"compare_{file_name}"):
                         if st.session_state.csv_analysis:
                             query_text = f"Confronta i dati nel documento {file_name} con l'analisi CSV caricata e identifica correlazioni, discrepanze e insights"
                             st.session_state.auto_query = query_text
@@ -446,7 +510,7 @@ def show_document_rag():
                             st.warning("⚠️ Carica prima i dati CSV nella sezione 'Analisi Dati'")
                             
                 with col3:
-                    if st.button(f"📊 Estrai KPI", key=f"kpi_{file_name}"):
+                    if st.button("📊 Estrai KPI", key=f"kpi_{file_name}"):
                         query_text = f"Estrai tutti i KPI, metriche quantitative, percentuali, valori finanziari e indicatori di performance dal documento {file_name}. Organizza i risultati in categorie."
                         st.session_state.auto_query = query_text
                         st.rerun()
@@ -507,7 +571,7 @@ def show_document_rag():
                     '''
                     st.markdown("### 📖 Anteprima PDF:")
                     st.markdown(pdf_display, unsafe_allow_html=True)
-                except:
+                except Exception:
                     st.warning("⚠️ Visualizzazione PDF integrata non disponibile. Usa il pulsante di download.")
                     
             else:

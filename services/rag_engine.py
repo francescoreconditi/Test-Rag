@@ -14,8 +14,8 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 
 from config.settings import settings
-from services.prompt_router import choose_prompt
 from services.format_helper import format_analysis_result
+from services.prompt_router import choose_prompt
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -128,7 +128,7 @@ class RAGEngine:
                 storage_context=StorageContext.from_defaults(vector_store=self.vector_store)
             )
     
-    def index_documents(self, file_paths: List[str], metadata: Optional[Dict[str, Any]] = None, original_names: Optional[List[str]] = None, permanent_paths: Optional[List[str]] = None) -> Dict[str, Any]:
+    def index_documents(self, file_paths: List[str], metadata: Optional[Dict[str, Any]] = None, original_names: Optional[List[str]] = None, permanent_paths: Optional[List[str]] = None, force_prompt_type: Optional[str] = None) -> Dict[str, Any]:
         """Index documents from file paths."""
         results = {
             'indexed_files': [],
@@ -190,7 +190,13 @@ class RAGEngine:
                 # Generate automatic analysis of the document content
                 if documents:
                     full_text = '\n'.join([doc.text for doc in documents])
-                    analysis = self.analyze_document_content(full_text, display_name)
+                    
+                    # Cache the document text for potential re-analysis
+                    if not hasattr(self, '_last_document_texts'):
+                        self._last_document_texts = {}
+                    self._last_document_texts[display_name] = full_text
+                    
+                    analysis = self.analyze_document_content(full_text, display_name, force_prompt_type)
                     results['document_analyses'][display_name] = analysis
                 
                 results['indexed_files'].append(file_path)
@@ -214,7 +220,7 @@ class RAGEngine:
             logger.error(f"Error cleaning metadata: {str(e)}")
             return False
     
-    def analyze_document_content(self, document_text: str, file_name: str) -> str:
+    def analyze_document_content(self, document_text: str, file_name: str, force_prompt_type: Optional[str] = None) -> str:
         """Generate automatic analysis of document content using specialized prompts."""
         try:
             from openai import OpenAI
@@ -223,10 +229,36 @@ class RAGEngine:
             # Truncate text if too long (keep first 8000 chars for analysis)
             analysis_text = document_text[:8000] if len(document_text) > 8000 else document_text
             
-            # Use prompt router to select the best prompt
-            prompt_name, prompt_text, debug_info = choose_prompt(file_name, analysis_text)
+            logger.debug(f"Document text length: {len(document_text)}, Analysis text length: {len(analysis_text)}")
+            logger.debug(f"Analysis text preview: {analysis_text[:200]}...")
             
-            logger.info(f"Using prompt type '{prompt_name}' for document '{file_name}'")
+            # Use prompt router to select the best prompt (or force a specific one)
+            if force_prompt_type and force_prompt_type != "automatico":
+                # Force a specific prompt type
+                from services.prompt_router import PROMPT_GENERAL, ROUTER
+                
+                if force_prompt_type == "generale":
+                    # Handle general prompt explicitly
+                    prompt_name = "generale"
+                    prompt_text = PROMPT_GENERAL(file_name, analysis_text)
+                    debug_info = {"forced": True, "type": "generale"}
+                    logger.info(f"Forcing general prompt for document '{file_name}'")
+                elif force_prompt_type in ROUTER:
+                    # Use specialized prompt from router
+                    prompt_name = force_prompt_type
+                    prompt_text = ROUTER[force_prompt_type].builder(file_name, analysis_text)
+                    debug_info = {"forced": True, "type": force_prompt_type}
+                    logger.info(f"Forcing prompt type '{prompt_name}' for document '{file_name}'")
+                else:
+                    # Unknown prompt type, fallback to general
+                    prompt_name = "generale"
+                    prompt_text = PROMPT_GENERAL(file_name, analysis_text)
+                    debug_info = {"forced": True, "type": "generale", "fallback": True}
+                    logger.warning(f"Unknown prompt type '{force_prompt_type}', using general prompt for document '{file_name}'")
+            else:
+                # Use automatic selection
+                prompt_name, prompt_text, debug_info = choose_prompt(file_name, analysis_text)
+                logger.info(f"Auto-selected prompt type '{prompt_name}' for document '{file_name}'")
             logger.debug(f"Prompt selection debug info: {debug_info}")
             
             response = client.chat.completions.create(
@@ -259,28 +291,164 @@ class RAGEngine:
             logger.error(f"Error analyzing document content: {str(e)}")
             return "Analisi automatica non disponibile per questo documento. Contenuto indicizzato correttamente per le ricerche."
     
+    def reanalyze_documents_with_prompt(self, force_prompt_type: str) -> Dict[str, str]:
+        """Re-analyze existing documents with a specific prompt type."""
+        try:
+            # Check if we have existing analyses in memory that can be re-processed
+            if hasattr(self, '_last_document_texts') and self._last_document_texts:
+                logger.info("Using cached document texts for re-analysis")
+                results = {}
+                for source, text in self._last_document_texts.items():
+                    if text and text.strip():
+                        logger.info(f"Re-analyzing cached document '{source}': {len(text)} characters")
+                        analysis = self.analyze_document_content(text, source, force_prompt_type)
+                        results[source] = analysis
+                    else:
+                        results[source] = f"## Errore di Ri-analisi\n\nNessun contenuto disponibile per il documento '{source}'."
+                return results
+            
+            # Fallback: try to get content from vector store (less reliable)
+            if not self.index:
+                return {"error": "Nessun documento indicizzato trovato"}
+            
+            results = {}
+            
+            # Get all documents from the vector store
+            collection_info = self.client.get_collection(self.collection_name)
+            if collection_info.points_count == 0:
+                return {"error": "Nessun documento nel database vettoriale"}
+            
+            # Try to retrieve documents using a broad query
+            logger.info("Attempting to retrieve document content via similarity search")
+            query_engine = self.index.as_query_engine(similarity_top_k=50, response_mode="no_text")
+            
+            # Use a generic query to get document nodes
+            try:
+                response = query_engine.query("contenuto documento analisi")
+                
+                if hasattr(response, 'source_nodes') and response.source_nodes:
+                    documents_content = {}
+                    
+                    for node in response.source_nodes:
+                        source = node.node.metadata.get('source', 'Unknown')
+                        text = node.node.text or node.node.get_content()
+                        
+                        if source not in documents_content:
+                            documents_content[source] = []
+                        documents_content[source].append(text)
+                    
+                    logger.info(f"Retrieved content from {len(documents_content)} documents via query")
+                    
+                    # Re-analyze each document
+                    for source, text_chunks in documents_content.items():
+                        try:
+                            # Combine all chunks for this document
+                            full_text = '\n\n'.join(text_chunks)
+                            
+                            logger.info(f"Re-analyzing document '{source}': {len(text_chunks)} chunks, {len(full_text)} total characters")
+                            
+                            # Check if we have actual content
+                            if not full_text.strip() or len(full_text.strip()) < 50:
+                                logger.warning(f"Insufficient content for document '{source}' ({len(full_text)} chars)")
+                                results[source] = f"""## Documento Non Disponibile per Ri-analisi
+
+**Documento:** {source}
+
+**Problema:** Il contenuto del documento non è disponibile per la ri-analisi. Questo può accadere quando:
+- Il documento originale conteneva principalmente immagini
+- Si è verificato un errore durante l'estrazione del testo
+- Il documento è stato indicizzato ma il contenuto non è completamente recuperabile
+
+**Soluzione:** Per ri-analizzare questo documento:
+1. Ricarica il documento originale
+2. Assicurati che contenga testo selezionabile
+3. Considera l'uso di OCR se il documento è basato su immagini"""
+                                continue
+                            
+                            # Re-analyze with the forced prompt
+                            analysis = self.analyze_document_content(full_text, source, force_prompt_type)
+                            results[source] = analysis
+                            
+                        except Exception as e:
+                            logger.error(f"Error re-analyzing document {source}: {str(e)}")
+                            results[source] = f"Errore nella ri-analisi: {str(e)}"
+                    
+                    return results
+                else:
+                    return {"error": "Impossibile recuperare il contenuto dei documenti dal database vettoriale"}
+                    
+            except Exception as query_error:
+                logger.error(f"Error querying for document content: {str(query_error)}")
+                return {"error": f"Errore nel recupero del contenuto: {str(query_error)}"}
+            
+        except Exception as e:
+            logger.error(f"Error in reanalyze_documents_with_prompt: {str(e)}")
+            return {"error": f"Errore nella ri-analisi: {str(e)}"}
+    
     def _load_pdf(self, file_path: str, metadata: Optional[Dict[str, Any]] = None) -> List[Document]:
-        """Load and parse PDF documents."""
+        """Load and parse PDF documents with enhanced text extraction."""
         try:
             from pypdf import PdfReader
             
             reader = PdfReader(file_path)
             documents = []
+            total_extracted_text = ""
+            
+            logger.info(f"Processing PDF: {file_path} with {len(reader.pages)} pages")
             
             for i, page in enumerate(reader.pages):
-                text = page.extract_text()
-                if text.strip():
-                    doc = Document(
-                        text=text,
+                try:
+                    text = page.extract_text()
+                    page_text_length = len(text.strip())
+                    total_extracted_text += text
+                    
+                    logger.debug(f"Page {i+1}: extracted {page_text_length} characters")
+                    
+                    if text.strip():
+                        doc = Document(
+                            text=text,
+                            metadata={
+                                'page': i + 1,
+                                'total_pages': len(reader.pages),
+                                'source': file_path,
+                                'page_text_length': page_text_length
+                            }
+                        )
+                        if metadata:
+                            doc.metadata.update(metadata)
+                        documents.append(doc)
+                    else:
+                        logger.warning(f"Page {i+1} in {file_path} has no extractable text")
+                        
+                except Exception as page_error:
+                    logger.error(f"Error extracting text from page {i+1} in {file_path}: {str(page_error)}")
+                    continue
+            
+            total_text_length = len(total_extracted_text.strip())
+            logger.info(f"PDF processing complete: {len(documents)} pages with text, {total_text_length} total characters")
+            
+            # If we extracted very little text, try alternative approach
+            if total_text_length < 100:
+                logger.warning(f"Very little text extracted ({total_text_length} chars). PDF might be image-based or have extraction issues.")
+                
+                # Create a placeholder document with a warning
+                if not documents:
+                    warning_doc = Document(
+                        text=f"[ATTENZIONE] Il documento PDF '{file_path}' potrebbe contenere principalmente immagini o avere problemi di estrazione testo. "
+                              f"Sono stati estratti solo {total_text_length} caratteri da {len(reader.pages)} pagine. "
+                              f"Per un'analisi completa, si consiglia di utilizzare un documento con testo selezionabile o di convertire "
+                              f"le immagini in testo utilizzando OCR.",
                         metadata={
-                            'page': i + 1,
+                            'page': 1,
                             'total_pages': len(reader.pages),
-                            'source': file_path
+                            'source': file_path,
+                            'extraction_warning': True,
+                            'total_text_length': total_text_length
                         }
                     )
                     if metadata:
-                        doc.metadata.update(metadata)
-                    documents.append(doc)
+                        warning_doc.metadata.update(metadata)
+                    documents.append(warning_doc)
             
             return documents
             

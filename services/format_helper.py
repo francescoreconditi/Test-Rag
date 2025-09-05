@@ -1,9 +1,9 @@
 """Helper functions for formatting analysis results."""
 
 import json
+import logging
 import re
 from typing import Any, Dict, Optional
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -64,12 +64,39 @@ def format_analysis_result(raw_response: str) -> str:
             formatted_parts.append("\n### Sintesi Esecutiva\n")
             formatted_parts.append(summary)
         
-        return "\n".join(formatted_parts)
+        # Assicurati che tutte le parti siano stringhe
+        clean_parts = []
+        for part in formatted_parts:
+            if isinstance(part, str):
+                clean_parts.append(part)
+            else:
+                clean_parts.append(str(part))
+        
+        return "\n".join(clean_parts)
         
     except Exception as e:
         logger.error(f"Errore nella formattazione: {str(e)}")
-        # Ritorna il testo originale con una formattazione minima
-        return f"### Risultato Analisi\n\n{raw_response}"
+        logger.debug(f"Raw response che ha causato l'errore: {raw_response[:500]}")
+        
+        # Prova un formatting minimo ma comunque migliore del raw
+        try:
+            # Estrai almeno la sintesi se possibile
+            summary_match = re.search(r"<SINTESI>(.*?)</SINTESI>", raw_response, re.DOTALL)
+            if summary_match:
+                summary = summary_match.group(1).strip()
+                analysis_type_match = re.search(r"\[Analisi tipo: (\w+)\]", raw_response)
+                analysis_type = analysis_type_match.group(1).capitalize() if analysis_type_match else "Documento"
+                
+                return f"## Analisi {analysis_type}\n\n### Sintesi Esecutiva\n\n{summary}\n\n---\n\n*Nota: Alcuni dettagli tecnici potrebbero non essere visualizzati correttamente*"
+        except Exception:
+            pass
+        
+        # Fallback finale - almeno rimuovi il formato raw grezzo
+        clean_text = raw_response.replace("[Analisi tipo: ", "**Tipo Analisi:** ").replace("]", "")
+        clean_text = re.sub(r"</?(?:KPI_)?JSON>", "", clean_text)
+        clean_text = re.sub(r"</?SINTESI>", "### Sintesi\n", clean_text)
+        
+        return f"### Risultato Analisi\n\n{clean_text}"
 
 
 def _format_bilancio(data: Dict[str, Any]) -> str:
@@ -78,7 +105,21 @@ def _format_bilancio(data: Dict[str, Any]) -> str:
     
     # Periodi coperti
     if data.get("periodi_coperti"):
-        parts.append(f"**Periodi analizzati:** {', '.join(data['periodi_coperti'])}\n")
+        # Handle both list of strings and list of dicts
+        if data["periodi_coperti"] and isinstance(data["periodi_coperti"][0], dict):
+            periodo_strings = []
+            for p in data["periodi_coperti"]:
+                if isinstance(p, dict):
+                    # Format dict as readable string
+                    periodo_str = f"{p.get('mese', '')} {p.get('anno', '')} {p.get('tipo', '')}".strip()
+                    if periodo_str:
+                        periodo_strings.append(periodo_str)
+                else:
+                    periodo_strings.append(str(p))
+            if periodo_strings:
+                parts.append(f"**Periodi analizzati:** {', '.join(periodo_strings)}\n")
+        else:
+            parts.append(f"**Periodi analizzati:** {', '.join(map(str, data['periodi_coperti']))}\n")
     
     # Conto Economico
     if data.get("conto_economico"):
@@ -161,7 +202,21 @@ def _format_fatturato(data: Dict[str, Any]) -> str:
     
     # Periodi coperti
     if data.get("periodi_coperti"):
-        parts.append(f"**Periodi analizzati:** {', '.join(data['periodi_coperti'])}\n")
+        # Handle both list of strings and list of dicts
+        if data["periodi_coperti"] and isinstance(data["periodi_coperti"][0], dict):
+            periodo_strings = []
+            for p in data["periodi_coperti"]:
+                if isinstance(p, dict):
+                    # Format dict as readable string
+                    periodo_str = f"{p.get('mese', '')} {p.get('anno', '')} {p.get('tipo', '')}".strip()
+                    if periodo_str:
+                        periodo_strings.append(periodo_str)
+                else:
+                    periodo_strings.append(str(p))
+            if periodo_strings:
+                parts.append(f"**Periodi analizzati:** {', '.join(periodo_strings)}\n")
+        else:
+            parts.append(f"**Periodi analizzati:** {', '.join(map(str, data['periodi_coperti']))}\n")
     
     # Fatturato totale
     if data.get("fatturato_totale"):
@@ -312,13 +367,13 @@ def _format_contratto(data: Dict[str, Any]) -> str:
     
     # Legge applicabile
     if data.get("legge_applicabile_forum"):
-        l = data["legge_applicabile_forum"]
-        if l.get("legge") or l.get("foro"):
+        legal_info = data["legge_applicabile_forum"]
+        if legal_info.get("legge") or legal_info.get("foro"):
             parts.append("### Aspetti Legali\n")
-            if l.get("legge"):
-                parts.append(f"- **Legge Applicabile:** {l['legge']}")
-            if l.get("foro"):
-                parts.append(f"- **Foro Competente:** {l['foro']}")
+            if legal_info.get("legge"):
+                parts.append(f"- **Legge Applicabile:** {legal_info['legge']}")
+            if legal_info.get("foro"):
+                parts.append(f"- **Foro Competente:** {legal_info['foro']}")
             parts.append("")
     
     return "\n".join(parts)

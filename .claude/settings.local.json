@@ -14,7 +14,10 @@
       "Bash(python -m pip:*)",
       "Bash(uv pip:*)",
       "Bash(python -m ruff check:*)",
-      "Bash(python test_format.py:*)"
+      "Bash(python test_format.py:*)",
+      "Bash(python test_prompt_selection.py:*)",
+      "Bash(python test_formatter_debug.py:*)",
+      "Bash(python test:*)"
     ],
     "deny": [],
     "ask": []
