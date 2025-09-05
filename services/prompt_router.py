@@ -100,12 +100,26 @@ Scrivi 120–200 parole con tono da analista professionale, richiamando "p. X" d
 
 def PROMPT_BILANCIO(file_name: str, analysis_text: str) -> str:
     return """
-Sei un equity/credit analyst esperto. Analizza il documento finanziario "{file_name}" qui sotto, senza usare fonti esterne.
-Riporta valori solo se presenti e indica sempre la pagina di provenienza.
+Sei un equity/credit analyst esperto specializzato in documenti finanziari italiani. Analizza il documento "{file_name}" applicando le seguenti competenze:
+
+COMPETENZE SPECIALIZZATE:
+- **Numeri italiani**: 1.234,56 = milleduecentotrentaquattro virgola cinquantasei
+- **Negativi**: (123) = numero negativo, -123
+- **Percentuali**: 5,2% = cinque virgola due per cento  
+- **Scale**: "valori in migliaia" significa moltiplicare × 1.000
+- **Sinonimi**: fatturato = ricavi = vendite; EBITDA = MOL; PFN = posizione finanziaria netta
+- **Validazioni**: Attivo = Passivo; PFN = Debito lordo - Cassa; Margine lordo = Ricavi - COGS
 
 === DOCUMENTO ===
 {analysis_text}
 === FINE DOCUMENTO ===
+
+ISTRUZIONI OPERATIVE:
+1. **Parsing accurato**: Riconosci formato numerico italiano (es. 1.234.567,89)
+2. **Provenienza precisa**: Cita sempre "p. X" o "tab. Y" per ogni numero
+3. **Controlli coerenza**: Verifica equazioni contabili basilari
+4. **Scale applicate**: Se dichiarato "in migliaia", converti automaticamente
+5. **Sinonimi**: Normalizza "fatturato" → "ricavi", "MOL" → "EBITDA"
 
 PRODUCI due sezioni nell'ordine:
 1) <KPI_JSON> … </KPI_JSON>
@@ -296,6 +310,98 @@ OUTPUT:
 <SINTESI>
 Riassunto esecutivo (150-200 parole) che cattura l'essenza della presentazione, i messaggi chiave e le raccomandazioni principali. Cita "slide X" o "p. X" per riferimenti specifici.
 </SINTESI>
+""".format(file_name=file_name, analysis_text=analysis_text)
+
+
+def PROMPT_REPORT_DETTAGLIATO(file_name: str, analysis_text: str) -> str:
+    """Prompt per analisi approfondita stile NotebookLM di report finanziari complessi"""
+    return """
+Sei un senior equity research analyst specializzato in documenti finanziari italiani. Produci un'analisi professionale approfondita del documento "{file_name}" seguendo gli standard di un investment memorandum.
+
+COMPETENZE AVANZATE RICHIESTE:
+- **Parsing numeri italiani**: 1.234.567,89 (format italiano), (123) = negativo, 5,2% 
+- **Gestione scale**: "valori in migliaia/milioni" → conversione automatica
+- **Sinonimi finanziari**: fatturato=ricavi=vendite; EBITDA=MOL; PFN=debito netto
+- **Validazioni contabili**: Attivo=Passivo, PFN=Debito-Cassa, Margine=Ricavi-COGS
+- **Provenienza granulare**: "p.12|tab.1|riga:Ricavi" per ogni numero
+- **Confronti strutturati**: YoY%, vs Budget%, scostamenti quantificati
+
+=== DOCUMENTO ===
+{analysis_text}
+=== FINE DOCUMENTO ===
+
+METODOLOGIA OPERATIVA:
+1. **Estrazione accurata**: Riconosci tutti i numeri in formato italiano
+2. **Conversioni**: Applica scale dichiarate ("in migliaia" × 1.000)
+3. **Normalizzazione**: Uniforma sinonimi (fatturato → ricavi)
+4. **Validazione**: Controlla coerenze contabili basilari  
+5. **Bridge analysis**: Spiega variazioni con numeri precisi
+6. **Citations**: Ogni dato con fonte esatta (p.X, tab.Y)
+
+GENERA UN REPORT COMPLETO IN FORMATO PROFESSIONALE:
+
+<INVESTMENT_MEMO>
+# Investment Memorandum: Analisi Finanziaria Approfondita
+
+**Data Analisi**: [Data corrente]
+**Documento Fonte**: {file_name}
+**Tipo Analisi**: Performance Review & Strategic Assessment
+
+## EXECUTIVE SUMMARY
+[Paragrafo di 200-250 parole con numeri italiani correttamente interpretati]
+
+## 1. ANALISI RICAVI E CRESCITA
+### 1.1 Performance Complessiva
+- **Ricavi Totali**: [Valore con formato italiano, es. 5.214.095 €]
+- **Crescita YoY**: [% con decimale virgola, es. 7,4%]  
+- **Vs Budget**: [Scostamento quantificato con segno]
+
+### 1.2 Analisi per Business Line
+[Per ogni categoria di ricavi con parsing preciso numeri italiani]
+
+## 2. STRUTTURA COSTI E MARGINALITÀ
+### 2.1 Gross Margin Analysis  
+- **Margine Lordo**: XX,X% (vs XX,X% P.Y.) [format italiano]
+- **Driver breakdown** con variazioni quantificate
+
+### 2.2 OPEX Analysis
+- **OPEX Totali**: € XXX.XXX (+/-XX,X% YoY)
+- **Per categoria** con numeri in formato italiano
+
+## 3. PROFITABILITY METRICS
+### 3.1 EBITDA Performance
+- **EBITDA**: € XXX.XXX (XX,X% margin)
+- **Bridge Analysis**: Volume € +XXX, Prezzo € +XXX, Costi € -XXX
+
+### 3.2 Coerenze Contabili Verificate
+[Controlli automatici: Attivo=Passivo, PFN=Debito-Cassa, etc.]
+
+## 4. CONCLUSIONI E RACCOMANDAZIONI
+### Key Takeaways:
+1. **Performance**: [Con numeri italiani accurati]
+2. **Risks**: [Quantificati in € e %]
+3. **Actions**: [Con target numerici specifici]
+</INVESTMENT_MEMO>
+
+<JSON_METRICS>
+{{
+  "numeri_italiani_processati": [
+    {{"raw": "1.234,56", "parsed": 1234.56, "confidence": 0.95}},
+    {{"raw": "(123)", "parsed": -123, "confidence": 1.0}}
+  ],
+  "scale_rilevata": "migliaia|milioni|unità",
+  "valuta_prevalente": "EUR|USD", 
+  "coerenze_verificate": [
+    {{"test": "attivo_passivo", "passed": true, "dettaglio": ""}}
+  ],
+  "performance_summary": {{
+    "ricavi_totali": 0,
+    "crescita_yoy_pct": 0,
+    "ebitda_margin_pct": 0,
+    "validation_errors": []
+  }}
+}}
+</JSON_METRICS>
 """.format(file_name=file_name, analysis_text=analysis_text)
 
 

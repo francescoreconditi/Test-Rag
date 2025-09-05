@@ -21,7 +21,8 @@
       "Bash(python:*)",
       "Bash(docker-compose:*)",
       "Bash(curl:*)",
-      "Read(/C:\\temp/**)"
+      "Read(/C:\\temp/**)",
+      "Bash(streamlit run:*)"
     ],
     "deny": [],
     "ask": []

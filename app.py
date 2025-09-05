@@ -988,12 +988,15 @@ def show_database_explorer():
                     with col3:
                         if selected_doc_info.get('pdf_path') and Path(selected_doc_info['pdf_path']).exists():
                             if st.button("📄 Visualizza PDF", key="view_pdf"):
-                                st.session_state.pdf_to_view = {
-                                    'path': selected_doc_info['pdf_path'],
+                                # Converti il path in assoluto se è relativo
+                                pdf_path = Path(selected_doc_info['pdf_path'])
+                                if not pdf_path.is_absolute():
+                                    pdf_path = Path.cwd() / pdf_path
+                                st.session_state.pdf_to_view_explorer = {
+                                    'path': str(pdf_path),
                                     'page': 1,
                                     'source_name': selected_doc
                                 }
-                                st.success(f"PDF caricato per visualizzazione: {selected_doc}")
                                 st.rerun()
         else:
             st.info("Nessun documento trovato nel database.")
@@ -1137,99 +1140,76 @@ def show_database_explorer():
                     "Metrica": collection_info.get('distance_metric')
                 })
     
+    
     # PDF Viewer Section (similar to RAG Documents page)
-    if hasattr(st.session_state, 'pdf_to_view') and st.session_state.pdf_to_view:
-        st.divider()
-        pdf_info = st.session_state.pdf_to_view
+    if hasattr(st.session_state, 'pdf_to_view_explorer') and st.session_state.pdf_to_view_explorer:
+        pdf_info = st.session_state.pdf_to_view_explorer
         
         col_header, col_close = st.columns([4, 1])
         with col_header:
             st.subheader(f"📄 {pdf_info['source_name']} - Pagina {pdf_info['page']}")
         with col_close:
             if st.button("❌ Chiudi PDF", key="close_pdf_explorer"):
-                del st.session_state.pdf_to_view
+                del st.session_state.pdf_to_view_explorer
                 st.rerun()
         
-        # Try to display PDF
+        # Display PDF
         try:
             pdf_path = Path(pdf_info['path'])
+            
             if pdf_path.exists():
                 # Read PDF file
                 with open(pdf_path, 'rb') as f:
                     pdf_bytes = f.read()
                 
-                # Display PDF using iframe
-                st.components.v1.iframe(
-                    src=f"data:application/pdf;base64,{__import__('base64').b64encode(pdf_bytes).decode()}",
-                    width=700,
-                    height=400,  # Reduced height to make room for alternatives
-                    scrolling=True
-                )
+                # Show document header
+                st.markdown(f"**📍 Documento: {pdf_info['source_name']} - Pagina {pdf_info['page']}**")
                 
-                # Always show alternative options since iframe often doesn't work
-                st.divider()
-                st.subheader("🔗 Opzioni Alternative")
+                # Create download button
+                import base64
+                b64 = base64.b64encode(pdf_bytes).decode()
+                href = f'<a href="data:application/pdf;base64,{b64}" download="{pdf_info["source_name"]}" style="background-color: #ff4b4b; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0;">📥 Scarica {pdf_info["source_name"]}</a>'
+                st.markdown(href, unsafe_allow_html=True)
                 
-                col1, col2 = st.columns(2)
-                with col1:
-                    # Download button
-                    st.download_button(
-                        label="📥 Scarica PDF",
-                        data=pdf_bytes,
-                        file_name=pdf_info['source_name'],
-                        mime="application/pdf",
-                        help="Scarica il PDF e aprilo con il tuo lettore preferito"
-                    )
-                
-                with col2:
-                    # Copy path button
-                    if st.button("📋 Copia Path", key="copy_pdf_path"):
-                        st.code(str(pdf_path.absolute()), language="text")
-                        st.success("Path copiato! Puoi incollarlo nel browser o esplora file")
-                
-                # Info section
-                with st.expander("ℹ️ Informazioni PDF"):
-                    st.markdown(f"**Nome File**: {pdf_info['source_name']}")
-                    st.markdown(f"**Path Completo**: `{pdf_path.absolute()}`")
-                    st.markdown(f"**Dimensione**: {len(pdf_bytes)/1024:.1f} KB")
-                    st.markdown(f"**Pagine**: {pdf_info.get('total_pages', 'Non disponibile')}")
-                    
-                # Troubleshooting tips
-                with st.expander("💡 Se il PDF non si visualizza"):
-                    st.markdown("""
-                    **Possibili cause**:
-                    - Il browser blocca PDF embedded per sicurezza
-                    - Il file PDF è troppo grande per l'iframe
-                    - Impostazioni browser restrittive
-                    
-                    **Soluzioni**:
-                    1. **Usa il pulsante "📥 Scarica PDF"** (raccomandato)
-                    2. Copia il path e aprilo direttamente nel browser
-                    3. Copia il path e aprilo con Adobe Reader o altro lettore PDF
-                    4. Prova con un browser diverso (Firefox spesso funziona meglio)
-                    """)
+                # Show embedded PDF directly in browser
+                try:
+                    pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+                    pdf_display = f'''
+                    <iframe 
+                        src="data:application/pdf;base64,{pdf_base64}#page={pdf_info['page']}" 
+                        width="100%" 
+                        height="600px"
+                        style="border: none;">
+                        Il tuo browser non supporta la visualizzazione PDF integrata.
+                    </iframe>
+                    '''
+                    st.markdown("### 📖 Anteprima PDF:")
+                    st.markdown(pdf_display, unsafe_allow_html=True)
+                except Exception as e:
+                    st.error(f"❌ Errore visualizzazione PDF embedded: {str(e)}")
+                    st.warning("⚠️ Visualizzazione PDF integrata non disponibile. Usa il pulsante di download.")
                 
                 # Navigation controls
                 col1, col2, col3 = st.columns([1, 2, 1])
                 with col1:
                     if st.button("⬅️ Pagina Precedente", disabled=pdf_info['page'] <= 1):
-                        st.session_state.pdf_to_view['page'] = max(1, pdf_info['page'] - 1)
+                        st.session_state.pdf_to_view_explorer['page'] = max(1, pdf_info['page'] - 1)
                         st.rerun()
                 with col2:
                     st.write(f"Pagina {pdf_info['page']}")
                 with col3:
                     if st.button("➡️ Pagina Successiva"):
-                        st.session_state.pdf_to_view['page'] = pdf_info['page'] + 1
+                        st.session_state.pdf_to_view_explorer['page'] = pdf_info['page'] + 1
                         st.rerun()
                         
             else:
                 st.error(f"❌ File PDF non trovato: {pdf_path}")
-                del st.session_state.pdf_to_view
+                del st.session_state.pdf_to_view_explorer
                 st.rerun()
                 
         except Exception as e:
             st.error(f"❌ Errore nel caricamento PDF: {str(e)}")
-            del st.session_state.pdf_to_view
+            del st.session_state.pdf_to_view_explorer
             st.rerun()
 
 

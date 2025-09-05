@@ -6,6 +6,11 @@ from typing import Dict, List, Optional, Tuple, Any
 from pathlib import Path
 import json
 from datetime import datetime
+import logging
+
+from .italian_parser import ItalianNumberParser, FinancialValidator, ProvenancedValue
+
+logger = logging.getLogger(__name__)
 
 
 class CSVAnalyzer:
@@ -15,30 +20,105 @@ class CSVAnalyzer:
         self.data: Optional[pd.DataFrame] = None
         self.comparison_data: Optional[pd.DataFrame] = None
         self.metrics_cache: Dict[str, Any] = {}
+        self.italian_parser = ItalianNumberParser()
+        self.validator = FinancialValidator()
+        self.parsed_values: List[ProvenancedValue] = []
     
     def load_csv(self, file_path: str, encoding: str = 'utf-8') -> pd.DataFrame:
-        """Load CSV file and perform initial preprocessing."""
+        """Load CSV file with advanced Italian number parsing."""
         try:
-            df = pd.read_csv(file_path, encoding=encoding)
-            # Try to parse date columns
+            # Try different encodings common in Italian files
+            encodings_to_try = [encoding, 'utf-8', 'latin-1', 'cp1252']
+            df = None
+            
+            for enc in encodings_to_try:
+                try:
+                    df = pd.read_csv(file_path, encoding=enc)
+                    break
+                except UnicodeDecodeError:
+                    continue
+            
+            if df is None:
+                raise ValueError("Cannot decode file with any supported encoding")
+            
+            logger.info(f"Loaded CSV with {len(df)} rows and {len(df.columns)} columns")
+            
+            # Parse date columns (Italian format support)
             for col in df.columns:
-                if 'data' in col.lower() or 'date' in col.lower():
-                    try:
-                        df[col] = pd.to_datetime(df[col])
-                    except:
-                        pass
-            # Convert numeric columns
+                if any(date_word in col.lower() for date_word in ['data', 'date', 'giorno', 'mese', 'anno']):
+                    df[col] = self._parse_date_column(df[col])
+            
+            # Parse numeric columns with Italian number parser
+            numeric_columns_parsed = 0
+            self.parsed_values = []
+            
             for col in df.columns:
                 if df[col].dtype == 'object':
-                    try:
-                        df[col] = pd.to_numeric(df[col].str.replace(',', '').str.replace('€', '').str.replace('$', ''))
-                    except:
-                        pass
+                    parsed_series, parsed_values = self._parse_numeric_column(df[col], col, file_path)
+                    if parsed_series is not None:
+                        df[col] = parsed_series
+                        self.parsed_values.extend(parsed_values)
+                        numeric_columns_parsed += 1
+            
+            logger.info(f"Parsed {numeric_columns_parsed} numeric columns with Italian parser")
+            logger.info(f"Extracted {len(self.parsed_values)} provenance-tracked values")
+            
+            # Validate parsed data
+            validation_errors = self.validator.validate_ranges(self.parsed_values)
+            if validation_errors:
+                logger.warning(f"Data validation warnings: {validation_errors}")
             
             self.data = df
             return df
+            
         except Exception as e:
+            logger.error(f"Error loading CSV {file_path}: {str(e)}")
             raise ValueError(f"Error loading CSV: {str(e)}")
+    
+    def _parse_date_column(self, series: pd.Series) -> pd.Series:
+        """Parse date column with Italian format support"""
+        try:
+            # Try Italian date formats first
+            return pd.to_datetime(series, format='%d/%m/%Y', errors='coerce').fillna(
+                pd.to_datetime(series, format='%d-%m-%Y', errors='coerce')
+            ).fillna(
+                pd.to_datetime(series, errors='coerce')
+            )
+        except Exception:
+            return series
+    
+    def _parse_numeric_column(self, series: pd.Series, column_name: str, file_path: str) -> Tuple[Optional[pd.Series], List[ProvenancedValue]]:
+        """Parse numeric column using Italian number parser"""
+        parsed_values = []
+        converted_values = []
+        
+        for idx, value in series.items():
+            if pd.isna(value) or value == '':
+                converted_values.append(np.nan)
+                continue
+            
+            # Create source reference
+            source_ref = f"{Path(file_path).name}|row:{idx+2}|col:{column_name}"  # +2 for header
+            
+            # Parse with Italian parser
+            parsed_value = self.italian_parser.parse_number(str(value), source_ref)
+            
+            if parsed_value:
+                converted_values.append(parsed_value.value)
+                parsed_values.append(parsed_value)
+            else:
+                # Fallback to pandas numeric conversion
+                try:
+                    numeric_val = pd.to_numeric(str(value).replace(',', '.'), errors='coerce')
+                    converted_values.append(numeric_val)
+                except:
+                    converted_values.append(np.nan)
+        
+        # Return parsed series only if we successfully parsed some values
+        if parsed_values:
+            return pd.Series(converted_values, index=series.index), parsed_values
+        else:
+            return None, []
     
     def analyze_balance_sheet(self, df: pd.DataFrame, year_column: str = 'anno', 
                             revenue_column: str = 'fatturato') -> Dict[str, Any]:
@@ -250,3 +330,60 @@ class CSVAnalyzer:
                 recommendations.append("Alto rapporto costi/fatturato - identifica aree per l'ottimizzazione dei costi")
         
         return recommendations
+    
+    def get_parsed_values_with_provenance(self) -> List[Dict[str, Any]]:
+        """Get parsed values with full provenance information"""
+        return [
+            {
+                'value': pv.value,
+                'raw_text': pv.raw_text,
+                'unit': pv.unit,
+                'currency': pv.currency,
+                'source_ref': pv.source_ref,
+                'confidence': pv.confidence,
+                'scale_factor': pv.scale_factor
+            }
+            for pv in self.parsed_values
+        ]
+    
+    def validate_financial_coherence(self) -> Dict[str, Any]:
+        """Validate financial coherence of parsed data"""
+        balance_sheet_errors = self.validator.validate_balance_sheet(self.parsed_values)
+        range_errors = self.validator.validate_ranges(self.parsed_values)
+        
+        return {
+            'balance_sheet_errors': balance_sheet_errors,
+            'range_errors': range_errors,
+            'total_errors': len(balance_sheet_errors) + len(range_errors),
+            'validation_passed': len(balance_sheet_errors) + len(range_errors) == 0
+        }
+    
+    def get_normalized_metrics(self) -> Dict[str, List[ProvenancedValue]]:
+        """Get metrics grouped by normalized name"""
+        metrics_by_name = {}
+        
+        for pv in self.parsed_values:
+            # Extract normalized metric name from source_ref
+            if '|col:' in pv.source_ref:
+                col_name = pv.source_ref.split('|col:')[-1]
+                normalized_name = self.italian_parser.normalize_metric_name(col_name)
+                
+                if normalized_name not in metrics_by_name:
+                    metrics_by_name[normalized_name] = []
+                metrics_by_name[normalized_name].append(pv)
+        
+        return metrics_by_name
+    
+    def export_provenance_report(self, output_path: str):
+        """Export detailed provenance report"""
+        report = {
+            'file_analyzed': getattr(self, 'current_file', 'unknown'),
+            'analysis_timestamp': datetime.now().isoformat(),
+            'total_values_parsed': len(self.parsed_values),
+            'validation_results': self.validate_financial_coherence(),
+            'metrics_by_category': self.get_normalized_metrics(),
+            'raw_parsed_values': self.get_parsed_values_with_provenance()
+        }
+        
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(report, f, indent=2, ensure_ascii=False, default=str)
