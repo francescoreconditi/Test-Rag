@@ -1,18 +1,18 @@
-"""PDF exporter for RAG Q&A sessions."""
+"""Professional PDF exporter with ZCS-inspired design."""
 
 import io
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
+from reportlab.lib.colors import HexColor
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import inch
+from reportlab.lib.units import inch, mm
+from reportlab.pdfgen import canvas
 from reportlab.platypus import (
     BaseDocTemplate,
-    Flowable,
     Frame,
     PageBreak,
     PageTemplate,
@@ -21,100 +21,305 @@ from reportlab.platypus import (
     Spacer,
     Table,
     TableStyle,
+    Image,
+    KeepTogether,
+    Flowable,
 )
+from reportlab.graphics.shapes import Drawing, Line, Rect
+from reportlab.graphics import renderPDF
 
 
-class HeaderFooter(Flowable):
-    """Custom header and footer for PDF."""
+# ZCS Company inspired color palette
+class ZCSColors:
+    """ZCS Company brand colors."""
+    PRIMARY_BLUE = HexColor('#003366')      # Deep navy blue
+    SECONDARY_GREEN = HexColor('#00A86B')   # Emerald green
+    ACCENT_LIGHT_BLUE = HexColor('#4A90E2') # Light blue
+    TEXT_DARK = HexColor('#2C3E50')         # Dark gray for text
+    TEXT_LIGHT = HexColor('#7F8C8D')        # Light gray for secondary text
+    BACKGROUND_LIGHT = HexColor('#F8F9FA')  # Light gray background
+    BACKGROUND_WHITE = HexColor('#FFFFFF')  # Pure white
+    BORDER_LIGHT = HexColor('#E0E0E0')      # Light border
+    SUCCESS_GREEN = HexColor('#27AE60')     # Success green
+    WARNING_ORANGE = HexColor('#F39C12')    # Warning orange
+
+
+class HeaderFooterCanvas(canvas.Canvas):
+    """Custom canvas for professional header and footer."""
     
-    def __init__(self, title: str, timestamp: str):
-        Flowable.__init__(self)
-        self.title = title
-        self.timestamp = timestamp
+    def __init__(self, *args, **kwargs):
+        canvas.Canvas.__init__(self, *args, **kwargs)
+        self.pages = []
+        self.width, self.height = A4
     
-    def draw(self):
-        """Draw header and footer."""
-        canvas = self.canv
-        width, height = A4
-        
+    def showPage(self):
+        self.pages.append(dict(self.__dict__))
+        self._startPage()
+    
+    def save(self):
+        page_count = len(self.pages)
+        for page_num, page in enumerate(self.pages, start=1):
+            self.__dict__.update(page)
+            self.draw_header_footer(page_num, page_count)
+            canvas.Canvas.showPage(self)
+        canvas.Canvas.save(self)
+    
+    def draw_header_footer(self, page_num, page_count):
+        """Draw professional header and footer."""
         # Header
-        canvas.setFont("Helvetica-Bold", 12)
-        canvas.setFillColor(colors.darkblue)
-        canvas.drawString(50, height - 50, self.title)
+        self.setFillColor(ZCSColors.PRIMARY_BLUE)
+        self.rect(0, self.height - 60, self.width, 60, fill=1, stroke=0)
+        
+        # Header text
+        self.setFillColor(colors.white)
+        self.setFont("Helvetica-Bold", 14)
+        self.drawString(30, self.height - 35, "Business Intelligence RAG System")
+        
+        # Header line accent
+        self.setStrokeColor(ZCSColors.SECONDARY_GREEN)
+        self.setLineWidth(3)
+        self.line(30, self.height - 55, 150, self.height - 55)
         
         # Footer
-        canvas.setFont("Helvetica", 8)
-        canvas.setFillColor(colors.grey)
-        canvas.drawRightString(width - 50, 30, f"Generato il {self.timestamp}")
-        canvas.drawString(50, 30, "Business Intelligence RAG System")
+        self.setFillColor(ZCSColors.BACKGROUND_LIGHT)
+        self.rect(0, 0, self.width, 40, fill=1, stroke=0)
+        
+        # Footer content
+        self.setFillColor(ZCSColors.TEXT_DARK)
+        self.setFont("Helvetica", 9)
+        self.drawString(30, 20, f"Pagina {page_num} di {page_count}")
+        
+        # Timestamp
+        self.drawRightString(self.width - 30, 20, 
+                            f"Generato il {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+        
+        # Footer accent line
+        self.setStrokeColor(ZCSColors.SECONDARY_GREEN)
+        self.setLineWidth(1)
+        self.line(30, 35, self.width - 30, 35)
+
+
+class SectionHeader(Flowable):
+    """Custom flowable for section headers with colored background."""
+    
+    def __init__(self, text, color=None):
+        Flowable.__init__(self)
+        self.text = text
+        self.color = color or ZCSColors.PRIMARY_BLUE
+        self.height = 40
+        self.width = 500
+    
+    def draw(self):
+        # Draw background
+        self.canv.setFillColor(self.color)
+        self.canv.roundRect(0, 0, self.width, self.height, 5, fill=1, stroke=0)
+        
+        # Draw text
+        self.canv.setFillColor(colors.white)
+        self.canv.setFont("Helvetica-Bold", 14)
+        self.canv.drawString(15, 12, self.text)
+
+
+class GradientBackground(Flowable):
+    """Gradient background for title sections."""
+    
+    def __init__(self, width, height, start_color, end_color):
+        Flowable.__init__(self)
+        self.width = width
+        self.height = height
+        self.start_color = start_color
+        self.end_color = end_color
+    
+    def draw(self):
+        # Simple gradient effect using multiple rectangles
+        steps = 20
+        for i in range(steps):
+            ratio = i / float(steps)
+            r = self.start_color.red * (1 - ratio) + self.end_color.red * ratio
+            g = self.start_color.green * (1 - ratio) + self.end_color.green * ratio
+            b = self.start_color.blue * (1 - ratio) + self.end_color.blue * ratio
+            
+            self.canv.setFillColor(HexColor(f'#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}'))
+            y = self.height * i / steps
+            h = self.height / steps
+            self.canv.rect(0, y, self.width, h, fill=1, stroke=0)
 
 
 class PDFExporter:
-    """Export RAG Q&A sessions to PDF format."""
+    """Professional PDF exporter with ZCS-inspired design."""
     
     def __init__(self):
-        """Initialize PDF exporter."""
+        """Initialize PDF exporter with professional styling."""
         self.styles = getSampleStyleSheet()
-        self._setup_custom_styles()
+        self._setup_professional_styles()
     
-    def _setup_custom_styles(self):
-        """Setup custom paragraph styles."""
-        # Title style
+    def _setup_professional_styles(self):
+        """Setup professional paragraph styles with ZCS branding."""
+        
+        # Main title style
         self.styles.add(ParagraphStyle(
-            name='CustomTitle',
+            name='MainTitle',
             parent=self.styles['Heading1'],
-            fontSize=18,
-            textColor=colors.darkblue,
-            spaceAfter=20,
+            fontSize=24,
+            textColor=ZCSColors.PRIMARY_BLUE,
+            spaceAfter=30,
             alignment=TA_CENTER,
-            fontName='Helvetica-Bold'
+            fontName='Helvetica-Bold',
+            leading=30
         ))
         
-        # Question style
+        # Subtitle style
         self.styles.add(ParagraphStyle(
-            name='Question',
+            name='Subtitle',
             parent=self.styles['Normal'],
             fontSize=14,
-            textColor=colors.darkblue,
-            fontName='Helvetica-Bold',
-            spaceAfter=10,
-            spaceBefore=15,
-            leftIndent=20
-        ))
-        
-        # Answer style
-        self.styles.add(ParagraphStyle(
-            name='Answer',
-            parent=self.styles['Normal'],
-            fontSize=12,
-            alignment=TA_JUSTIFY,
-            spaceAfter=15,
-            leftIndent=20,
-            rightIndent=20,
-            fontName='Helvetica'
-        ))
-        
-        # Source style
-        self.styles.add(ParagraphStyle(
-            name='Source',
-            parent=self.styles['Normal'],
-            fontSize=10,
-            textColor=colors.grey,
-            spaceAfter=8,
-            leftIndent=30,
+            textColor=ZCSColors.TEXT_LIGHT,
+            spaceAfter=20,
+            alignment=TA_CENTER,
             fontName='Helvetica-Oblique'
         ))
         
-        # Metadata style
+        # Section header style
         self.styles.add(ParagraphStyle(
-            name='Metadata',
+            name='SectionHeader',
+            parent=self.styles['Heading2'],
+            fontSize=16,
+            textColor=ZCSColors.PRIMARY_BLUE,
+            fontName='Helvetica-Bold',
+            spaceBefore=20,
+            spaceAfter=15,
+            borderColor=ZCSColors.SECONDARY_GREEN,
+            borderWidth=0,
+            borderPadding=5,
+            leftIndent=0
+        ))
+        
+        # Question style - elegant
+        self.styles.add(ParagraphStyle(
+            name='QuestionStyle',
+            parent=self.styles['Normal'],
+            fontSize=13,
+            textColor=ZCSColors.PRIMARY_BLUE,
+            fontName='Helvetica-Bold',
+            spaceBefore=15,
+            spaceAfter=10,
+            leftIndent=10,
+            borderColor=ZCSColors.ACCENT_LIGHT_BLUE,
+            borderWidth=0,
+            borderPadding=3
+        ))
+        
+        # Answer style - professional
+        self.styles.add(ParagraphStyle(
+            name='AnswerStyle',
+            parent=self.styles['Normal'],
+            fontSize=11,
+            textColor=ZCSColors.TEXT_DARK,
+            alignment=TA_JUSTIFY,
+            spaceAfter=15,
+            leftIndent=10,
+            rightIndent=10,
+            fontName='Helvetica',
+            leading=14
+        ))
+        
+        # Source style - refined
+        self.styles.add(ParagraphStyle(
+            name='SourceStyle',
+            parent=self.styles['Normal'],
+            fontSize=9,
+            textColor=ZCSColors.TEXT_LIGHT,
+            spaceAfter=8,
+            leftIndent=20,
+            rightIndent=20,
+            fontName='Helvetica-Oblique',
+            backColor=ZCSColors.BACKGROUND_LIGHT,
+            borderColor=ZCSColors.BORDER_LIGHT,
+            borderWidth=0.5,
+            borderPadding=5
+        ))
+        
+        # Metadata style - subtle
+        self.styles.add(ParagraphStyle(
+            name='MetadataStyle',
             parent=self.styles['Normal'],
             fontSize=8,
-            textColor=colors.grey,
-            spaceAfter=15,
-            alignment=TA_CENTER,
+            textColor=ZCSColors.TEXT_LIGHT,
+            spaceAfter=10,
+            alignment=TA_RIGHT,
             fontName='Helvetica'
         ))
+        
+        # Executive summary style
+        self.styles.add(ParagraphStyle(
+            name='ExecutiveSummary',
+            parent=self.styles['Normal'],
+            fontSize=12,
+            textColor=ZCSColors.TEXT_DARK,
+            alignment=TA_JUSTIFY,
+            spaceAfter=20,
+            leftIndent=30,
+            rightIndent=30,
+            fontName='Helvetica',
+            leading=16,
+            backColor=HexColor('#F0F8FF'),
+            borderColor=ZCSColors.ACCENT_LIGHT_BLUE,
+            borderWidth=1,
+            borderPadding=10
+        ))
+    
+    def _create_professional_table(self, data, col_widths=None, style_name='professional'):
+        """Create a professionally styled table."""
+        
+        table = Table(data, colWidths=col_widths)
+        
+        if style_name == 'professional':
+            table.setStyle(TableStyle([
+                # Header styling
+                ('BACKGROUND', (0, 0), (-1, 0), ZCSColors.PRIMARY_BLUE),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 11),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('TOPPADDING', (0, 0), (-1, 0), 12),
+                
+                # Body styling
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 10),
+                ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
+                ('TOPPADDING', (0, 1), (-1, -1), 8),
+                
+                # Alternating row colors
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, ZCSColors.BACKGROUND_LIGHT]),
+                
+                # Borders
+                ('GRID', (0, 0), (-1, -1), 0.5, ZCSColors.BORDER_LIGHT),
+                ('LINEBELOW', (0, 0), (-1, 0), 2, ZCSColors.SECONDARY_GREEN),
+            ]))
+        
+        elif style_name == 'compact':
+            table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTNAME', (1, 0), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 10),
+                ('TEXTCOLOR', (0, 0), (0, -1), ZCSColors.PRIMARY_BLUE),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ]))
+        
+        return table
+    
+    def _create_divider(self, width=450, color=None):
+        """Create a styled divider line."""
+        color = color or ZCSColors.BORDER_LIGHT
+        drawing = Drawing(width, 10)
+        line = Line(0, 5, width, 5)
+        line.strokeColor = color
+        line.strokeWidth = 1
+        drawing.add(line)
+        return drawing
     
     def export_qa_session(
         self,
@@ -124,104 +329,122 @@ class PDFExporter:
         metadata: Optional[Dict[str, Any]] = None,
         filename: Optional[str] = None
     ) -> io.BytesIO:
-        """Export a single Q&A session to PDF."""
-        if filename is None:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"qa_session_{timestamp}.pdf"
+        """Export a single Q&A session with professional styling."""
         
         buffer = io.BytesIO()
-        doc = SimpleDocTemplate(
+        doc = BaseDocTemplate(
             buffer,
             pagesize=A4,
-            rightMargin=72,
-            leftMargin=72,
-            topMargin=72,
-            bottomMargin=72
+            rightMargin=50,
+            leftMargin=50,
+            topMargin=80,
+            bottomMargin=60
         )
         
+        # Create page template with custom canvas
+        frame = Frame(
+            doc.leftMargin,
+            doc.bottomMargin,
+            doc.width,
+            doc.height,
+            id='normal'
+        )
+        
+        template = PageTemplate(
+            id='professional',
+            frames=frame,
+            onPage=self._add_page_decoration
+        )
+        doc.addPageTemplates([template])
+        
         story = []
-        timestamp_str = datetime.now().strftime("%d/%m/%Y %H:%M")
         
-        # Title
-        story.append(Paragraph("Sessione Domande e Risposte RAG", self.styles['CustomTitle']))
-        story.append(Paragraph(f"Generato il {timestamp_str}", self.styles['Metadata']))
-        story.append(Spacer(1, 20))
+        # Title section with gradient effect
+        story.append(Paragraph("Analisi Q&A Intelligence", self.styles['MainTitle']))
+        story.append(Paragraph("Business Intelligence RAG System", self.styles['Subtitle']))
+        story.append(self._create_divider(width=450, color=ZCSColors.SECONDARY_GREEN))
+        story.append(Spacer(1, 30))
         
-        # Add metadata if available
+        # Metadata section if available
         if metadata:
-            story.append(Paragraph("<b>Informazioni Sessione:</b>", self.styles['Heading2']))
-            metadata_data = []
-            for key, value in metadata.items():
-                metadata_data.append([key.replace('_', ' ').title() + ":", str(value)])
-            
-            if metadata_data:
-                metadata_table = Table(metadata_data, colWidths=[2*inch, 4*inch])
-                metadata_table.setStyle(TableStyle([
-                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                    ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-                    ('FONTSIZE', (0, 0), (-1, -1), 10),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-                ]))
-                story.append(metadata_table)
-                story.append(Spacer(1, 15))
-        
-        # Question
-        story.append(Paragraph("<b>❓ Domanda:</b>", self.styles['Question']))
-        story.append(Paragraph(self._clean_text(question), self.styles['Answer']))
-        story.append(Spacer(1, 10))
-        
-        # Answer
-        story.append(Paragraph("<b>💡 Risposta:</b>", self.styles['Question']))
-        story.append(Paragraph(self._clean_text(answer), self.styles['Answer']))
-        story.append(Spacer(1, 15))
-        
-        # Sources
-        if sources:
-            story.append(Paragraph("<b>📚 Fonti Utilizzate:</b>", self.styles['Question']))
+            story.append(SectionHeader("Informazioni Sessione", ZCSColors.ACCENT_LIGHT_BLUE))
             story.append(Spacer(1, 10))
             
+            metadata_data = []
+            for key, value in metadata.items():
+                formatted_key = key.replace('_', ' ').title()
+                metadata_data.append([formatted_key, str(value)])
+            
+            if metadata_data:
+                metadata_table = self._create_professional_table(
+                    metadata_data, 
+                    col_widths=[2.5*inch, 3.5*inch],
+                    style_name='compact'
+                )
+                story.append(metadata_table)
+                story.append(Spacer(1, 20))
+        
+        # Question section
+        story.append(SectionHeader("Domanda", ZCSColors.PRIMARY_BLUE))
+        story.append(Spacer(1, 10))
+        story.append(Paragraph(self._clean_text(question), self.styles['QuestionStyle']))
+        story.append(Spacer(1, 20))
+        
+        # Answer section
+        story.append(SectionHeader("Risposta", ZCSColors.SECONDARY_GREEN))
+        story.append(Spacer(1, 10))
+        story.append(Paragraph(self._clean_text(answer), self.styles['AnswerStyle']))
+        story.append(Spacer(1, 25))
+        
+        # Sources section
+        if sources:
+            story.append(SectionHeader(f"Fonti Utilizzate ({len(sources)})", ZCSColors.ACCENT_LIGHT_BLUE))
+            story.append(Spacer(1, 15))
+            
             for i, source in enumerate(sources, 1):
-                # Source header
-                score = source.get('score', 0)
-                source_title = f"<b>Fonte {i}</b> (Rilevanza: {score:.1%})"
-                story.append(Paragraph(source_title, self.styles['Source']))
+                # Create a keep-together block for each source
+                source_elements = []
                 
-                # Source content
+                # Source header with relevance score
+                score = source.get('score', 0)
+                source_header = f"<b>Fonte {i}</b> - Rilevanza: {score:.1%}"
+                source_elements.append(Paragraph(source_header, self.styles['QuestionStyle']))
+                
+                # Source content in a styled box
                 source_text = source.get('text', 'N/A')
-                if len(source_text) > 500:
-                    source_text = source_text[:500] + "..."
-                story.append(Paragraph(self._clean_text(source_text), self.styles['Source']))
+                if len(source_text) > 400:
+                    source_text = source_text[:400] + "..."
+                source_elements.append(Paragraph(self._clean_text(source_text), self.styles['SourceStyle']))
                 
                 # Source metadata
                 if source.get('metadata'):
-                    source_metadata = source['metadata']
                     metadata_items = []
-                    
-                    # Key metadata fields
-                    for key in ['source', 'page', 'file_type', 'chunk_id']:
-                        if key in source_metadata:
-                            value = source_metadata[key]
-                            metadata_items.append(f"{key.title()}: {value}")
+                    for key in ['source', 'page', 'file_type']:
+                        if key in source['metadata']:
+                            value = source['metadata'][key]
+                            metadata_items.append(f"<i>{key.title()}: {value}</i>")
                     
                     if metadata_items:
                         metadata_text = " | ".join(metadata_items)
-                        story.append(Paragraph(
-                            f"<i>{metadata_text}</i>", 
-                            self.styles['Metadata']
-                        ))
+                        source_elements.append(Paragraph(metadata_text, self.styles['MetadataStyle']))
                 
-                story.append(Spacer(1, 8))
+                source_elements.append(Spacer(1, 10))
+                
+                # Keep source elements together
+                story.append(KeepTogether(source_elements))
         
-        # Footer information
-        story.append(Spacer(1, 20))
-        story.append(Paragraph(
-            "<i>Questo documento è stato generato automaticamente dal Sistema di Business Intelligence RAG. "
-            "Le informazioni contenute sono basate sui documenti analizzati e sull'intelligenza artificiale.</i>",
-            self.styles['Metadata']
-        ))
+        # Footer disclaimer
+        story.append(Spacer(1, 30))
+        story.append(self._create_divider(width=450))
+        story.append(Spacer(1, 10))
+        disclaimer = (
+            "<i>Questo documento è stato generato automaticamente dal Sistema RAG di Business Intelligence. "
+            "Le informazioni sono basate su analisi AI dei documenti aziendali indicizzati.</i>"
+        )
+        story.append(Paragraph(disclaimer, self.styles['MetadataStyle']))
         
         # Build PDF
-        doc.build(story)
+        doc.build(story, canvasmaker=HeaderFooterCanvas)
         buffer.seek(0)
         return buffer
     
@@ -231,95 +454,83 @@ class PDFExporter:
         metadata: Optional[Dict[str, Any]] = None,
         filename: Optional[str] = None
     ) -> io.BytesIO:
-        """Export document analysis to PDF."""
-        if filename is None:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"document_analysis_{timestamp}.pdf"
+        """Export document analysis with professional styling."""
         
         buffer = io.BytesIO()
-        doc = SimpleDocTemplate(
+        doc = BaseDocTemplate(
             buffer,
             pagesize=A4,
-            rightMargin=72,
-            leftMargin=72,
-            topMargin=72,
-            bottomMargin=72
+            rightMargin=50,
+            leftMargin=50,
+            topMargin=80,
+            bottomMargin=60
         )
         
+        frame = Frame(
+            doc.leftMargin,
+            doc.bottomMargin,
+            doc.width,
+            doc.height,
+            id='normal'
+        )
+        
+        template = PageTemplate(
+            id='professional',
+            frames=frame,
+            onPage=self._add_page_decoration
+        )
+        doc.addPageTemplates([template])
+        
         story = []
-        timestamp_str = datetime.now().strftime("%d/%m/%Y %H:%M")
         
-        # Title
-        story.append(Paragraph("Analisi Automatica dei Documenti", self.styles['CustomTitle']))
-        story.append(Paragraph(f"Generato il {timestamp_str}", self.styles['Metadata']))
-        story.append(Spacer(1, 20))
+        # Title section
+        story.append(Paragraph("Analisi Documenti Aziendali", self.styles['MainTitle']))
+        story.append(Paragraph("Powered by AI Intelligence", self.styles['Subtitle']))
+        story.append(self._create_divider(width=450, color=ZCSColors.SECONDARY_GREEN))
+        story.append(Spacer(1, 30))
         
-        # Add metadata if available
-        if metadata:
-            story.append(Paragraph("<b>Informazioni Analisi:</b>", self.styles['Heading2']))
-            metadata_data = []
-            for key, value in metadata.items():
-                metadata_data.append([key.replace('_', ' ').title() + ":", str(value)])
-            
-            if metadata_data:
-                metadata_table = Table(metadata_data, colWidths=[2*inch, 4*inch])
-                metadata_table.setStyle(TableStyle([
-                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                    ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-                    ('FONTSIZE', (0, 0), (-1, -1), 10),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-                ]))
-                story.append(metadata_table)
-                story.append(Spacer(1, 15))
-        
-        # Document analyses
-        for i, (file_name, analysis) in enumerate(document_analyses.items(), 1):
-            # Document header
-            story.append(Paragraph(f"<b>📄 Documento {i}: {file_name}</b>", self.styles['Question']))
+        # Executive summary if multiple documents
+        if len(document_analyses) > 1:
+            story.append(SectionHeader("Executive Summary", ZCSColors.PRIMARY_BLUE))
             story.append(Spacer(1, 10))
             
-            # Analysis content
-            story.append(Paragraph(self._clean_text(analysis), self.styles['Answer']))
+            summary_text = f"Sono stati analizzati <b>{len(document_analyses)}</b> documenti aziendali. "
+            summary_text += "Ogni documento è stato processato con algoritmi di intelligenza artificiale "
+            summary_text += "per estrarre informazioni chiave, metriche e insights strategici."
+            
+            story.append(Paragraph(summary_text, self.styles['ExecutiveSummary']))
             story.append(Spacer(1, 20))
             
-            # Add page break between documents (except for the last one)
+            # Document overview table
+            overview_data = [["Documento", "Tipo Analisi", "Lunghezza"]]
+            for doc_name, analysis in document_analyses.items():
+                doc_type = "Finanziaria" if "bilancio" in doc_name.lower() else "Generale"
+                word_count = len(analysis.split())
+                overview_data.append([doc_name[:40], doc_type, f"{word_count} parole"])
+            
+            overview_table = self._create_professional_table(
+                overview_data,
+                col_widths=[3*inch, 1.5*inch, 1.5*inch]
+            )
+            story.append(overview_table)
+            story.append(PageBreak())
+        
+        # Individual document analyses
+        for i, (file_name, analysis) in enumerate(document_analyses.items(), 1):
+            # Document header
+            story.append(SectionHeader(f"Documento {i}: {file_name}", ZCSColors.ACCENT_LIGHT_BLUE))
+            story.append(Spacer(1, 15))
+            
+            # Analysis content with formatting
+            formatted_analysis = self._format_analysis_content(analysis)
+            story.append(Paragraph(formatted_analysis, self.styles['AnswerStyle']))
+            story.append(Spacer(1, 20))
+            
             if i < len(document_analyses):
                 story.append(PageBreak())
         
-        # Summary section
-        if len(document_analyses) > 1:
-            story.append(PageBreak())
-            story.append(Paragraph("<b>📊 Riepilogo</b>", self.styles['Question']))
-            story.append(Spacer(1, 10))
-            
-            summary_data = [["#", "Nome Documento", "Lunghezza Analisi"]]
-            for i, (file_name, analysis) in enumerate(document_analyses.items(), 1):
-                word_count = len(analysis.split())
-                summary_data.append([str(i), file_name, f"{word_count} parole"])
-            
-            summary_table = Table(summary_data, colWidths=[0.5*inch, 4*inch, 1.5*inch])
-            summary_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 10),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black)
-            ]))
-            story.append(summary_table)
-        
-        # Footer information
-        story.append(Spacer(1, 20))
-        story.append(Paragraph(
-            "<i>Questo documento contiene le analisi automatiche generate dal Sistema di Business Intelligence RAG. "
-            "Le analisi sono basate sul contenuto dei documenti caricati e sull'intelligenza artificiale.</i>",
-            self.styles['Metadata']
-        ))
-        
         # Build PDF
-        doc.build(story)
+        doc.build(story, canvasmaker=HeaderFooterCanvas)
         buffer.seek(0)
         return buffer
     
@@ -329,277 +540,161 @@ class PDFExporter:
         metadata: Optional[Dict[str, Any]] = None,
         filename: Optional[str] = None
     ) -> io.BytesIO:
-        """Export FAQ to PDF."""
-        if filename is None:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"faq_{timestamp}.pdf"
+        """Export FAQ with professional styling."""
         
         buffer = io.BytesIO()
-        doc = SimpleDocTemplate(
+        doc = BaseDocTemplate(
             buffer,
             pagesize=A4,
-            rightMargin=72,
-            leftMargin=72,
-            topMargin=72,
-            bottomMargin=72
+            rightMargin=50,
+            leftMargin=50,
+            topMargin=80,
+            bottomMargin=60
         )
         
+        frame = Frame(
+            doc.leftMargin,
+            doc.bottomMargin,
+            doc.width,
+            doc.height,
+            id='normal'
+        )
+        
+        template = PageTemplate(
+            id='professional',
+            frames=frame,
+            onPage=self._add_page_decoration
+        )
+        doc.addPageTemplates([template])
+        
         story = []
-        timestamp_str = datetime.now().strftime("%d/%m/%Y %H:%M")
         
-        # Title
-        story.append(Paragraph("Domande Frequenti (FAQ)", self.styles['CustomTitle']))
-        story.append(Paragraph(f"Generato il {timestamp_str}", self.styles['Metadata']))
-        story.append(Spacer(1, 20))
+        # Title section
+        story.append(Paragraph("Frequently Asked Questions", self.styles['MainTitle']))
+        story.append(Paragraph("Knowledge Base Intelligence", self.styles['Subtitle']))
+        story.append(self._create_divider(width=450, color=ZCSColors.SECONDARY_GREEN))
+        story.append(Spacer(1, 30))
         
-        # Add metadata if available
+        # Metadata section
         if metadata:
-            story.append(Paragraph("<b>Informazioni FAQ:</b>", self.styles['Heading2']))
-            metadata_data = []
-            for key, value in metadata.items():
-                if key == 'document_types' and isinstance(value, list):
-                    value = ', '.join(value)
-                metadata_data.append([key.replace('_', ' ').title() + ":", str(value)])
-            
-            if metadata_data:
-                metadata_table = Table(metadata_data, colWidths=[2*inch, 4*inch])
-                metadata_table.setStyle(TableStyle([
-                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                    ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-                    ('FONTSIZE', (0, 0), (-1, -1), 10),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-                ]))
-                story.append(metadata_table)
-                story.append(Spacer(1, 15))
-        
-        # FAQ content
-        for i, faq in enumerate(faqs, 1):
-            # Question
-            story.append(Paragraph(f"<b>❓ Domanda {i}:</b>", self.styles['Question']))
-            story.append(Paragraph(self._clean_text(faq.get('question', 'N/A')), self.styles['Answer']))
+            story.append(SectionHeader("Informazioni FAQ", ZCSColors.ACCENT_LIGHT_BLUE))
             story.append(Spacer(1, 10))
             
-            # Answer
-            story.append(Paragraph(f"<b>💡 Risposta:</b>", self.styles['Question']))
-            story.append(Paragraph(self._clean_text(faq.get('answer', 'N/A')), self.styles['Answer']))
-            story.append(Spacer(1, 15))
+            info_text = f"Generate automaticamente da <b>{metadata.get('total_documents', 'N/A')}</b> vettori di documenti. "
+            if metadata.get('document_types'):
+                types = ', '.join(metadata['document_types'])
+                info_text += f"Tipologie documenti: <i>{types}</i>."
             
-            # Sources if available
+            story.append(Paragraph(info_text, self.styles['ExecutiveSummary']))
+            story.append(Spacer(1, 20))
+        
+        # FAQ Index (if more than 5 questions)
+        if len(faqs) > 5:
+            story.append(SectionHeader("Indice Domande", ZCSColors.PRIMARY_BLUE))
+            story.append(Spacer(1, 10))
+            
+            for i, faq in enumerate(faqs, 1):
+                question_preview = faq.get('question', '')[:80]
+                if len(faq.get('question', '')) > 80:
+                    question_preview += "..."
+                index_text = f"<b>{i}.</b> {question_preview}"
+                story.append(Paragraph(index_text, self.styles['SourceStyle']))
+            
+            story.append(PageBreak())
+        
+        # FAQ Content
+        for i, faq in enumerate(faqs, 1):
+            # Keep Q&A together if possible
+            qa_elements = []
+            
+            # Question with number badge
+            question_header = f"<b>Domanda {i}</b>"
+            qa_elements.append(Paragraph(question_header, self.styles['SectionHeader']))
+            qa_elements.append(Paragraph(self._clean_text(faq.get('question', 'N/A')), 
+                                        self.styles['QuestionStyle']))
+            qa_elements.append(Spacer(1, 10))
+            
+            # Answer
+            qa_elements.append(Paragraph("<b>Risposta:</b>", self.styles['SectionHeader']))
+            qa_elements.append(Paragraph(self._clean_text(faq.get('answer', 'N/A')), 
+                                        self.styles['AnswerStyle']))
+            
+            # Sources summary (compact)
             sources = faq.get('sources', [])
             if sources:
-                story.append(Paragraph(f"<b>📚 Fonti ({len(sources)}):</b>", self.styles['Question']))
-                story.append(Spacer(1, 5))
-                
-                for j, source in enumerate(sources[:3], 1):  # Show top 3 sources
-                    score = source.get('score', 0)
-                    source_title = f"Fonte {j} (Rilevanza: {score:.1%})"
-                    story.append(Paragraph(source_title, self.styles['Source']))
-                    
-                    source_text = source.get('text', 'N/A')
-                    if len(source_text) > 300:
-                        source_text = source_text[:300] + "..."
-                    story.append(Paragraph(self._clean_text(source_text), self.styles['Source']))
-                    
-                    # Source metadata
-                    if source.get('metadata'):
-                        source_metadata = source['metadata']
-                        metadata_items = []
-                        for key in ['source', 'page', 'file_type']:
-                            if key in source_metadata:
-                                value = source_metadata[key]
-                                metadata_items.append(f"{key.title()}: {value}")
-                        
-                        if metadata_items:
-                            metadata_text = " | ".join(metadata_items)
-                            story.append(Paragraph(
-                                f"<i>{metadata_text}</i>", 
-                                self.styles['Metadata']
-                            ))
-                    
-                    story.append(Spacer(1, 5))
+                qa_elements.append(Spacer(1, 10))
+                sources_text = f"<i>Basato su {len(sources)} fonti documentali</i>"
+                qa_elements.append(Paragraph(sources_text, self.styles['MetadataStyle']))
             
-            # Add separator between questions (except for the last one)
+            qa_elements.append(Spacer(1, 15))
+            
+            # Divider between questions
             if i < len(faqs):
-                story.append(Spacer(1, 10))
-                # Add a light separator line
-                story.append(Paragraph("─" * 80, self.styles['Metadata']))
-                story.append(Spacer(1, 10))
-        
-        # Footer information
-        story.append(Spacer(1, 20))
-        story.append(Paragraph(
-            "<i>Questo documento contiene FAQ generate automaticamente dal Sistema di Business Intelligence RAG. "
-            "Le domande e risposte sono basate sui documenti analizzati e sull'intelligenza artificiale.</i>",
-            self.styles['Metadata']
-        ))
+                qa_elements.append(self._create_divider(width=400, color=ZCSColors.BORDER_LIGHT))
+                qa_elements.append(Spacer(1, 15))
+            
+            story.extend(qa_elements)
         
         # Build PDF
-        doc.build(story)
+        doc.build(story, canvasmaker=HeaderFooterCanvas)
         buffer.seek(0)
         return buffer
     
-    def export_multiple_sessions(
-        self,
-        sessions: List[Dict[str, Any]],
-        filename: Optional[str] = None
-    ) -> io.BytesIO:
-        """Export multiple Q&A sessions to a single PDF."""
-        if filename is None:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"qa_sessions_{timestamp}.pdf"
+    def _add_page_decoration(self, canvas, doc):
+        """Add page decorations (called by ReportLab)."""
+        # This is handled by HeaderFooterCanvas
+        pass
+    
+    def _format_analysis_content(self, text: str) -> str:
+        """Format analysis content with proper structure."""
+        # Add formatting for better readability
+        text = self._clean_text(text)
         
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(
-            buffer,
-            pagesize=A4,
-            rightMargin=72,
-            leftMargin=72,
-            topMargin=72,
-            bottomMargin=72
-        )
+        # Highlight key sections
+        text = text.replace("## ", "<b>")
+        text = text.replace("\n\n", "</b><br/><br/>")
         
-        story = []
-        timestamp_str = datetime.now().strftime("%d/%m/%Y %H:%M")
-        
-        # Title
-        story.append(Paragraph("Report Sessioni Domande e Risposte RAG", self.styles['CustomTitle']))
-        story.append(Paragraph(f"Generato il {timestamp_str}", self.styles['Metadata']))
-        story.append(Spacer(1, 20))
-        
-        # Summary table
-        story.append(Paragraph("<b>Riepilogo Sessioni:</b>", self.styles['Heading2']))
-        summary_data = [["#", "Domanda", "Fonti", "Timestamp"]]
-        
-        for i, session in enumerate(sessions, 1):
-            question_preview = session.get('question', '')[:50] + "..." if len(session.get('question', '')) > 50 else session.get('question', '')
-            sources_count = len(session.get('sources', []))
-            timestamp = session.get('timestamp', 'N/A')
-            summary_data.append([str(i), question_preview, str(sources_count), timestamp])
-        
-        summary_table = Table(summary_data, colWidths=[0.5*inch, 3*inch, 0.8*inch, 1.2*inch])
-        summary_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
-        story.append(summary_table)
-        story.append(PageBreak())
-        
-        # Individual sessions
-        for i, session in enumerate(sessions, 1):
-            story.append(Paragraph(f"Sessione {i}", self.styles['Heading2']))
-            story.append(Spacer(1, 10))
-            
-            question = session.get('question', 'N/A')
-            answer = session.get('answer', 'N/A')
-            sources = session.get('sources', [])
-            session_metadata = session.get('metadata', {})
-            
-            # Add timestamp to metadata
-            if 'timestamp' in session:
-                session_metadata['Timestamp'] = session['timestamp']
-            
-            # Question
-            story.append(Paragraph("<b>❓ Domanda:</b>", self.styles['Question']))
-            story.append(Paragraph(self._clean_text(question), self.styles['Answer']))
-            story.append(Spacer(1, 10))
-            
-            # Answer
-            story.append(Paragraph("<b>💡 Risposta:</b>", self.styles['Question']))
-            story.append(Paragraph(self._clean_text(answer), self.styles['Answer']))
-            story.append(Spacer(1, 15))
-            
-            # Sources (abbreviated for multiple sessions)
-            if sources:
-                story.append(Paragraph(f"<b>📚 Fonti ({len(sources)}):</b>", self.styles['Question']))
-                for j, source in enumerate(sources[:3], 1):  # Show only top 3 sources
-                    score = source.get('score', 0)
-                    source_title = f"Fonte {j} (Rilevanza: {score:.1%})"
-                    story.append(Paragraph(source_title, self.styles['Source']))
-                    
-                    source_text = source.get('text', 'N/A')
-                    if len(source_text) > 200:
-                        source_text = source_text[:200] + "..."
-                    story.append(Paragraph(self._clean_text(source_text), self.styles['Source']))
-                
-                if len(sources) > 3:
-                    story.append(Paragraph(f"<i>... e altre {len(sources) - 3} fonti</i>", self.styles['Metadata']))
-            
-            if i < len(sessions):  # Add page break except for last session
-                story.append(PageBreak())
-        
-        # Build PDF
-        doc.build(story)
-        buffer.seek(0)
-        return buffer
+        return text
     
     def _clean_text(self, text: str) -> str:
-        """Clean text for PDF generation with robust error handling."""
+        """Clean and format text for PDF generation."""
         if not text:
             return ""
         
         import re
         
-        # Remove any existing malformed HTML/XML tags first
+        # Remove any existing HTML/XML tags
         text = re.sub(r'<[^>]*>', '', text)
         
-        # Clean up any weird character sequences that might cause issues
-        # Remove standalone numbers at line breaks that seem to be artifacts
+        # Clean formatting artifacts
         text = re.sub(r'\n\d+\n', '\n', text)
-        text = re.sub(r'<br/>\d+<br/>', '<br/>', text)
+        text = re.sub(r'\n\d+$', '', text, flags=re.MULTILINE)
         
-        # Remove orphaned single digits that appear to be formatting artifacts
-        text = re.sub(r'<br/>\d+(?=\w)', '<br/>', text)  # Remove digits before words
-        text = re.sub(r'(?<=\w)\d+<br/>', '<br/>', text)  # Remove digits after words at line end
-        text = re.sub(r'<br/>\d+$', '', text, flags=re.MULTILINE)  # Remove trailing digits
+        # Convert markdown headers to bold
+        text = re.sub(r'#{3,}\s*(.*?)(?=\n|$)', r'<b>\1</b>', text, flags=re.MULTILINE)
+        text = re.sub(r'#{2}\s*(.*?)(?=\n|$)', r'<b>\1</b>', text, flags=re.MULTILINE)
+        text = re.sub(r'#{1}\s*(.*?)(?=\n|$)', r'<b>\1</b>', text, flags=re.MULTILINE)
         
-        # Handle markdown-style formatting BEFORE escaping HTML
-        # Headers: ### text -> **text** (convert to bold format first)
-        text = re.sub(r'#{3,}\s*(.*?)(?=\n|$)', r'**\1**', text, flags=re.MULTILINE)
-        
-        # Headers: ## text -> **text** (convert to bold format first) 
-        text = re.sub(r'#{2}\s*(.*?)(?=\n|$)', r'**\1**', text, flags=re.MULTILINE)
-        
-        # Headers: # text -> **text** (convert to bold format first)
-        text = re.sub(r'#{1}\s*(.*?)(?=\n|$)', r'**\1**', text, flags=re.MULTILINE)
-        
-        # Escape HTML entities after markdown processing
+        # Escape HTML entities
         text = text.replace('&', '&amp;')
         text = text.replace('<', '&lt;')
         text = text.replace('>', '&gt;')
         
-        # Bold: **text** -> <b>text</b>
-        text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
+        # Restore our formatting tags
+        text = text.replace('&lt;b&gt;', '<b>')
+        text = text.replace('&lt;/b&gt;', '</b>')
+        text = text.replace('&lt;i&gt;', '<i>')
+        text = text.replace('&lt;/i&gt;', '</i>')
         
-        # Italic: *text* -> <i>text</i> (but not if it's already processed)
-        text = re.sub(r'(?<!<b>)\*([^*]+?)\*(?!</b>)', r'<i>\1</i>', text)
+        # Convert markdown bold/italic
+        text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
+        text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', text)
         
         # Handle newlines
         text = text.replace('\n\n', '<br/><br/>')
         text = text.replace('\n', '<br/>')
         
-        # More aggressive cleanup of orphaned digits after line breaks are converted
-        text = re.sub(r'<br/>\d+(?=[A-Za-z])', '<br/>', text)  # Remove digits before letters
-        text = re.sub(r'(?<=[.:])\d+<br/>', '<br/>', text)  # Remove digits after punctuation at line end
-        text = re.sub(r'<br/>\d+<br/>\d+', '<br/>', text)  # Remove consecutive digit lines
-        text = re.sub(r'<br/>\d+:', '<br/>', text)  # Remove orphaned "number:" patterns
-        text = re.sub(r'(?<=\w)\d+(?=\w)', '', text)  # Remove single digits between words
-        
-        # Clean up multiple consecutive breaks
+        # Clean up multiple breaks
         text = re.sub(r'(<br/>){3,}', '<br/><br/>', text)
-        
-        # Final cleanup: ensure all tags are properly formed
-        # Remove any malformed tags that might have slipped through
-        text = re.sub(r'<b>([^<]*)<b>', r'<b>\1</b>', text)  # Fix unclosed bold
-        text = re.sub(r'<i>([^<]*)<i>', r'<i>\1</i>', text)  # Fix unclosed italic
-        
-        # Remove empty tags
-        text = re.sub(r'<b></b>', '', text)
-        text = re.sub(r'<i></i>', '', text)
         
         return text.strip()

@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     chunk_size: int = Field(default=512, env="CHUNK_SIZE")
     chunk_overlap: int = Field(default=50, env="CHUNK_OVERLAP")
     
+    # RAG Query Performance Settings
+    rag_response_mode: str = Field(default="compact", env="RAG_RESPONSE_MODE")  # compact, tree_summarize, simple
+    rag_similarity_top_k: int = Field(default=3, env="RAG_SIMILARITY_TOP_K")  # Number of similar chunks to retrieve
+    rag_enable_caching: bool = Field(default=True, env="RAG_ENABLE_CACHING")  # Cache embeddings for faster queries
+    
     # Paths
     data_dir: Path = Field(default=Path("data"))
     upload_dir: Path = Field(default=Path("data/uploads"))

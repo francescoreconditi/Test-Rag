@@ -25,7 +25,8 @@
       "Bash(streamlit run:*)",
       "Bash(tree:*)",
       "Bash(mkdir:*)",
-      "Read(//c/temp/**)"
+      "Read(//c/temp/**)",
+      "WebFetch(domain:www.zcscompany.com)"
     ],
     "deny": [],
     "ask": []

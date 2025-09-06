@@ -323,6 +323,121 @@ class PDFExporter:
         buffer.seek(0)
         return buffer
     
+    def export_faq(
+        self,
+        faqs: List[Dict[str, Any]],
+        metadata: Optional[Dict[str, Any]] = None,
+        filename: Optional[str] = None
+    ) -> io.BytesIO:
+        """Export FAQ to PDF."""
+        if filename is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"faq_{timestamp}.pdf"
+        
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=72,
+            leftMargin=72,
+            topMargin=72,
+            bottomMargin=72
+        )
+        
+        story = []
+        timestamp_str = datetime.now().strftime("%d/%m/%Y %H:%M")
+        
+        # Title
+        story.append(Paragraph("Domande Frequenti (FAQ)", self.styles['CustomTitle']))
+        story.append(Paragraph(f"Generato il {timestamp_str}", self.styles['Metadata']))
+        story.append(Spacer(1, 20))
+        
+        # Add metadata if available
+        if metadata:
+            story.append(Paragraph("<b>Informazioni FAQ:</b>", self.styles['Heading2']))
+            metadata_data = []
+            for key, value in metadata.items():
+                if key == 'document_types' and isinstance(value, list):
+                    value = ', '.join(value)
+                metadata_data.append([key.replace('_', ' ').title() + ":", str(value)])
+            
+            if metadata_data:
+                metadata_table = Table(metadata_data, colWidths=[2*inch, 4*inch])
+                metadata_table.setStyle(TableStyle([
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 10),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ]))
+                story.append(metadata_table)
+                story.append(Spacer(1, 15))
+        
+        # FAQ content
+        for i, faq in enumerate(faqs, 1):
+            # Question
+            story.append(Paragraph(f"<b>❓ Domanda {i}:</b>", self.styles['Question']))
+            story.append(Paragraph(self._clean_text(faq.get('question', 'N/A')), self.styles['Answer']))
+            story.append(Spacer(1, 10))
+            
+            # Answer
+            story.append(Paragraph(f"<b>💡 Risposta:</b>", self.styles['Question']))
+            story.append(Paragraph(self._clean_text(faq.get('answer', 'N/A')), self.styles['Answer']))
+            story.append(Spacer(1, 15))
+            
+            # Sources if available
+            sources = faq.get('sources', [])
+            if sources:
+                story.append(Paragraph(f"<b>📚 Fonti ({len(sources)}):</b>", self.styles['Question']))
+                story.append(Spacer(1, 5))
+                
+                for j, source in enumerate(sources[:3], 1):  # Show top 3 sources
+                    score = source.get('score', 0)
+                    source_title = f"Fonte {j} (Rilevanza: {score:.1%})"
+                    story.append(Paragraph(source_title, self.styles['Source']))
+                    
+                    source_text = source.get('text', 'N/A')
+                    if len(source_text) > 300:
+                        source_text = source_text[:300] + "..."
+                    story.append(Paragraph(self._clean_text(source_text), self.styles['Source']))
+                    
+                    # Source metadata
+                    if source.get('metadata'):
+                        source_metadata = source['metadata']
+                        metadata_items = []
+                        for key in ['source', 'page', 'file_type']:
+                            if key in source_metadata:
+                                value = source_metadata[key]
+                                metadata_items.append(f"{key.title()}: {value}")
+                        
+                        if metadata_items:
+                            metadata_text = " | ".join(metadata_items)
+                            story.append(Paragraph(
+                                f"<i>{metadata_text}</i>", 
+                                self.styles['Metadata']
+                            ))
+                    
+                    story.append(Spacer(1, 5))
+            
+            # Add separator between questions (except for the last one)
+            if i < len(faqs):
+                story.append(Spacer(1, 10))
+                # Add a light separator line
+                story.append(Paragraph("─" * 80, self.styles['Metadata']))
+                story.append(Spacer(1, 10))
+        
+        # Footer information
+        story.append(Spacer(1, 20))
+        story.append(Paragraph(
+            "<i>Questo documento contiene FAQ generate automaticamente dal Sistema di Business Intelligence RAG. "
+            "Le domande e risposte sono basate sui documenti analizzati e sull'intelligenza artificiale.</i>",
+            self.styles['Metadata']
+        ))
+        
+        # Build PDF
+        doc.build(story)
+        buffer.seek(0)
+        return buffer
+    
     def export_multiple_sessions(
         self,
         sessions: List[Dict[str, Any]],
