@@ -22,7 +22,10 @@
       "Bash(docker-compose:*)",
       "Bash(curl:*)",
       "Read(/C:\\temp/**)",
-      "Bash(streamlit run:*)"
+      "Bash(streamlit run:*)",
+      "Bash(tree:*)",
+      "Bash(mkdir:*)",
+      "Read(//c/temp/**)"
     ],
     "deny": [],
     "ask": []

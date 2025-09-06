@@ -1,53 +1,87 @@
 # Business Intelligence RAG System
 
-A comprehensive Business Intelligence system that combines structured data analysis (CSV) with RAG (Retrieval-Augmented Generation) for unstructured document processing, providing intelligent insights through AI.
+A **next-generation Business Intelligence platform** that combines structured data analysis with advanced RAG (Retrieval-Augmented Generation) capabilities. Built with **Clean Architecture**, **Domain-Driven Design**, and **enterprise-grade patterns** for scalable financial analysis and document intelligence.
 
-## Features
+## 🎯 Core Features
 
-### Structured Data Analysis
-- **Automatic CSV loading** with type recognition (dates, currencies, numbers)
-- **Balance sheet analysis** with YoY variations and trends calculation
-- **Automatic KPIs** (growth, margins, financial ratios)
-- **Anomaly detection** to identify outlier values
-- **Interactive visualizations** with Plotly (charts, dashboards)
-- **Multi-language support** (Italian/English columns: fatturato/revenue, anno/year)
+### 📊 Advanced Financial Analytics
+- **Smart CSV Processing** with Italian number format support (`1.234,56`)
+- **Automated Financial Modeling** (YoY growth, ratios, KPIs)
+- **Anomaly Detection** with statistical algorithms
+- **Multi-Currency Support** with conversion tracking
+- **Interactive Dashboards** with real-time visualizations
+- **Comparative Analysis** across multiple periods and entities
 
-### RAG Document System
-- **Semantic indexing** of PDF, DOCX, TXT, Markdown files
-- **Qdrant vector database** for high-speed search
-- **Intelligent chunking** with configurable overlap
-- **Metadata preservation** (page, source, file type)
-- **Context-aware queries** (combines CSV data with documents)
-- **OpenAI embeddings** (text-embedding-3-small)
+### 🧠 RAG-Powered Document Intelligence  
+- **Multi-Format Support** (PDF, DOCX, TXT, Markdown, Excel)
+- **Semantic Search** with Qdrant vector database
+- **Context-Aware Queries** combining structured and unstructured data
+- **Metadata Extraction** with provenance tracking
+- **PDF Export** of Q&A sessions for compliance
+- **Intelligent Chunking** with overlap optimization
 
-### AI-Powered Intelligence
-- **Business insights** with in-depth strategic analysis
-- **Executive reports** customizable for C-suite
-- **Natural Q&A** on data and documents
-- **Prioritized action items** with timelines and owners
-- **Anomaly explanations** with recommendations
-- **Comparative analysis** between periods
+### 🤖 AI-Driven Business Intelligence
+- **Executive Reporting** with strategic insights
+- **Predictive Analytics** using historical patterns
+- **Risk Assessment** with confidence scoring
+- **Natural Language Queries** in Italian and English
+- **Automated Recommendations** with priority levels
+- **Trend Analysis** with statistical significance
 
-### Interactive Dashboard
-- **Multi-module interface** (Analysis, RAG, AI, Dashboard, Settings)
-- **Real-time metrics** with live updates
-- **Export functions** (Markdown, CSV, JSON)
-- **Session state** for continuous workflows
-- **Responsive design** optimized for all screens
+### 💼 Enterprise-Ready Architecture
+- **Clean Architecture** with domain separation
+- **Repository Pattern** with SQLite persistence
+- **Dependency Injection** container
+- **Comprehensive Logging** with sensitive data filtering
+- **Type Safety** with full MyPy compliance
+- **Error Handling** with structured exceptions
 
-## Technology Stack
+## 🏗️ Architecture Overview
 
-| Component | Technology | Version | Purpose |
-|-----------|------------|---------|---------|
-| **Backend** | Python | 3.10+ | Core logic |
-| **RAG Framework** | LlamaIndex | 0.9+ | Document processing |
-| **Vector DB** | Qdrant | 1.7+ | Semantic search |
-| **LLM** | OpenAI GPT-4 | - | AI insights |
-| **UI Framework** | Streamlit | 1.29+ | Web interface |
-| **Data Analysis** | Pandas + NumPy | 2.1+ | CSV processing |
-| **Visualization** | Plotly | 5.18+ | Interactive charts |
-| **Package Manager** | uv | - | Fast dependency management |
-| **Containerization** | Docker | - | Deployment |
+### System Design
+The application follows **Clean Architecture** principles with clear layer separation:
+
+```mermaid
+graph TD
+    UI[Streamlit UI] --> APP[Application Layer]
+    APP --> DOMAIN[Domain Layer] 
+    APP --> INFRA[Infrastructure Layer]
+    
+    subgraph "Domain Layer"
+        ENT[Entities]
+        VO[Value Objects]
+        EXC[Exceptions]
+    end
+    
+    subgraph "Application Layer"  
+        INT[Interfaces]
+        UC[Use Cases]
+        DTO[DTOs]
+    end
+    
+    subgraph "Infrastructure Layer"
+        REPO[Repositories]
+        EXT[External Services]
+        PERS[Persistence]
+    end
+```
+
+### Technology Stack
+
+| Layer | Component | Technology | Purpose |
+|-------|-----------|------------|---------|
+| **Presentation** | UI Framework | Streamlit 1.29+ | Web interface |
+| **Application** | Business Logic | Python 3.10+ | Use cases & interfaces |
+| **Domain** | Core Models | Pydantic 2.0+ | Entities & value objects |
+| **Infrastructure** | Vector DB | Qdrant 1.7+ | Semantic search |
+| | LLM Service | OpenAI GPT-4 | AI reasoning |
+| | Data Processing | Pandas 2.1+ | CSV analysis |
+| | Persistence | SQLite | Repository storage |
+| | Visualization | Plotly 5.18+ | Interactive charts |
+| **DevOps** | Package Manager | uv | Fast dependencies |
+| | Linting | Ruff + Black | Code quality |
+| | Type Checking | MyPy | Type safety |
+| | Testing | Pytest | Quality assurance |
 
 ## Prerequisites
 
@@ -137,51 +171,108 @@ DEBUG_MODE=false
 APP_NAME=Business Intelligence RAG System
 ```
 
-## Usage Guide
+## 📁 Project Structure
 
-### 1. CSV Data Analysis
+```
+src/
+├── domain/                    # Core business logic (entities, value objects)
+│   ├── entities/             # Business entities (FinancialData, Document, AnalysisResult)
+│   ├── value_objects/        # Immutable values (Money, Percentage, DateRange)
+│   └── exceptions/           # Domain-specific exceptions
+├── application/              # Use cases and interfaces
+│   └── interfaces/           # Contracts for external dependencies
+├── infrastructure/           # External concerns (databases, APIs)
+│   └── repositories/         # Data persistence implementations
+├── core/                     # Cross-cutting concerns
+│   ├── config.py            # Configuration management
+│   ├── logging_config.py    # Structured logging
+│   └── dependency_injection.py # DI container
+└── presentation/             # UI layer (Streamlit)
+    └── streamlit/
 
-1. **Upload CSV**: Load balance sheets, financial reports, management data
-2. **Configure columns**: Select year/revenue columns for automatic analysis
-3. **View results**:
-   - **Summary**: Key KPIs and metrics
-   - **Trends**: YoY growth, historical trends
-   - **Visualizations**: Customizable interactive charts
-   - **Recommendations**: AI-powered suggestions
+tests/
+├── unit/                     # Unit tests for domain logic
+├── integration/              # Integration tests for repositories
+└── e2e/                     # End-to-end workflow tests
+```
 
-### 2. Document Processing (RAG)
+## 🚀 Usage Guide
 
-1. **Upload documents**: PDF, DOCX, TXT, Markdown
-2. **Automatic indexing**: Chunking and embedding generation
-3. **Semantic queries**: Ask natural language questions
-4. **Context-aware search**: Combines CSV insights with document content
+### 1. 📊 Financial Data Analysis
 
-### 3. AI-Powered Insights
+**Enterprise-Grade CSV Processing:**
+1. **Smart Upload**: Auto-detects Italian formats (`1.234,56`, date formats)
+2. **Financial Modeling**: Automatic KPI calculation and trend analysis
+3. **Advanced Analytics**:
+   - YoY growth with statistical significance
+   - Financial ratios and margin analysis
+   - Anomaly detection with confidence scores
+   - Multi-period comparative analysis
+4. **Interactive Visualizations**: Plotly dashboards with drill-down capabilities
 
-- **Complete Business Insights**: Strategic analysis considering financial performance and market context
-- **Executive Reports**: Customizable sections for C-suite presentations
-- **Intelligent Q&A**: Natural language questions about data and documents
-- **Prioritized Action Items**: Structured recommendations with timelines
+### 2. 🔍 RAG Document Intelligence
 
-## Development
+**Semantic Document Processing:**
+1. **Multi-Format Ingestion**: PDF, DOCX, TXT, Markdown with metadata extraction
+2. **Intelligent Indexing**: Context-aware chunking with Qdrant vector storage
+3. **Natural Language Queries**: Ask complex questions in Italian or English
+4. **Context Integration**: Combines financial data insights with document content
+5. ****NEW**: PDF Export** - Export Q&A sessions with professional formatting
 
-### Commands
+### 3. 🤖 AI-Powered Business Intelligence
+
+**Strategic Decision Support:**
+- **Executive Dashboards**: C-suite ready reports with key insights
+- **Predictive Analytics**: Trend forecasting with confidence intervals  
+- **Risk Assessment**: Automated risk scoring with mitigation strategies
+- **Compliance Reporting**: Audit-ready documentation with provenance tracking
+- **Multi-Language Support**: Italian and English query processing
+
+## 🛠️ Development
+
+### Quality Assurance
 
 ```bash
-# Linting and formatting
-ruff check .                        # Fast Python linter
-black .                            # Code formatter
-ruff check --fix .                 # Auto-fix issues
+# Code Quality
+ruff check .                       # Fast linting with 800+ rules
+black .                           # Consistent code formatting  
+mypy src/                         # Type checking
+bandit src/                       # Security scanning
 
-# Testing
-pytest                             # Run all tests
-pytest tests/test_csv_analyzer.py  # Single module
-pytest -v --tb=short              # Verbose output
+# Testing Suite  
+pytest                            # Run all tests (80% coverage target)
+pytest -m unit                   # Unit tests only
+pytest -m integration            # Integration tests  
+pytest -v --tb=short            # Verbose output
 
-# Dependencies
-uv add package-name                # Add dependency
-uv remove package-name             # Remove dependency  
-uv pip compile requirements.txt    # Update lockfile
+# Performance Testing
+pytest -m slow                   # Performance benchmarks
+pytest --cov=src --cov-report=html  # Coverage report
+```
+
+### Dependency Management
+
+```bash
+# Fast dependency management with uv (10-100x faster than pip)
+uv add package-name               # Add production dependency
+uv add --dev package-name         # Add development dependency
+uv remove package-name            # Remove dependency
+uv pip compile requirements.txt   # Update lockfile
+uv sync                          # Sync environment
+```
+
+### Architecture Validation
+
+```bash
+# Domain Model Validation
+python -m src.domain.entities.financial_data  # Test entity integrity
+python -m src.domain.value_objects.money     # Test value objects
+
+# Repository Testing  
+python -m src.infrastructure.repositories    # Test data persistence
+
+# Dependency Injection Validation
+python -m src.core.dependency_injection      # Test DI container
 ```
 
 ## Troubleshooting

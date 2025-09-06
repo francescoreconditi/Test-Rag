@@ -64,6 +64,185 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+def show_intelligent_faq():
+    """Show intelligent FAQ generation page."""
+    st.header("💬 FAQ Intelligenti")
+    st.caption("Genera automaticamente domande frequenti basate sui tuoi documenti, come Google NotebookLM")
+    
+    rag_engine = st.session_state.services['rag_engine']
+    
+    # Check if there are documents in the database
+    stats = rag_engine.get_index_stats()
+    
+    if stats.get('total_vectors', 0) == 0:
+        st.warning("📭 Nessun documento nel database. Carica documenti nella sezione 'RAG Documenti' per generare FAQ.")
+        return
+    
+    # Show current database stats
+    st.info(f"📊 Database pronto: {stats.get('total_vectors', 0)} blocchi indicizzati")
+    
+    # FAQ Generation Section
+    st.subheader("🎯 Genera FAQ")
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        num_questions = st.slider(
+            "Numero di domande FAQ da generare",
+            min_value=5,
+            max_value=20,
+            value=10,
+            step=1,
+            help="Scegli quante domande frequenti vuoi generare"
+        )
+    
+    with col2:
+        st.metric("Documenti Indicizzati", stats.get('total_vectors', 0))
+    
+    # Generate FAQ button
+    col_generate, col_info = st.columns([1, 2])
+    
+    with col_generate:
+        generate_button = st.button("🤖 Genera FAQ", type="primary")
+    
+    with col_info:
+        if generate_button:
+            st.info("⚡ L'AI sta analizzando il database per creare domande intelligenti...")
+    
+    # Generate FAQ when button is clicked
+    if generate_button:
+        with st.spinner("🧠 Generando FAQ intelligenti basate sui tuoi documenti..."):
+            faq_result = rag_engine.generate_faq(num_questions=num_questions)
+        
+        if faq_result.get('success', False):
+            # Store FAQ in session state
+            st.session_state.generated_faq = faq_result
+            st.rerun()
+    
+    # Display generated FAQ
+    if hasattr(st.session_state, 'generated_faq') and st.session_state.generated_faq:
+        faq_data = st.session_state.generated_faq
+        
+        if faq_data.get('error'):
+            st.error(f"❌ {faq_data['error']}")
+        else:
+            faqs = faq_data.get('faqs', [])
+            metadata = faq_data.get('metadata', {})
+            
+            if faqs:
+                st.divider()
+                st.subheader("📝 FAQ Generate")
+                st.caption(f"Generate {len(faqs)} domande il {metadata.get('generated_at', 'N/A')}")
+                
+                # Show metadata
+                if metadata.get('document_types'):
+                    st.info(f"📊 Basate su documenti di tipo: {', '.join(metadata.get('document_types', []))}")
+                
+                # PDF Export functionality for FAQ
+                st.divider()
+                st.subheader("📄 Esporta FAQ")
+                
+                col_export_faq1, col_export_faq2 = st.columns([1, 1])
+                
+                with col_export_faq1:
+                    if st.button("📄 Esporta FAQ PDF", type="primary", key="export_faq_pdf"):
+                        try:
+                            from src.presentation.streamlit.pdf_exporter import PDFExporter
+                            
+                            # Generate PDF
+                            pdf_exporter = PDFExporter()
+                            pdf_buffer = pdf_exporter.export_faq(
+                                faqs=faqs,
+                                metadata=metadata
+                            )
+                            
+                            # Create download button
+                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                            filename = f"faq_intelligenti_{timestamp}.pdf"
+                            
+                            st.download_button(
+                                label="📥 Scarica FAQ PDF",
+                                data=pdf_buffer.getvalue(),
+                                file_name=filename,
+                                mime="application/pdf",
+                                key="download_faq_pdf"
+                            )
+                            
+                            st.success(f"✅ PDF FAQ generato con successo! ({len(faqs)} domande)")
+                            
+                        except Exception as e:
+                            st.error(f"❌ Errore nella generazione del PDF: {str(e)}")
+                
+                with col_export_faq2:
+                    st.info(f"📊 {len(faqs)} domande pronte per l'esportazione")
+                
+                st.divider()
+                
+                # Display each FAQ
+                for i, faq in enumerate(faqs, 1):
+                    with st.expander(f"❓ Domanda {i}: {faq.get('question', 'N/A')[:80]}...", expanded=i <= 3):
+                        # Question
+                        st.markdown(f"**🤔 Domanda:**")
+                        st.write(faq.get('question', 'N/A'))
+                        
+                        # Answer
+                        st.markdown(f"**💡 Risposta:**")
+                        st.write(faq.get('answer', 'N/A'))
+                        
+                        # Sources
+                        sources = faq.get('sources', [])
+                        if sources:
+                            st.markdown(f"**📚 Fonti ({len(sources)}):**")
+                            for j, source in enumerate(sources, 1):
+                                with st.container():
+                                    score = source.get('score', 0)
+                                    st.caption(f"Fonte {j} (Rilevanza: {score:.1%})")
+                                    
+                                    # Source text preview
+                                    source_text = source.get('text', 'N/A')
+                                    if len(source_text) > 200:
+                                        source_text = source_text[:200] + "..."
+                                    st.text(source_text)
+                                    
+                                    # Source metadata
+                                    if source.get('metadata'):
+                                        metadata_items = []
+                                        for key in ['source', 'page', 'file_type']:
+                                            if key in source['metadata']:
+                                                value = source['metadata'][key]
+                                                metadata_items.append(f"{key.title()}: {value}")
+                                        
+                                        if metadata_items:
+                                            st.caption(" | ".join(metadata_items))
+                        
+                        st.caption(f"Generata il: {faq.get('generated_at', 'N/A')}")
+                
+                # Action buttons at the bottom
+                st.divider()
+                col_actions1, col_actions2, col_actions3 = st.columns(3)
+                
+                with col_actions1:
+                    if st.button("🔄 Genera Nuove FAQ", key="regenerate_faq"):
+                        del st.session_state.generated_faq
+                        st.rerun()
+                
+                with col_actions2:
+                    if st.button("📋 Salva FAQ", key="save_faq"):
+                        if 'saved_faqs' not in st.session_state:
+                            st.session_state.saved_faqs = []
+                        
+                        st.session_state.saved_faqs.append({
+                            'faqs': faqs,
+                            'metadata': metadata,
+                            'saved_at': datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                        })
+                        
+                        st.success(f"✅ FAQ salvate! (Totale salvate: {len(st.session_state.saved_faqs)})")
+                
+                with col_actions3:
+                    if hasattr(st.session_state, 'saved_faqs') and st.session_state.saved_faqs:
+                        st.info(f"💾 {len(st.session_state.saved_faqs)} set di FAQ salvate")
+
 def main():
     """Main application function."""
     
@@ -88,7 +267,7 @@ def main():
         # Navigation
         page = st.selectbox(
             "Seleziona Modulo",
-            ["📈 Analisi Dati", "📚 RAG Documenti", "🔍 Explorer Database", "🤖 Approfondimenti IA", "📊 Cruscotto", "⚙️ Impostazioni"]
+            ["📈 Analisi Dati", "📚 RAG Documenti", "💬 FAQ Intelligenti", "🔍 Explorer Database", "🤖 Approfondimenti IA", "📊 Cruscotto", "⚙️ Impostazioni"]
         )
         
         st.divider()
@@ -106,6 +285,8 @@ def main():
         show_data_analysis()
     elif page == "📚 RAG Documenti":
         show_document_rag()
+    elif page == "💬 FAQ Intelligenti":
+        show_intelligent_faq()
     elif page == "🔍 Explorer Database":
         show_database_explorer()
     elif page == "🤖 Approfondimenti IA":
@@ -486,6 +667,108 @@ def show_document_rag():
         st.subheader("📝 Risposta")
         st.markdown(st.session_state.rag_response['answer'])
         
+        # PDF Export functionality
+        st.divider()
+        st.subheader("📄 Esporta Sessione Q&A")
+        
+        # Import PDF exporter
+        from src.presentation.streamlit.pdf_exporter import PDFExporter
+        
+        col_export1, col_export2, col_export3 = st.columns([1, 1, 2])
+        
+        with col_export1:
+            if st.button("📄 Esporta PDF", type="primary", key="export_single_pdf"):
+                try:
+                    # Get the current Q&A session data
+                    if hasattr(st.session_state, 'last_query'):
+                        question = st.session_state.last_query
+                    else:
+                        # Try to get from text area (may not work in all cases)
+                        question = query if 'query' in locals() and query else "Domanda non disponibile"
+                    
+                    answer = st.session_state.rag_response['answer']
+                    sources = st.session_state.rag_response['sources']
+                    
+                    # Create metadata
+                    metadata = {
+                        'timestamp': datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                        'sources_count': len(sources),
+                        'analysis_type': query_analysis_type if 'query_analysis_type' in locals() and query_analysis_type else 'Standard'
+                    }
+                    
+                    # Generate PDF
+                    pdf_exporter = PDFExporter()
+                    pdf_buffer = pdf_exporter.export_qa_session(
+                        question=question,
+                        answer=answer, 
+                        sources=sources,
+                        metadata=metadata
+                    )
+                    
+                    # Create download button
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"qa_session_{timestamp}.pdf"
+                    
+                    st.download_button(
+                        label="📥 Scarica PDF",
+                        data=pdf_buffer.getvalue(),
+                        file_name=filename,
+                        mime="application/pdf",
+                        key="download_qa_pdf"
+                    )
+                    
+                    st.success("✅ PDF generato con successo! Usa il pulsante 'Scarica PDF' per salvarlo.")
+                    
+                except Exception as e:
+                    st.error(f"❌ Errore nella generazione del PDF: {str(e)}")
+        
+        with col_export2:
+            if st.button("📋 Salva Sessione", key="save_session"):
+                # Store the current session for later export
+                if 'qa_sessions' not in st.session_state:
+                    st.session_state.qa_sessions = []
+                
+                session_data = {
+                    'question': st.session_state.get('last_query', query if 'query' in locals() and query else "Domanda non disponibile"),
+                    'answer': st.session_state.rag_response['answer'],
+                    'sources': st.session_state.rag_response['sources'],
+                    'timestamp': datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                    'metadata': {
+                        'analysis_type': query_analysis_type if 'query_analysis_type' in locals() and query_analysis_type else 'Standard'
+                    }
+                }
+                
+                st.session_state.qa_sessions.append(session_data)
+                st.success(f"✅ Sessione salvata! ({len(st.session_state.qa_sessions)} sessioni totali)")
+        
+        with col_export3:
+            # Show export multiple sessions option if sessions exist
+            if hasattr(st.session_state, 'qa_sessions') and st.session_state.qa_sessions:
+                if st.button(f"📑 Esporta tutte ({len(st.session_state.qa_sessions)} sessioni)", key="export_all_sessions"):
+                    try:
+                        pdf_exporter = PDFExporter()
+                        pdf_buffer = pdf_exporter.export_multiple_sessions(st.session_state.qa_sessions)
+                        
+                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        filename = f"qa_sessions_report_{timestamp}.pdf"
+                        
+                        st.download_button(
+                            label="📥 Scarica Report Completo",
+                            data=pdf_buffer.getvalue(),
+                            file_name=filename,
+                            mime="application/pdf",
+                            key="download_all_sessions_pdf"
+                        )
+                        
+                        st.success(f"✅ Report completo generato con {len(st.session_state.qa_sessions)} sessioni!")
+                        
+                    except Exception as e:
+                        st.error(f"❌ Errore nella generazione del report: {str(e)}")
+        
+        # Store current query for PDF export
+        if 'query' in locals() and query:
+            st.session_state.last_query = query
+        
         if st.session_state.rag_response['sources']:
             st.subheader("📚 Fonti")
             for i, source in enumerate(st.session_state.rag_response['sources'], 1):
@@ -517,6 +800,53 @@ def show_document_rag():
         st.subheader("📑 Analisi Automatica dei Documenti")
         st.caption("Riepilogo intelligente del contenuto, simile a NotebookLM")
         st.info("ℹ️ I documenti sono stati processati e indicizzati. I file temporanei sono stati rimossi per sicurezza, ma il contenuto rimane accessibile per le query.")
+        
+        # PDF Export functionality for document analyses
+        st.divider()
+        st.subheader("📄 Esporta Analisi Documenti")
+        
+        col_export_docs1, col_export_docs2 = st.columns([1, 1])
+        
+        with col_export_docs1:
+            if st.button("📄 Esporta Analisi PDF", type="primary", key="export_document_analysis_pdf"):
+                try:
+                    from src.presentation.streamlit.pdf_exporter import PDFExporter
+                    
+                    # Create metadata for the analysis
+                    analysis_metadata = {
+                        'numero_documenti': len(st.session_state.document_analyses),
+                        'timestamp': datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                        'tipo_analisi': 'Analisi Automatica Documenti RAG'
+                    }
+                    
+                    # Generate PDF
+                    pdf_exporter = PDFExporter()
+                    pdf_buffer = pdf_exporter.export_document_analysis(
+                        document_analyses=st.session_state.document_analyses,
+                        metadata=analysis_metadata
+                    )
+                    
+                    # Create download button
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"analisi_documenti_{timestamp}.pdf"
+                    
+                    st.download_button(
+                        label="📥 Scarica Analisi PDF",
+                        data=pdf_buffer.getvalue(),
+                        file_name=filename,
+                        mime="application/pdf",
+                        key="download_analysis_pdf"
+                    )
+                    
+                    st.success(f"✅ PDF delle analisi generato con successo! ({len(st.session_state.document_analyses)} documenti)")
+                    
+                except Exception as e:
+                    st.error(f"❌ Errore nella generazione del PDF: {str(e)}")
+        
+        with col_export_docs2:
+            st.info(f"📊 {len(st.session_state.document_analyses)} documenti analizzati pronti per l'esportazione")
+        
+        st.divider()
         
         for file_name, analysis in st.session_state.document_analyses.items():
             with st.expander(f"📄 {file_name}", expanded=True):

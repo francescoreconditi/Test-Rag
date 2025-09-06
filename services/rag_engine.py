@@ -1074,3 +1074,149 @@ class RAGEngine:
         except Exception as e:
             logger.error(f"Error searching in database: {str(e)}")
             return []
+    
+    def generate_faq(self, num_questions: int = 10) -> Dict[str, Any]:
+        """Generate FAQ based on vector database content.
+        
+        Args:
+            num_questions: Number of FAQ questions to generate
+            
+        Returns:
+            Dictionary containing generated FAQ with questions and answers
+        """
+        try:
+            if not self.index:
+                return {
+                    'error': 'Nessun documento indicizzato. Carica documenti prima di generare FAQ.',
+                    'faqs': []
+                }
+            
+            # Get database statistics to understand content
+            stats = self.get_index_stats()
+            if stats.get('total_vectors', 0) == 0:
+                return {
+                    'error': 'Database vettoriale vuoto. Carica documenti prima di generare FAQ.',
+                    'faqs': []
+                }
+            
+            logger.info(f"Generating FAQ with {num_questions} questions from {stats.get('total_vectors')} vectors")
+            
+            # Get a sample of documents to understand content themes
+            exploration_data = self.explore_database(limit=20)
+            sample_texts = []
+            document_types = set()
+            
+            if exploration_data.get('documents'):
+                for doc in exploration_data['documents']:
+                    sample_texts.append(doc.get('text', '')[:500])  # Get first 500 chars
+                    if 'metadata' in doc and 'source' in doc['metadata']:
+                        source = doc['metadata']['source'].lower()
+                        if 'bilancio' in source or 'balance' in source:
+                            document_types.add('bilancio')
+                        elif 'fatturato' in source or 'revenue' in source or 'vendite' in source:
+                            document_types.add('fatturato')
+                        elif 'contratto' in source or 'contract' in source:
+                            document_types.add('contratto')
+                        elif 'report' in source:
+                            document_types.add('report')
+                        else:
+                            document_types.add('generale')
+            
+            # Create context for FAQ generation
+            content_sample = '\n\n---\n\n'.join(sample_texts[:10])  # Use first 10 samples
+            document_types_str = ', '.join(document_types) if document_types else 'documenti aziendali'
+            
+            # Generate FAQ using LLM
+            faq_prompt = f"""
+Sei un esperto di business intelligence e analisi aziendale. Basandoti sui seguenti contenuti dal database aziendale, genera {num_questions} domande frequenti (FAQ) pertinenti e utili.
+
+TIPI DI DOCUMENTI PRESENTI: {document_types_str}
+
+CAMPIONE DEL CONTENUTO:
+{content_sample}
+
+ISTRUZIONI:
+1. Genera {num_questions} domande che un manager o analista farebbe tipicamente su questi dati
+2. Le domande devono essere specifiche e pratiche per il business
+3. Varia i tipi di domande: operative, strategiche, finanziarie, di performance
+4. Usa terminologia italiana e professionale
+5. Le domande devono essere basate sui contenuti effettivamente presenti nel database
+
+FORMATO RICHIESTO:
+Per ogni domanda, fornisci SOLO:
+- Una domanda chiara e specifica
+- NON fornire risposte, solo le domande
+
+Esempi di buone domande:
+- "Qual è il margine EBITDA per il Q4 2024?"
+- "Quali sono i principali rischi finanziari identificati nell'ultimo bilancio?"
+- "Come si confrontano le performance di vendita rispetto all'anno precedente?"
+
+Genera SOLO le domande, una per riga, numerate da 1 a {num_questions}:
+"""
+
+            # Query the LLM for FAQ generation
+            llm_response = Settings.llm.complete(faq_prompt)
+            faq_questions_text = str(llm_response)
+            
+            # Parse questions from response
+            questions = []
+            for line in faq_questions_text.split('\n'):
+                line = line.strip()
+                if line and (line[0].isdigit() or line.startswith('-') or line.startswith('•')):
+                    # Clean up the question
+                    question = line
+                    # Remove numbering (1., 2., -, •, etc.)
+                    question = question.lstrip('0123456789.-• \t')
+                    if question:
+                        questions.append(question)
+            
+            # Generate answers for each question using RAG
+            faqs = []
+            for i, question in enumerate(questions[:num_questions], 1):
+                try:
+                    # Query the database for answer
+                    rag_response = self.query(question, top_k=3)
+                    
+                    answer = rag_response.get('answer', 'Non sono riuscito a trovare informazioni specifiche su questo argomento nei documenti caricati.')
+                    sources = rag_response.get('sources', [])
+                    
+                    faqs.append({
+                        'id': i,
+                        'question': question,
+                        'answer': answer,
+                        'sources': sources,
+                        'generated_at': datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                    })
+                    
+                except Exception as e:
+                    logger.warning(f"Error generating answer for question {i}: {e}")
+                    faqs.append({
+                        'id': i,
+                        'question': question,
+                        'answer': 'Errore nella generazione della risposta. Riprova più tardi.',
+                        'sources': [],
+                        'generated_at': datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                    })
+            
+            result = {
+                'faqs': faqs,
+                'metadata': {
+                    'total_questions': len(faqs),
+                    'generated_at': datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                    'document_types': list(document_types),
+                    'total_documents': stats.get('total_vectors', 0)
+                },
+                'success': True
+            }
+            
+            logger.info(f"Successfully generated {len(faqs)} FAQ questions")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error generating FAQ: {str(e)}")
+            return {
+                'error': f'Errore nella generazione delle FAQ: {str(e)}',
+                'faqs': [],
+                'success': False
+            }
