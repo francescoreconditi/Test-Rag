@@ -1,8 +1,17 @@
-# Business Intelligence RAG System
+# Business Intelligence RAG System 🏢
 
-A **next-generation Business Intelligence platform** that combines structured data analysis with advanced RAG (Retrieval-Augmented Generation) capabilities. Built with **Clean Architecture**, **Domain-Driven Design**, and **enterprise-grade patterns** for scalable financial analysis and document intelligence.
+A **next-generation Enterprise Business Intelligence platform** that combines structured data analysis with advanced RAG (Retrieval-Augmented Generation) capabilities. Built with **Clean Architecture**, **Domain-Driven Design**, and **enterprise-grade patterns** for scalable financial analysis and document intelligence.
 
 ## 🎯 Core Features
+
+### 🚀 **NEW: Enterprise Mode**
+- **🔧 Enterprise Toggle**: One-click activation in Streamlit sidebar
+- **📊 Source References**: Complete data provenance tracking
+- **✅ Financial Guardrails**: Automated balance sheet and PFN validation
+- **🤖 Hybrid Retrieval**: BM25 + Embeddings + Cross-encoder reranking
+- **🧠 Ontology Mapping**: 31 canonical metrics with 219+ synonyms (Italian/English)
+- **🗄️ Dimensional Fact Table**: Star schema with DuckDB/SQLite persistence
+- **⚡ Enterprise Orchestration**: Integrated workflow with 6-step processing pipeline
 
 ### 📊 Advanced Financial Analytics
 - **Smart CSV Processing** with Italian number format support (`1.234,56`)
@@ -17,7 +26,7 @@ A **next-generation Business Intelligence platform** that combines structured da
 - **Semantic Search** with Qdrant vector database
 - **Context-Aware Queries** combining structured and unstructured data
 - **Metadata Extraction** with provenance tracking
-- **PDF Export** of Q&A sessions for compliance
+- **Professional PDF Export** with ZCS Company styling
 - **Intelligent Chunking** with overlap optimization
 
 ### 🤖 AI-Driven Business Intelligence
@@ -30,11 +39,12 @@ A **next-generation Business Intelligence platform** that combines structured da
 
 ### 💼 Enterprise-Ready Architecture
 - **Clean Architecture** with domain separation
-- **Repository Pattern** with SQLite persistence
+- **Repository Pattern** with SQLite/DuckDB persistence
 - **Dependency Injection** container
 - **Comprehensive Logging** with sensitive data filtering
 - **Type Safety** with full MyPy compliance
 - **Error Handling** with structured exceptions
+- **Graceful Degradation** for optional enterprise components
 
 ## 🏗️ Architecture Overview
 
@@ -66,18 +76,28 @@ graph TD
     end
 ```
 
-### Technology Stack
+### Enterprise Technology Stack
 
 | Layer | Component | Technology | Purpose |
 |-------|-----------|------------|---------|
-| **Presentation** | UI Framework | Streamlit 1.29+ | Web interface |
+| **Presentation** | UI Framework | Streamlit 1.29+ | Web interface with Enterprise mode |
 | **Application** | Business Logic | Python 3.10+ | Use cases & interfaces |
+| | **Enterprise Orchestrator** | **Custom Pipeline** | **6-step processing workflow** |
+| | **Document Router** | **Content Classification** | **Structured/Unstructured routing** |
+| | **Hybrid Retrieval** | **BM25 + Embeddings** | **Advanced search with reranking** |
 | **Domain** | Core Models | Pydantic 2.0+ | Entities & value objects |
+| | **Source References** | **Provenance Tracking** | **Complete data lineage** |
+| | **Financial Guardrails** | **Validation Rules** | **Balance sheet coherence checks** |
 | **Infrastructure** | Vector DB | Qdrant 1.7+ | Semantic search |
+| | **Fact Table** | **DuckDB/SQLite** | **Dimensional data warehouse** |
 | | LLM Service | OpenAI GPT-4 | AI reasoning |
+| | **Ontology Mapping** | **YAML + RapidFuzz** | **31 metrics, 219+ synonyms** |
+| | **Data Normalization** | **Multi-locale Support** | **Italian formats & periods** |
 | | Data Processing | Pandas 2.1+ | CSV analysis |
-| | Persistence | SQLite | Repository storage |
 | | Visualization | Plotly 5.18+ | Interactive charts |
+| **ML/AI** | **Embeddings** | **SentenceTransformers** | **All-MiniLM-L6-v2 model** |
+| | **Reranker** | **CrossEncoder** | **MS-MARCO-MiniLM-L-2-v2** |
+| | **Search** | **BM25Okapi** | **Keyword-based retrieval** |
 | **DevOps** | Package Manager | uv | Fast dependencies |
 | | Linting | Ruff + Black | Code quality |
 | | Type Checking | MyPy | Type safety |
@@ -159,36 +179,61 @@ QDRANT_COLLECTION_NAME=business_documents
 # AI Configuration
 LLM_MODEL=gpt-4-turbo-preview
 EMBEDDING_MODEL=text-embedding-3-small
-TEMPERATURE=0.7
+TEMPERATURE=0.1
 MAX_TOKENS=2000
 
 # Document Processing
 CHUNK_SIZE=512
 CHUNK_OVERLAP=50
 
+# RAG Performance (NEW)
+RAG_RESPONSE_MODE=compact
+RAG_SIMILARITY_TOP_K=3
+RAG_ENABLE_CACHING=True
+
+# Enterprise Features (NEW)
+HF_HUB_DISABLE_SYMLINKS_WARNING=1
+
 # Application
 DEBUG_MODE=false
 APP_NAME=Business Intelligence RAG System
 ```
 
-## 📁 Project Structure
+## 📁 Enterprise Project Structure
 
 ```
 src/
 ├── domain/                    # Core business logic (entities, value objects)
 │   ├── entities/             # Business entities (FinancialData, Document, AnalysisResult)
-│   ├── value_objects/        # Immutable values (Money, Percentage, DateRange)
+│   ├── value_objects/        # NEW: Source references, guardrails, validation
+│   │   ├── source_reference.py    # Complete data provenance tracking
+│   │   └── guardrails.py          # Financial validation rules
 │   └── exceptions/           # Domain-specific exceptions
-├── application/              # Use cases and interfaces
-│   └── interfaces/           # Contracts for external dependencies
+├── application/              # Use cases and interfaces  
+│   ├── interfaces/           # Contracts for external dependencies
+│   └── services/             # NEW: Enterprise application services
+│       ├── enterprise_orchestrator.py  # Main workflow coordinator
+│       ├── document_router.py          # Document classification
+│       ├── hybrid_retrieval.py         # BM25 + Embeddings search
+│       ├── ontology_mapper.py          # Metric synonyms mapping
+│       └── data_normalizer.py          # Multi-locale normalization
 ├── infrastructure/           # External concerns (databases, APIs)
 │   └── repositories/         # Data persistence implementations
+│       └── fact_table_repository.py   # NEW: Dimensional data warehouse
 ├── core/                     # Cross-cutting concerns
 │   ├── config.py            # Configuration management
 │   ├── logging_config.py    # Structured logging
 │   └── dependency_injection.py # DI container
-└── presentation/             # UI layer (Streamlit)
-    └── streamlit/
+├── presentation/             # UI layer (Streamlit)
+│   └── streamlit/
+│       └── pdf_exporter.py   # NEW: Professional PDF export (ZCS styling)
+└── services/                 # Legacy services (being migrated)
+    ├── rag_engine.py        # Enhanced with enterprise orchestrator
+    └── query_cache.py       # Performance optimization
+
+config/
+└── ontology/                 # NEW: Financial metrics ontology
+    └── financial_metrics.yaml     # 31 metrics, 219+ synonyms
 
 tests/
 ├── unit/                     # Unit tests for domain logic
@@ -197,6 +242,26 @@ tests/
 ```
 
 ## 🚀 Usage Guide
+
+### 🚀 **NEW: Enterprise Mode Usage**
+
+**Activate Enterprise Features:**
+1. **Toggle Enterprise Mode** in Streamlit sidebar (🚀 Modalità Enterprise)
+2. **Upload Financial Documents** (PDF, Excel, Word)
+3. **Ask Questions** - Enterprise pipeline automatically:
+   - Routes documents (structured/unstructured/hybrid)
+   - Performs hybrid retrieval (BM25 + embeddings + reranking)
+   - Extracts and normalizes financial metrics
+   - Maps to canonical ontology (Italian ↔ English)
+   - Validates balance sheet coherence
+   - Stores with full provenance in dimensional fact table
+
+**Enterprise Query Results Include:**
+- **📊 Metriche Rilevate**: Normalized values with confidence scores
+- **✅ Risultati di Validazione**: Coherence checks (balance sheet, PFN)
+- **⚡ Processing Statistics**: Time, confidence, records saved
+- **🔍 Source References**: Complete data provenance
+- **⚠️ Validation Warnings**: Accounting inconsistencies flagged
 
 ### 1. 📊 Financial Data Analysis
 
@@ -217,7 +282,7 @@ tests/
 2. **Intelligent Indexing**: Context-aware chunking with Qdrant vector storage
 3. **Natural Language Queries**: Ask complex questions in Italian or English
 4. **Context Integration**: Combines financial data insights with document content
-5. ****NEW**: PDF Export** - Export Q&A sessions with professional formatting
+5. **Professional PDF Export** - Export Q&A sessions with ZCS Company styling
 
 ### 3. 🤖 AI-Powered Business Intelligence
 

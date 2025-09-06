@@ -17,6 +17,14 @@ from config.settings import settings
 from services.format_helper import format_analysis_result
 from services.prompt_router import choose_prompt
 from services.query_cache import QueryCache
+try:
+    from src.application.services.enterprise_orchestrator import EnterpriseOrchestrator, EnterpriseQuery
+    ENTERPRISE_AVAILABLE = True
+except ImportError:
+    logger.warning("Enterprise orchestrator not available")
+    ENTERPRISE_AVAILABLE = False
+    EnterpriseOrchestrator = None
+    EnterpriseQuery = None
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -33,6 +41,8 @@ class RAGEngine:
         self.collection_name = settings.qdrant_collection_name
         # Initialize query cache if enabled
         self.query_cache = QueryCache(ttl_seconds=3600) if settings.rag_enable_caching else None
+        # Initialize enterprise orchestrator
+        self.enterprise_orchestrator = None
         self._initialize_components()
 
     def _initialize_components(self):
@@ -69,8 +79,17 @@ class RAGEngine:
 
             # Initialize or load existing index
             self._initialize_index()
+            
+            # Initialize enterprise orchestrator after RAG components are ready
+            if ENTERPRISE_AVAILABLE:
+                self.enterprise_orchestrator = EnterpriseOrchestrator(
+                    rag_engine=self,
+                    csv_analyzer=None  # Will be set externally if needed
+                )
+            else:
+                self.enterprise_orchestrator = None
 
-            logger.info("RAG Engine initialized successfully")
+            logger.info("RAG Engine initialized successfully with enterprise orchestrator")
 
         except Exception as e:
             logger.error(f"Error initializing RAG Engine: {str(e)}")
@@ -582,6 +601,153 @@ class RAGEngine:
                 'sources': [],
                 'confidence': 0
             }
+
+    async def enterprise_query(self, 
+                             query_text: str, 
+                             enable_enterprise_features: bool = True,
+                             **kwargs) -> Dict[str, Any]:
+        """
+        Enterprise query with full validation, normalization, and fact table integration.
+        
+        Args:
+            query_text: The query to process
+            enable_enterprise_features: Whether to use enterprise processing pipeline
+            **kwargs: Additional parameters for EnterpriseQuery
+        """
+        if not enable_enterprise_features or not self.enterprise_orchestrator or not ENTERPRISE_AVAILABLE:
+            # Fallback to standard query
+            return self.query(query_text, **kwargs)
+        
+        try:
+            # Create enterprise query - filter known parameters
+            valid_params = {
+                'query_text': query_text,
+                'top_k': kwargs.get('top_k'),
+                'use_context': kwargs.get('use_context'),
+                'csv_analysis': kwargs.get('csv_analysis'),
+                'confidence_threshold': kwargs.get('confidence_threshold', 70.0)
+            }
+            
+            # Remove None values
+            valid_params = {k: v for k, v in valid_params.items() if v is not None}
+            
+            enterprise_query = EnterpriseQuery(**valid_params)
+            
+            # Get current documents for processing
+            documents = []
+            if hasattr(self, '_last_document_texts'):
+                for filename, content in self._last_document_texts.items():
+                    documents.append({
+                        'filename': filename,
+                        'content': content,
+                        'hash': str(hash(content))
+                    })
+            
+            # Process through enterprise pipeline
+            processing_result = await self.enterprise_orchestrator.process_enterprise_query(
+                enterprise_query, 
+                documents
+            )
+            
+            # Generate AI response and get sources
+            ai_response = self._generate_ai_response_with_sources(processing_result)
+            
+            # Convert processing result to standard query response format
+            enterprise_response = {
+                'answer': ai_response['answer'],
+                'sources': ai_response['sources'],
+                'confidence': processing_result.confidence_score,
+                'analysis_type': 'enterprise',
+                'enterprise_data': {
+                    'source_references': [ref.to_dict() for ref in processing_result.source_refs],
+                    'validation_results': [val.to_dict() for val in processing_result.validation_results],
+                    'normalized_metrics': {
+                        k: {
+                            'value': v.to_float(),
+                            'original': v.original_value,
+                            'scale': v.scale_applied.unit_name,
+                            'confidence': v.confidence
+                        } for k, v in processing_result.normalized_data.items()
+                    },
+                    'mapped_metrics': processing_result.mapped_metrics,
+                    'fact_table_records': processing_result.fact_table_records,
+                    'processing_time_ms': processing_result.processing_time_ms,
+                    'warnings': processing_result.warnings,
+                    'errors': processing_result.errors
+                }
+            }
+            
+            logger.info(f"Enterprise query processed with confidence {processing_result.confidence_score:.1%}")
+            return enterprise_response
+            
+        except Exception as e:
+            logger.error(f"Enterprise query failed, falling back to standard: {e}")
+            # Fallback to standard query on error
+            return self.query(query_text, **kwargs)
+    
+    def _generate_ai_response_with_sources(self, processing_result) -> Dict[str, Any]:
+        """Generate AI response with sources from processing result."""
+        try:
+            # Use standard query method to get AI response and sources
+            if hasattr(processing_result, 'query_text') and self.index:
+                standard_response = self.query(processing_result.query_text, top_k=3)
+                
+                # Format enterprise response with AI answer + enterprise metadata
+                enhanced_answer = standard_response['answer']
+                
+                # Add enterprise metadata to the response
+                metadata_parts = []
+                
+                # Add normalized metrics if found
+                if processing_result.normalized_data:
+                    metadata_parts.append("\n\n## 📊 Metriche Finanziarie Rilevate")
+                    for metric_name, normalized in processing_result.normalized_data.items():
+                        mapped = processing_result.mapped_metrics.get(metric_name)
+                        canonical_name = mapped[1] if mapped else metric_name
+                        metadata_parts.append(
+                            f"- **{canonical_name}**: {normalized.to_base_units():,.0f}"
+                            f" (scala: {normalized.scale_applied.unit_name})"
+                        )
+                
+                # Add validation warnings if any
+                if processing_result.validation_results:
+                    failed_validations = [v for v in processing_result.validation_results if not v.passed]
+                    if failed_validations:
+                        metadata_parts.append("\n\n## ⚠️ Avvisi di Validazione")
+                        for validation in failed_validations:
+                            metadata_parts.append(f"- {validation.message}")
+                
+                # Add processing metadata at the end
+                processing_metadata = []
+                if processing_result.fact_table_records > 0:
+                    processing_metadata.append(f"{processing_result.fact_table_records} record salvati nel fact table")
+                processing_metadata.append(f"Elaborato in {processing_result.processing_time_ms:.0f}ms con confidenza {processing_result.confidence_score:.1%}")
+                
+                if processing_metadata:
+                    metadata_parts.append(f"\n\n*{' • '.join(processing_metadata)}*")
+                
+                # Combine AI answer with enterprise metadata
+                if metadata_parts:
+                    enhanced_answer = enhanced_answer + "\n".join(metadata_parts)
+                
+                return {
+                    'answer': enhanced_answer,
+                    'sources': standard_response['sources']
+                }
+            
+            # Fallback if no query_text or index
+            return {
+                'answer': f"Elaborato in {processing_result.processing_time_ms:.0f}ms con confidenza {processing_result.confidence_score:.1%}",
+                'sources': []
+            }
+            
+        except Exception as e:
+            logger.error(f"Error generating AI response with sources: {e}")
+            return {
+                'answer': f"Errore nella generazione della risposta: {str(e)}",
+                'sources': []
+            }
+    
 
     def _enhance_query_with_analysis_type(self, query_text: str, analysis_type: str) -> str:
         """Enhance query based on analysis type."""

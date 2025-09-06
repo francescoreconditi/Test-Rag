@@ -23,6 +23,7 @@ docker-compose up -d               # Starts Qdrant + Streamlit app
 ### Running the Application
 ```bash
 streamlit run app.py              # Local development (localhost:8501)
+streamlit run app.py --server.port 8502  # Alternative port
 docker-compose up app             # Containerized with Qdrant
 ```
 
@@ -41,79 +42,148 @@ pytest -v --tb=short            # Verbose with short traceback
 uv add package-name              # Add new dependency
 uv remove package-name           # Remove dependency
 uv pip compile requirements.txt  # Update lock file
+
+# Enterprise components testing
+python -c "from src.application.services.enterprise_orchestrator import EnterpriseOrchestrator; print('✅ Enterprise components OK')"
 ```
 
-## Architecture Overview
+## Enterprise Architecture Overview
 
-### Core System Design
-The application follows a **three-layer service architecture**:
+### Enterprise System Design
+The application now follows a **six-layer enterprise architecture**:
 
-1. **Data Layer**: CSV analysis (`CSVAnalyzer`) for structured financial data
-2. **Knowledge Layer**: RAG engine (`RAGEngine`) for unstructured document processing  
-3. **Intelligence Layer**: LLM service (`LLMService`) for AI-powered insights generation
+1. **Presentation Layer**: Streamlit UI with Enterprise mode toggle
+2. **Application Layer**: Enterprise orchestrator coordinating all services  
+3. **Domain Layer**: Source references, guardrails, and financial validation
+4. **Knowledge Layer**: Hybrid retrieval (BM25 + embeddings + reranking)
+5. **Intelligence Layer**: Ontology mapping and data normalization
+6. **Infrastructure Layer**: Dimensional fact table with full provenance
 
-### Service Integration Flow
+### Enterprise Service Integration Flow
 ```
-CSV Data → CSVAnalyzer → Financial Metrics
-                              ↓
-PDF/DOCX → RAGEngine → Document Context → LLMService → AI Insights
-                              ↓
-                         Streamlit UI (app.py)
+Documents → Document Router → [Structured|Unstructured|Hybrid]
+                ↓
+         Hybrid Retrieval (BM25 + Embeddings + CrossEncoder)
+                ↓
+         Data Normalization (Italian formats, periods, scales)
+                ↓
+         Ontology Mapping (31 metrics, 219+ synonyms)
+                ↓
+         Financial Validation (Balance sheet, PFN coherence)
+                ↓
+         Fact Table Storage (Dimensional model with provenance)
+                ↓
+         Enterprise Response (with statistics & warnings)
 ```
 
-### Key Components
+### Key Enterprise Components
 
-**`services/csv_analyzer.py`**: 
-- Handles CSV loading with automatic type detection (dates, currencies, numbers)
-- Calculates financial KPIs (YoY growth, ratios, anomaly detection)
-- Supports Italian/English column names (`fatturato`/`revenue`, `anno`/`year`)
+**`src/application/services/enterprise_orchestrator.py`**:
+- Main coordinator for 6-step enterprise pipeline
+- Async processing with comprehensive error handling
+- Performance statistics and confidence scoring
+- Health check system for all components
 
-**`services/rag_engine.py`**:
-- Uses LlamaIndex + Qdrant for semantic document search
-- Supports PDF, DOCX, TXT, MD formats with metadata preservation
-- Implements context-aware querying (combines CSV analysis with document retrieval)
+**`src/application/services/document_router.py`**:
+- Intelligent document classification (structured/unstructured/hybrid)
+- Content analysis with extensibility patterns
+- Graceful fallback when optional libraries missing
 
-**`services/llm_service.py`**:
-- OpenAI GPT-4 integration for business intelligence generation
-- Specialized prompts for executive reports, recommendations, anomaly explanations
-- Structured output generation (JSON for action items)
+**`src/application/services/hybrid_retrieval.py`**:
+- BM25Okapi for keyword-based search
+- SentenceTransformers for semantic embeddings
+- CrossEncoder for result reranking
+- Configurable weighting and optimization
 
-**`config/settings.py`**:
-- Pydantic-based configuration with environment variable loading
-- Auto-creates data directories on initialization
-- Centralized settings for OpenAI, Qdrant, and application parameters
+**`src/application/services/ontology_mapper.py`**:
+- YAML-based financial metrics ontology
+- Fuzzy string matching with RapidFuzz
+- 31 canonical metrics with Italian/English synonyms
+- Batch processing and suggestion system
 
-### Environment Configuration
-Copy `.env.example` to `.env` and configure:
+**`src/application/services/data_normalizer.py`**:
+- Multi-locale number parsing (Italian: 1.234,56)
+- Scale detection (thousands, millions, billions)
+- Period normalization (FY, quarters, YTD)
+- Currency extraction and conversion
+
+**`src/domain/value_objects/source_reference.py`**:
+- Complete data provenance tracking
+- File hashing and timestamping
+- Source type classification
+- Immutable value objects for data integrity
+
+**`src/domain/value_objects/guardrails.py`**:
+- Financial validation rules
+- Balance sheet coherence checks (Attivo = Passivo)
+- PFN validation (PFN = Debito Lordo - Cassa)
+- Configurable tolerance levels
+
+**`src/infrastructure/repositories/fact_table_repository.py`**:
+- Dimensional data warehouse (star schema)
+- DuckDB/SQLite backend support
+- Full provenance tracking per fact
+- Entity, metric, period, scenario dimensions
+
+**Enhanced `services/rag_engine.py`**:
+- Integrated enterprise orchestrator
+- New `enterprise_query()` method
+- Fallback to standard mode when enterprise unavailable
+- Performance optimizations (compact mode, caching)
+
+### Enterprise Configuration
+Enhanced `.env` with enterprise features:
 ```env
-OPENAI_API_KEY=your_key_here           # Required
-QDRANT_HOST=localhost                  # Qdrant connection
-LLM_MODEL=gpt-4-turbo-preview         # OpenAI model
-CHUNK_SIZE=512                        # Document chunking
+# Performance optimizations
+RAG_RESPONSE_MODE=compact            # Faster than tree_summarize
+RAG_SIMILARITY_TOP_K=3              # Reduced from 5 for speed
+RAG_ENABLE_CACHING=True             # Query result caching
+
+# Enterprise features
+HF_HUB_DISABLE_SYMLINKS_WARNING=1   # Suppress HuggingFace warnings
+
+# Optional ML dependencies (graceful degradation if missing):
+# - rank_bm25 (BM25 search)
+# - sentence-transformers (embeddings)
+# - rapidfuzz (fuzzy matching)
+# - babel (locale support)
+# - python-magic (file type detection)
 ```
 
-### Data Flow and State Management
-- **Streamlit session state** maintains analysis results across UI interactions
-- **Qdrant vector store** persists indexed documents between sessions  
-- **CSV analysis cache** in `CSVAnalyzer` prevents redundant calculations
-- **Temporary file handling** for uploaded documents with automatic cleanup
+### Enterprise Data Flow and State Management
+- **Enterprise Toggle** in Streamlit sidebar activates advanced features
+- **Async Processing** with comprehensive error handling
+- **Source Provenance** tracked throughout entire pipeline
+- **Dimensional Storage** with fact table for audit trails
+- **Graceful Degradation** when optional dependencies missing
+- **Performance Monitoring** with processing time and confidence scores
 
-### Vector Database (Qdrant)
+### Enterprise Vector Database (Qdrant)
 - Collection: `business_documents` (configurable via `QDRANT_COLLECTION_NAME`)
-- Embedding model: `text-embedding-3-small` (1536 dimensions)
+- Embedding model: `sentence-transformers/all-MiniLM-L6-v2` (384 dimensions)
+- Reranker model: `cross-encoder/ms-marco-MiniLM-L-2-v2`
 - Distance metric: Cosine similarity
-- Automatic collection creation and management
+- Enhanced metadata with source references and document classification
 
-### UI Architecture (Streamlit)
-Multi-page application with cached service initialization:
-- **Data Analysis**: CSV upload, financial analysis, visualizations
-- **Document RAG**: PDF/DOCX indexing, semantic search
-- **AI Insights**: Business intelligence generation, executive reports  
-- **Dashboard**: KPI monitoring, trend visualization
-- **Settings**: Configuration management, data cleanup
+### Enterprise UI Architecture (Streamlit)
+Enhanced multi-page application:
+- **🚀 Enterprise Mode Toggle**: Activate advanced features
+- **Enterprise Statistics**: Real-time processing metrics in sidebar
+- **Source References**: Complete data provenance in results
+- **Validation Warnings**: Financial coherence alerts
+- **Professional PDF Export**: ZCS Company styling
+- **Error Recovery**: Automatic fallback to standard mode
 
-### Error Handling Patterns
-- Services use try/catch with detailed error messages
-- Streamlit displays user-friendly error notifications
-- Automatic retry logic for Qdrant connection issues
-- Graceful degradation when services are unavailable
+### Enterprise Error Handling Patterns
+- **Graceful Degradation**: Missing ML libraries don't break system
+- **Comprehensive Logging**: Structured logging with performance metrics
+- **Health Checks**: Component-wise system health monitoring
+- **Fallback Mechanisms**: Enterprise → Standard mode on errors
+- **User Feedback**: Clear error messages with suggested solutions
+
+### Performance Optimizations
+- **Query Caching**: TTL-based result caching
+- **Compact Response Mode**: Faster than tree_summarize
+- **Reduced Top-K**: From 5 to 3 for better performance
+- **Async Processing**: Non-blocking enterprise pipeline
+- **Lazy Loading**: Optional components loaded only when needed

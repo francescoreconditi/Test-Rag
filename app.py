@@ -272,10 +272,44 @@ def main():
         
         st.divider()
         
+        # Enterprise Mode Toggle
+        st.header("🚀 Modalità Enterprise")
+        enable_enterprise = st.checkbox(
+            "Abilita funzionalità Enterprise", 
+            value=True,
+            help="Attiva validazioni contabili, normalizzazione dati, retrieval ibrido e fact table"
+        )
+        
+        if enable_enterprise:
+            st.success("✅ Modalità Enterprise Attiva")
+            st.caption("• Source References & Provenance")
+            st.caption("• Validazioni Contabili") 
+            st.caption("• Normalizzazione Dati")
+            st.caption("• Retrieval Ibrido BM25+Embeddings")
+            st.caption("• Ontologia Sinonimi")
+            st.caption("• Fact Table Dimensionale")
+        else:
+            st.info("ℹ️ Modalità Standard")
+        
+        # Store enterprise mode in session state
+        st.session_state['enterprise_mode'] = enable_enterprise
+        
+        st.divider()
+        
         # Quick Stats
         if st.session_state.services['rag_engine']:
             stats = st.session_state.services['rag_engine'].get_index_stats()
             st.metric("Vettori Indicizzati", stats.get('total_vectors', 0))
+            
+            # Show enterprise orchestrator stats if available
+            if enable_enterprise and hasattr(st.session_state.services['rag_engine'], 'enterprise_orchestrator'):
+                try:
+                    enterprise_stats = st.session_state.services['rag_engine'].enterprise_orchestrator.get_processing_stats()
+                    if enterprise_stats.get('total_queries', 0) > 0:
+                        st.metric("Query Enterprise", enterprise_stats['total_queries'])
+                        st.metric("Tasso di Successo", f"{enterprise_stats.get('success_rate_pct', 0):.1f}%")
+                except Exception:
+                    pass
         
         if st.session_state.csv_analysis:
             st.metric("Dati Caricati", "✅ Attivi")
@@ -649,15 +683,75 @@ def show_document_rag():
             with st.spinner(spinner_message):
                 rag_engine = st.session_state.services['rag_engine']
                 
-                if use_context and st.session_state.csv_analysis:
-                    response = rag_engine.query_with_context(
-                        query,
-                        st.session_state.csv_analysis,
-                        top_k=top_k,
-                        analysis_type=query_analysis_type
-                    )
-                else:
-                    response = rag_engine.query(query, top_k=top_k, analysis_type=query_analysis_type)
+                # Check if enterprise mode is enabled
+                enterprise_mode = st.session_state.get('enterprise_mode', False)
+                
+                try:
+                    if enterprise_mode:
+                        # Use enterprise query mode
+                        import asyncio
+                        try:
+                            # Run enterprise query asynchronously
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            
+                            response = loop.run_until_complete(
+                                rag_engine.enterprise_query(
+                                    query_text=query,
+                                    enable_enterprise_features=True,
+                                    top_k=top_k,
+                                    use_context=use_context,
+                                    csv_analysis=st.session_state.csv_analysis if use_context else None
+                                )
+                            )
+                            
+                            # Show enterprise processing details
+                            if 'enterprise_data' in response:
+                                enterprise_data = response['enterprise_data']
+                                
+                                # Show processing stats in sidebar
+                                with st.sidebar:
+                                    st.header("🚀 Stats Enterprise")
+                                    st.metric("Tempo Elaborazione", f"{enterprise_data['processing_time_ms']:.0f}ms")
+                                    st.metric("Confidenza", f"{response['confidence']:.1%}")
+                                    st.metric("Record Fact Table", enterprise_data['fact_table_records'])
+                                    
+                                    if enterprise_data['warnings']:
+                                        st.warning(f"⚠️ {len(enterprise_data['warnings'])} avvisi")
+                                    if enterprise_data['errors']:
+                                        st.error(f"❌ {len(enterprise_data['errors'])} errori")
+                                        
+                        except Exception as e:
+                            st.warning(f"Enterprise mode fallback: {e}")
+                            # Fallback to standard mode
+                            if use_context and st.session_state.csv_analysis:
+                                response = rag_engine.query_with_context(
+                                    query,
+                                    st.session_state.csv_analysis,
+                                    top_k=top_k,
+                                    analysis_type=query_analysis_type
+                                )
+                            else:
+                                response = rag_engine.query(query, top_k=top_k, analysis_type=query_analysis_type)
+                    else:
+                        # Standard mode
+                        if use_context and st.session_state.csv_analysis:
+                            response = rag_engine.query_with_context(
+                                query,
+                                st.session_state.csv_analysis,
+                                top_k=top_k,
+                                analysis_type=query_analysis_type
+                            )
+                        else:
+                            response = rag_engine.query(query, top_k=top_k, analysis_type=query_analysis_type)
+                            
+                except Exception as e:
+                    st.error(f"Errore durante la query: {e}")
+                    response = {
+                        'answer': f"Errore durante l'elaborazione: {str(e)}",
+                        'sources': [],
+                        'confidence': 0
+                    }
                 
                 st.session_state.rag_response = response
     

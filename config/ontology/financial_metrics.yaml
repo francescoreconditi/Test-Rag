@@ -1,0 +1,451 @@
+# Financial Metrics Ontology and Synonyms Dictionary
+# This file defines the canonical financial metrics and their synonyms for automatic mapping
+
+# ============================================================================
+# INCOME STATEMENT / CONTO ECONOMICO
+# ============================================================================
+
+ricavi:
+  canonical_name: "Ricavi"
+  category: "income_statement"
+  subcategory: "revenue"
+  unit: "currency"
+  synonyms:
+    - ricavi
+    - fatturato
+    - vendite
+    - ricavi delle vendite
+    - ricavi netti
+    - fatturato netto
+    - revenue
+    - sales
+    - net sales
+    - turnover
+    - net revenue
+  italian_synonyms:
+    - ricavi di vendita
+    - ricavi operativi
+    - vendite nette
+    - fatturato lordo
+  english_synonyms:
+    - gross revenue
+    - total revenue
+    - sales revenue
+    - operating revenue
+
+cogs:
+  canonical_name: "Costo del Venduto"
+  category: "income_statement" 
+  subcategory: "cost"
+  unit: "currency"
+  synonyms:
+    - cogs
+    - costo del venduto
+    - costo delle merci vendute
+    - cost of goods sold
+    - direct costs
+    - cost of sales
+    - costi diretti
+    - costi di produzione
+    - costo dei prodotti venduti
+
+margine_lordo:
+  canonical_name: "Margine Lordo"
+  category: "income_statement"
+  subcategory: "margin"
+  unit: "currency"
+  calculation: "ricavi - cogs"
+  synonyms:
+    - margine lordo
+    - gross profit
+    - gross margin
+    - utile lordo
+    - margine di contribuzione
+
+ebitda:
+  canonical_name: "EBITDA"
+  category: "income_statement"
+  subcategory: "profitability"
+  unit: "currency"
+  synonyms:
+    - ebitda
+    - mol
+    - margine operativo lordo
+    - earnings before interest taxes depreciation amortization
+    - operating profit before depreciation
+    - risultato operativo lordo
+
+ebit:
+  canonical_name: "EBIT"
+  category: "income_statement"
+  subcategory: "profitability" 
+  unit: "currency"
+  synonyms:
+    - ebit
+    - risultato operativo
+    - utile operativo
+    - reddito operativo
+    - earnings before interest and taxes
+    - operating profit
+    - operating income
+
+utile_netto:
+  canonical_name: "Utile Netto"
+  category: "income_statement"
+  subcategory: "profitability"
+  unit: "currency"
+  synonyms:
+    - utile netto
+    - net income
+    - net profit
+    - net earnings
+    - risultato netto
+    - reddito netto
+    - profitto netto
+
+# ============================================================================
+# BALANCE SHEET / STATO PATRIMONIALE  
+# ============================================================================
+
+attivo_totale:
+  canonical_name: "Attivo Totale"
+  category: "balance_sheet"
+  subcategory: "assets"
+  unit: "currency"
+  synonyms:
+    - attivo totale
+    - totale attivo
+    - total assets
+    - attività totali
+    - attivo complessivo
+
+passivo_totale:
+  canonical_name: "Passivo Totale"  
+  category: "balance_sheet"
+  subcategory: "liabilities"
+  unit: "currency"
+  synonyms:
+    - passivo totale
+    - totale passivo
+    - total liabilities
+    - passività totali
+    - passivo e patrimonio netto
+    - total liabilities and equity
+
+patrimonio_netto:
+  canonical_name: "Patrimonio Netto"
+  category: "balance_sheet"
+  subcategory: "equity"
+  unit: "currency"
+  synonyms:
+    - patrimonio netto
+    - pn
+    - equity
+    - shareholders equity
+    - net worth
+    - capitale netto
+    - mezzi propri
+
+cassa:
+  canonical_name: "Cassa e Disponibilità"
+  category: "balance_sheet"
+  subcategory: "liquid_assets"
+  unit: "currency"
+  synonyms:
+    - cassa
+    - disponibilità liquide
+    - cash
+    - cash and cash equivalents
+    - liquidità
+    - disponibilità
+    - contanti
+    - cash and equivalents
+
+debito_lordo:
+  canonical_name: "Debito Finanziario Lordo"
+  category: "balance_sheet"
+  subcategory: "debt"
+  unit: "currency"
+  synonyms:
+    - debito lordo
+    - debito finanziario lordo
+    - indebitamento lordo
+    - total debt
+    - gross debt
+    - financial debt
+    - debiti finanziari
+
+pfn:
+  canonical_name: "Posizione Finanziaria Netta"
+  category: "balance_sheet"
+  subcategory: "debt"
+  unit: "currency"
+  calculation: "debito_lordo - cassa"
+  synonyms:
+    - pfn
+    - posizione finanziaria netta
+    - indebitamento netto
+    - net debt
+    - net financial position
+    - debito netto
+
+rimanenze:
+  canonical_name: "Rimanenze"
+  category: "balance_sheet"
+  subcategory: "inventory"
+  unit: "currency"
+  synonyms:
+    - rimanenze
+    - scorte
+    - magazzino
+    - inventory
+    - stock
+    - giacenze
+
+crediti_commerciali:
+  canonical_name: "Crediti Commerciali"
+  category: "balance_sheet"
+  subcategory: "receivables"
+  unit: "currency"
+  synonyms:
+    - crediti commerciali
+    - crediti verso clienti
+    - trade receivables
+    - accounts receivable
+    - crediti
+    - receivables
+
+debiti_commerciali:
+  canonical_name: "Debiti Commerciali"
+  category: "balance_sheet" 
+  subcategory: "payables"
+  unit: "currency"
+  synonyms:
+    - debiti commerciali
+    - debiti verso fornitori
+    - trade payables
+    - accounts payable
+    - debiti
+    - payables
+
+# ============================================================================
+# CASH FLOW STATEMENT / RENDICONTO FINANZIARIO
+# ============================================================================
+
+flussi_operativi:
+  canonical_name: "Flussi di Cassa Operativi"
+  category: "cash_flow"
+  subcategory: "operating"
+  unit: "currency"
+  synonyms:
+    - flussi operativi
+    - cash flow operativo
+    - operating cash flow
+    - cfo
+    - flussi da attività operative
+
+flussi_investimenti:
+  canonical_name: "Flussi da Investimenti"
+  category: "cash_flow"
+  subcategory: "investing"
+  unit: "currency"
+  synonyms:
+    - flussi da investimenti
+    - cash flow da investimenti
+    - investing cash flow
+    - cfi
+    - flussi da attività di investimento
+    - capex
+
+flussi_finanziari:
+  canonical_name: "Flussi Finanziari"
+  category: "cash_flow"
+  subcategory: "financing"
+  unit: "currency"
+  synonyms:
+    - flussi finanziari
+    - cash flow finanziario
+    - financing cash flow
+    - cff
+    - flussi da attività finanziarie
+
+free_cash_flow:
+  canonical_name: "Free Cash Flow"
+  category: "cash_flow"
+  subcategory: "derived"
+  unit: "currency"
+  calculation: "flussi_operativi - capex"
+  synonyms:
+    - free cash flow
+    - fcf
+    - flusso di cassa libero
+    - liquidità generata
+
+# ============================================================================
+# FINANCIAL RATIOS / INDICI FINANZIARI
+# ============================================================================
+
+margine_ebitda_pct:
+  canonical_name: "Margine EBITDA %"
+  category: "ratios"
+  subcategory: "profitability"
+  unit: "percentage"
+  calculation: "(ebitda / ricavi) * 100"
+  synonyms:
+    - margine ebitda
+    - ebitda margin
+    - margine mol
+    - ebitda %
+    - margine operativo lordo %
+
+ros_pct:
+  canonical_name: "ROS %"
+  category: "ratios"
+  subcategory: "profitability"
+  unit: "percentage"
+  calculation: "(ebit / ricavi) * 100"
+  synonyms:
+    - ros
+    - return on sales
+    - margine ebit
+    - ebit margin
+    - margine operativo %
+
+roe_pct:
+  canonical_name: "ROE %"
+  category: "ratios"
+  subcategory: "profitability"
+  unit: "percentage"
+  calculation: "(utile_netto / patrimonio_netto) * 100"
+  synonyms:
+    - roe
+    - return on equity
+    - ritorno sul capitale
+    - rendimento patrimonio
+
+roa_pct:
+  canonical_name: "ROA %"
+  category: "ratios"
+  subcategory: "profitability"
+  unit: "percentage"
+  calculation: "(utile_netto / attivo_totale) * 100"
+  synonyms:
+    - roa
+    - return on assets
+    - ritorno sugli asset
+    - rendimento attivo
+
+leverage:
+  canonical_name: "Leverage"
+  category: "ratios"
+  subcategory: "leverage"
+  unit: "ratio"
+  calculation: "debito_lordo / patrimonio_netto"
+  synonyms:
+    - leverage
+    - debt to equity
+    - rapporto debiti patrimonio
+    - leva finanziaria
+    - gearing ratio
+
+# ============================================================================
+# OPERATIONAL METRICS / METRICHE OPERATIVE
+# ============================================================================
+
+dipendenti:
+  canonical_name: "Numero Dipendenti"
+  category: "operational"
+  subcategory: "hr"
+  unit: "count"
+  synonyms:
+    - dipendenti
+    - numero dipendenti
+    - employees
+    - headcount
+    - personale
+    - organico
+    - fte
+
+ricavi_per_dipendente:
+  canonical_name: "Ricavi per Dipendente"
+  category: "operational"
+  subcategory: "productivity"
+  unit: "currency"
+  calculation: "ricavi / dipendenti"
+  synonyms:
+    - ricavi per dipendente
+    - revenue per employee
+    - produttività dipendente
+    - fatturato pro capite
+
+# ============================================================================
+# GROWTH METRICS / METRICHE DI CRESCITA
+# ============================================================================
+
+crescita_ricavi_pct:
+  canonical_name: "Crescita Ricavi %"
+  category: "growth"
+  subcategory: "revenue"
+  unit: "percentage"
+  synonyms:
+    - crescita ricavi
+    - revenue growth
+    - crescita fatturato
+    - variazione ricavi
+    - growth rate
+    - yoy growth
+    - variazione % ricavi
+
+crescita_ebitda_pct:
+  canonical_name: "Crescita EBITDA %"
+  category: "growth"
+  subcategory: "profitability"  
+  unit: "percentage"
+  synonyms:
+    - crescita ebitda
+    - ebitda growth
+    - variazione ebitda
+    - crescita mol
+
+# ============================================================================
+# SECTOR SPECIFIC METRICS / METRICHE SETTORIALI
+# ============================================================================
+
+# Retail
+vendite_per_mq:
+  canonical_name: "Vendite per mq"
+  category: "retail"
+  subcategory: "productivity"
+  unit: "currency_per_area"
+  synonyms:
+    - vendite per mq
+    - sales per sqm
+    - produttività superficie
+    - ricavi al metro quadro
+
+# Manufacturing  
+ordini_backlog:
+  canonical_name: "Portafoglio Ordini"
+  category: "manufacturing"
+  subcategory: "orders"
+  unit: "currency"
+  synonyms:
+    - backlog
+    - portafoglio ordini
+    - order backlog
+    - ordini acquisiti
+    - book to bill
+
+# Working Capital
+capitale_circolante_netto:
+  canonical_name: "Capitale Circolante Netto"
+  category: "working_capital"
+  subcategory: "efficiency"
+  unit: "currency"
+  calculation: "crediti_commerciali + rimanenze - debiti_commerciali"
+  synonyms:
+    - capitale circolante netto
+    - ccn
+    - working capital
+    - net working capital
+    - capital circulante

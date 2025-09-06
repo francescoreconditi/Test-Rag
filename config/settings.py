@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     rag_similarity_top_k: int = Field(default=3, env="RAG_SIMILARITY_TOP_K")  # Number of similar chunks to retrieve
     rag_enable_caching: bool = Field(default=True, env="RAG_ENABLE_CACHING")  # Cache embeddings for faster queries
     
+    # Enterprise Features
+    hf_hub_disable_symlinks_warning: Optional[str] = Field(default=None, env="HF_HUB_DISABLE_SYMLINKS_WARNING")
+    
     # Paths
     data_dir: Path = Field(default=Path("data"))
     upload_dir: Path = Field(default=Path("data/uploads"))
