@@ -7,20 +7,7 @@ Scalar provides a modern, interactive API documentation experience.
 """
 
 from fastapi import FastAPI
-try:
-    from scalar_fastapi import get_scalar_api_reference
-except ImportError:
-    # Fallback if scalar_fastapi is not available or has different API
-    def get_scalar_api_reference(*args, **kwargs):
-        return """
-        <html>
-        <head><title>Documentazione API</title></head>
-        <body>
-        <h1>Documentazione Scalar</h1>
-        <p>Scalar FastAPI non disponibile. Usa <a href="/docs">Swagger UI</a> invece.</p>
-        </body>
-        </html>
-        """
+from scalar_fastapi import get_scalar_api_reference
 
 def add_scalar_docs(app: FastAPI) -> None:
     """

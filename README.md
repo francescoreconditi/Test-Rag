@@ -109,6 +109,7 @@ graph TD
 - **OpenAI API Key** (required for LLM and embeddings)
 - **Docker + Docker Compose** (optional, for containerized deployment)
 - **8GB+ RAM** (recommended for vector operations)
+- **Tesseract OCR** (required for PDF text extraction and OCR functionality)
 
 ## Installation
 
@@ -162,6 +163,59 @@ docker-compose up -d
 # Access app: http://localhost:8501
 # Qdrant UI: http://localhost:6333/dashboard
 ```
+
+### OCR Dependencies Installation
+
+The application requires **Tesseract OCR** for PDF text extraction and OCR functionality.
+
+#### Windows Installation
+
+**Option 1: Using Windows Package Manager (Recommended)**
+```bash
+# Install using winget (Windows 10+)
+winget install --id UB-Mannheim.TesseractOCR
+
+# Verify installation
+tesseract --version
+```
+
+**Option 2: Manual Installation**
+1. Download the latest Tesseract installer from [UB Mannheim](https://github.com/UB-Mannheim/tesseract/releases)
+2. Run the installer (`tesseract-ocr-w64-setup-5.x.x.exe`)
+3. Make sure to check "Add to PATH" during installation
+4. Restart your terminal/command prompt
+5. Verify: `tesseract --version`
+
+**If Tesseract is not in PATH:**
+```bash
+# Add to current session (temporary)
+set PATH=C:\Program Files\Tesseract-OCR;%PATH%
+
+# Or permanently add C:\Program Files\Tesseract-OCR to your system PATH
+```
+
+#### Linux Installation
+```bash
+# Ubuntu/Debian
+sudo apt update && sudo apt install tesseract-ocr
+
+# CentOS/RHEL/Fedora
+sudo yum install tesseract  # or sudo dnf install tesseract
+
+# Verify
+tesseract --version
+```
+
+#### macOS Installation
+```bash
+# Using Homebrew
+brew install tesseract
+
+# Verify
+tesseract --version
+```
+
+**Note:** If Tesseract is not installed, the application will display a warning and OCR functionality will be disabled, but other features will continue to work.
 
 ## Configuration
 

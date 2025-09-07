@@ -259,38 +259,37 @@ add_scalar_docs(app)
 @app.get(
     "/health",
     response_model=HealthCheckResponse,
-    summary="Health Check",
+    summary="Controllo Stato Sistema",
     description="""
-    Comprehensive health check endpoint that verifies all system components.
+    Controllo stato completo del sistema e di tutti i componenti.
     
-    **Use Cases:**
-    - Docker health checks
-    - Load balancer health monitoring
-    - System status dashboards
+    Casi d'uso:
+    - Health check Docker per container
+    - Monitoraggio load balancer
+    - Dashboard stato sistema
     - Service discovery health checks
     
-    **Returns:**
-    - Service status (healthy/degraded/unhealthy)
-    - Individual component statuses
-    - Timestamp of check
-    - API version information
+    Restituisce:
+    - Stato servizio (healthy/degraded/unhealthy)
+    - Stati componenti individuali
+    - Timestamp del controllo
+    - Informazioni versione API
     
-    **Example Response:**
+    Esempio risposta:
     ```json
     {
       "status": "healthy",
       "timestamp": "2024-12-07T10:30:00Z",
-      "version": "1.0.0",
+      "version": "1.0.0", 
       "services": {
         "rag_engine": "healthy",
         "csv_analyzer": "healthy",
-        "qdrant": "healthy",
-        "openai": "healthy"
+        "qdrant": "healthy"
       }
     }
     ```
     """,
-    tags=["Health & Monitoring"]
+    tags=["Stato & Monitoraggio"]
 )
 async def health_check():
     """
@@ -350,12 +349,12 @@ async def health_check():
         services=services
     )
 
-@app.get("/health/ready", summary="Readiness Check", tags=["Health & Monitoring"])
+@app.get("/health/ready", summary="Controllo Disponibilità", tags=["Stato & Monitoraggio"])
 async def readiness_check():
     """
-    Kubernetes-style readiness probe.
+    Probe di disponibilità stile Kubernetes.
     
-    Returns 200 if service is ready to accept requests, 503 otherwise.
+    Restituisce 200 se il servizio è pronto ad accettare richieste, altrimenti 503.
     """
     try:
         health = await health_check()
@@ -366,12 +365,12 @@ async def readiness_check():
     except Exception:
         raise HTTPException(status_code=503, detail="Service not ready")
 
-@app.get("/health/live", summary="Liveness Check", tags=["Health & Monitoring"])
+@app.get("/health/live", summary="Controllo Vitalità", tags=["Stato & Monitoraggio"])
 async def liveness_check():
     """
-    Kubernetes-style liveness probe.
+    Probe di vitalità stile Kubernetes.
     
-    Returns 200 if service is alive, 503 if it should be restarted.
+    Restituisce 200 se il servizio è attivo, 503 se dovrebbe essere riavviato.
     """
     return {"status": "alive", "timestamp": datetime.now(timezone.utc).isoformat()}
 
@@ -380,69 +379,49 @@ async def liveness_check():
 @app.post(
     "/analyze/pdf",
     response_model=PDFAnalysisResponse,
-    summary="Analyze PDF Document",
+    summary="Analizza Documento PDF",
     description="""
-    Comprehensive PDF document analysis with multi-format output options.
+    Analisi completa documenti PDF con elaborazione OCR, estrazione tabelle, 
+    identificazione metriche finanziarie e generazione automatica FAQ.
     
-    **Features:**
-    - OCR processing for scanned documents
-    - Table extraction and analysis
-    - Financial metric identification
-    - Automatic FAQ generation
-    - Multi-format output (JSON, PDF)
+    Funzionalità:
+    - Elaborazione OCR per documenti scansionati
+    - Estrazione tabelle e analisi dati strutturati
+    - Identificazione metriche finanziarie automatiche  
+    - Generazione FAQ automatica (10 domande pertinenti)
+    - Output multi-formato (JSON, PDF, testo)
     
-    **Supported File Types:**
-    - PDF (native and scanned)
-    - Maximum file size: 50MB
-    - Maximum pages: 100
+    Formati supportati:
+    - PDF nativi e scansionati
+    - Dimensione massima: 50MB
+    - Pagine massime: 100
     
-    **Processing Steps:**
-    1. File upload and validation
-    2. OCR processing (if needed)
-    3. Table and text extraction
-    4. AI-powered analysis
-    5. FAQ generation
-    6. Response formatting
+    Passi di elaborazione:
+    1. Caricamento e validazione file
+    2. Elaborazione OCR (se necessario)
+    3. Estrazione tabelle e testo
+    4. Analisi AI-powered con insights
+    5. Generazione FAQ automatica
+    6. Formattazione risposta finale
     
-    **Output Formats:**
-    - `json`: Structured JSON response (default)
-    - `pdf`: Professional PDF report
-    - `text`: Plain text format
+    Formati output:
+    - json: Risposta JSON strutturata (default)
+    - pdf: Report professionale PDF
+    - text: Formato testo semplice
     
-    **Example Usage:**
+    Esempio utilizzo:
     ```bash
     curl -X POST "http://localhost:8000/analyze/pdf?output_format=json" \\
          -H "Content-Type: multipart/form-data" \\
-         -F "file=@financial_report.pdf"
-    ```
-    
-    **Example Response:**
-    ```json
-    {
-      "analysis": {
-        "analysis": "The company demonstrates strong financial performance...",
-        "confidence": 0.87,
-        "sources": [...],
-        "metadata": {...}
-      },
-      "faqs": [
-        {
-          "question": "What is the company's revenue?",
-          "answer": "The revenue is 5.2 million EUR",
-          "confidence": 0.92
-        }
-      ],
-      "processing_time": 15.2,
-      "file_info": {...}
-    }
+         -F "file=@report_finanziario.pdf"
     ```
     """,
-    tags=["Document Analysis"]
+    tags=["Analisi Documenti"]
 )
 async def analyze_pdf(
-    file: UploadFile = File(..., description="PDF file to analyze"),
-    output_format: str = Query("json", description="Output format: json, pdf, text"),
-    enterprise_mode: bool = Query(False, description="Enable enterprise features"),
+    file: UploadFile = File(..., description="File PDF da analizzare (max 50MB)"),
+    output_format: str = Query("json", description="Formato output: json, pdf, text"),
+    enterprise_mode: bool = Query(False, description="Abilita funzionalità enterprise"),
     rag_engine: RAGEngine = Depends(get_rag_engine),
     pdf_processor: PDFProcessor = Depends(get_pdf_processor),
     pdf_exporter: PDFExporter = Depends(get_pdf_exporter)
@@ -607,66 +586,43 @@ DOMANDE FREQUENTI:
 @app.post(
     "/analyze/csv",
     response_model=CSVAnalysisResponse,
-    summary="Analyze CSV Data",
+    summary="Analizza Dati CSV",
     description="""
-    Comprehensive CSV data analysis with actionable business recommendations.
+    Analisi completa dataset CSV con raccomandazioni operative e business intelligence.
     
-    **Features:**
-    - Automatic data type detection
-    - Statistical analysis
-    - Trend identification
-    - Risk assessment
-    - Actionable recommendations
-    - Performance metrics calculation
+    Funzionalità:
+    - Rilevamento automatico tipi di dato
+    - Analisi statistiche avanzate
+    - Identificazione trend e pattern
+    - Valutazione rischi operativi
+    - Raccomandazioni operative specifiche
+    - Calcolo metriche di performance
     
-    **Supported File Types:**
-    - CSV files with various separators
-    - Excel files (.xlsx, .xls)
-    - TSV (Tab-separated values)
-    - Maximum file size: 10MB
-    - Maximum rows: 100,000
+    Formati supportati:
+    - File CSV con vari separatori
+    - File Excel (.xlsx, .xls) 
+    - File TSV (Tab-separated values)
+    - Dimensione massima: 10MB
+    - Righe massime: 100,000
     
-    **Analysis Types:**
-    - Financial data analysis
-    - Sales performance review
-    - Operational metrics assessment
-    - Risk and opportunity identification
+    Tipi di analisi:
+    - Analisi dati finanziari e KPI
+    - Review performance vendite
+    - Valutazione metriche operative
+    - Identificazione rischi e opportunità
     
-    **Example Usage:**
+    Esempio utilizzo:
     ```bash
     curl -X POST "http://localhost:8000/analyze/csv" \\
          -H "Content-Type: multipart/form-data" \\
-         -F "file=@sales_data.csv"
-    ```
-    
-    **Example Response:**
-    ```json
-    {
-      "summary": "The dataset shows declining sales trend with high customer churn...",
-      "actions": [
-        {
-          "priority": "HIGH",
-          "category": "SALES",
-          "action": "Implement customer retention program",
-          "description": "Customer churn rate is 25% above industry average",
-          "impact": "Reduce churn by 15%",
-          "timeline": "Within 60 days"
-        }
-      ],
-      "metrics": {
-        "total_revenue": 1250000,
-        "growth_rate": -8.5,
-        "risk_score": 0.73
-      },
-      "processing_time": 3.2
-    }
+         -F "file=@dati_vendite.csv"
     ```
     """,
-    tags=["Data Analysis"]
+    tags=["Analisi Dati"]
 )
 async def analyze_csv(
-    file: UploadFile = File(..., description="CSV file to analyze"),
-    analysis_type: str = Query("general", description="Analysis type: financial, sales, operational, general"),
+    file: UploadFile = File(..., description="File CSV da analizzare (max 10MB)"),
+    analysis_type: str = Query("general", description="Tipo analisi: financial, sales, operational, general"),
     csv_analyzer: CSVAnalyzer = Depends(get_csv_analyzer)
 ):
     """
@@ -805,31 +761,31 @@ async def analyze_csv(
 @app.post(
     "/query",
     response_model=QueryResponse,
-    summary="Query Knowledge Base",
+    summary="Interroga Knowledge Base",
     description="""
-    Query the indexed knowledge base with natural language questions.
+    Interrogazione knowledge base con domande in linguaggio naturale.
     
-    **Features:**
-    - Natural language processing
-    - Context-aware responses
-    - Source citation
-    - Confidence scoring
-    - Enterprise mode support
+    Funzionalità:
+    - Elaborazione linguaggio naturale avanzata
+    - Risposte context-aware intelligenti
+    - Citazione fonti automatica
+    - Scoring confidenza risultati
+    - Supporto modalità enterprise avanzata
     
-    **Use Cases:**
-    - ChatBot integration
-    - Business intelligence queries
-    - Document search and retrieval
-    - Automated reporting
+    Casi d'uso:
+    - Integrazione ChatBot aziendali
+    - Query business intelligence avanzate
+    - Ricerca documenti semantica
+    - Reporting automatizzato intelligente
     
-    **Example Usage:**
+    Esempio utilizzo:
     ```bash
     curl -X POST "http://localhost:8000/query" \\
          -H "Content-Type: application/json" \\
-         -d '{"question": "What is the total revenue for 2024?", "enterprise_mode": true}'
+         -d '{"question": "Qual è il fatturato totale per il 2024?", "enterprise_mode": true}'
     ```
     """,
-    tags=["Knowledge Base"]
+    tags=["Base Conoscenza"]
 )
 async def query_knowledge_base(
     request: QueryRequest,
@@ -864,18 +820,18 @@ async def query_knowledge_base(
 
 @app.get(
     "/documents",
-    summary="List Indexed Documents",
+    summary="Lista Documenti Indicizzati",
     description="""
-    Retrieve list of all indexed documents in the knowledge base.
+    Lista documenti indicizzati nella knowledge base.
     
-    **Returns:**
-    - Document names
-    - Index dates
-    - Document types
-    - Processing status
-    - Metadata information
+    Restituisce:
+    - Nomi documenti indicizzati
+    - Date indicizzazione per ogni documento
+    - Tipi documenti (PDF, CSV, Excel)
+    - Stati elaborazione attuali
+    - Informazioni metadata dettagliate
     """,
-    tags=["Knowledge Base"]
+    tags=["Base Conoscenza"]
 )
 async def list_documents():
     """
@@ -904,18 +860,18 @@ async def list_documents():
 
 @app.delete(
     "/documents/clear",
-    summary="Clear Knowledge Base",
+    summary="Svuota Knowledge Base",
     description="""
-    Clear all indexed documents from the knowledge base.
+    Rimuove tutti i documenti indicizzati dalla knowledge base.
     
-    **Warning:** This action is irreversible!
+    ATTENZIONE: Questa azione è IRREVERSIBILE!
     
-    **Use Cases:**
-    - System maintenance
-    - Data refresh
-    - Testing environment reset
+    Casi d'uso:
+    - Manutenzione sistema periodica
+    - Refresh dati completo  
+    - Reset ambiente di testing
     """,
-    tags=["Knowledge Base"]
+    tags=["Base Conoscenza"]
 )
 async def clear_knowledge_base():
     """
@@ -942,21 +898,24 @@ async def clear_knowledge_base():
 
 @app.post(
     "/documents/index",
-    summary="Index New Documents",
+    summary="Indicizza Nuovi Documenti",
     description="""
-    Index new documents into the knowledge base.
+    Indicizza nuovi documenti nella knowledge base per l'analisi.
     
-    **Supported Formats:**
-    - PDF files
-    - CSV files
-    - Excel files
-    - Text files
-    - Multiple files in single request
+    Formati supportati:
+    - File PDF (nativi e scansionati)
+    - File CSV con vari separatori
+    - File Excel (.xlsx, .xls)
+    - File di testo (.txt, .md)
+    - Caricamenti multipli in singola richiesta
+    
+    Elaborazione in background:
+    I documenti vengono indicizzati in background per prestazioni ottimali.
     """,
-    tags=["Knowledge Base"]
+    tags=["Base Conoscenza"]
 )
 async def index_documents(
-    files: List[UploadFile] = File(..., description="Documents to index"),
+    files: List[UploadFile] = File(..., description="Documenti da indicizzare"),
     background_tasks: BackgroundTasks = BackgroundTasks(),
     rag_engine: RAGEngine = Depends(get_rag_engine)
 ):

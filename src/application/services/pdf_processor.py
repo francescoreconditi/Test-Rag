@@ -113,11 +113,18 @@ class PDFProcessor:
         # Check Tesseract availability
         if enable_ocr:
             try:
+                # Try default path first
                 pytesseract.get_tesseract_version()
                 logger.info("Tesseract OCR is available")
-            except Exception as e:
-                logger.warning(f"Tesseract not available: {e}. OCR will be disabled.")
-                self.enable_ocr = False
+            except Exception:
+                # Try Windows default installation path
+                try:
+                    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+                    pytesseract.get_tesseract_version()
+                    logger.info("Tesseract OCR is available at Windows default path")
+                except Exception as e:
+                    logger.warning(f"Tesseract not available: {e}. OCR will be disabled.")
+                    self.enable_ocr = False
     
     def process_pdf(self, file_path: str) -> PDFExtractionResult:
         """
