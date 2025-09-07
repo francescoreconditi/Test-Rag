@@ -146,8 +146,12 @@ class DocumentRouter:
             strategy = "delimiter_detection"
             sheet_count = 1
         elif extension == '.json':
-            parser = "json_native"
+            parser = "json_parser"
             strategy = "nested_object_flattening"
+            sheet_count = 1
+        elif extension == '.xml':
+            parser = "xml_parser"
+            strategy = "hierarchical_extraction"
             sheet_count = 1
         else:
             parser = "generic_structured"
@@ -207,19 +211,19 @@ class DocumentRouter:
             if analysis['table_ratio'] > 0.7:
                 # Mostly tables - treat as structured
                 mode = ProcessingMode.STRUCTURED
-                parser = "camelot_tabula"
+                parser = "pdf_processor"
                 strategy = "table_extraction_priority"
                 confidence = 0.8
             elif analysis['text_ratio'] > 0.8:
                 # Mostly text - treat as unstructured  
                 mode = ProcessingMode.UNSTRUCTURED
-                parser = "pymupdf_pdfplumber"
+                parser = "pdf_processor"
                 strategy = "text_extraction_priority"
                 confidence = 0.8
             else:
                 # Mixed content - hybrid approach
                 mode = ProcessingMode.HYBRID
-                parser = "hybrid_pdf"
+                parser = "pdf_processor"
                 strategy = "table_and_text_extraction"
                 confidence = 0.9
             
@@ -366,7 +370,7 @@ class DocumentRouter:
                 'use_llm': False,
                 'parsers': [classification.recommended_parser],
                 'extractors': ['tabular_data', 'metadata'],
-                'post_processors': ['synonym_mapping', 'validation'],
+                'post_processors': ['synonym_mapping', 'validation', 'calculation_engine'],
                 'indexing': 'structured_facts'
             }
         
@@ -384,9 +388,9 @@ class DocumentRouter:
             return {
                 'pipeline': 'hybrid',
                 'use_llm': True,
-                'parsers': ['camelot', 'pymupdf'],
+                'parsers': ['pdf_processor', 'camelot', 'pdfplumber'],
                 'extractors': ['tables', 'text_content', 'semantic_chunks'],
-                'post_processors': ['table_analysis', 'text_summarization', 'cross_reference'],
+                'post_processors': ['table_analysis', 'text_summarization', 'cross_reference', 'calculation_engine'],
                 'indexing': 'both'
             }
         

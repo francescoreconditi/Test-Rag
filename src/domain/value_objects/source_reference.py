@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, Dict, Any, Union
+from typing import Optional, Dict, Any, Union, List
 import hashlib
 from datetime import datetime
 
@@ -24,12 +24,14 @@ class SourceReference:
     """Immutable source reference with detailed provenance."""
     
     # Core identification
-    file_name: str
-    file_hash: str  # SHA-256 of original file
-    source_type: SourceType
+    file_path: str  # Full path for better tracking
+    file_name: Optional[str] = None  # Just the filename
+    file_hash: Optional[str] = None  # SHA-256 of original file
+    source_type: Optional[SourceType] = None
     
     # Location within document
     page: Optional[int] = None
+    page_number: Optional[int] = None  # Alias for page
     sheet: Optional[str] = None  
     cell: Optional[str] = None
     table_index: Optional[int] = None
@@ -42,13 +44,31 @@ class SourceReference:
     xpath: Optional[str] = None  # For HTML/XML
     
     # Metadata
-    extraction_timestamp: datetime = None
+    extraction_method: Optional[str] = None  # Method used for extraction
+    extraction_timestamp: Optional[datetime] = None
     confidence_score: Optional[float] = None
     
     def __post_init__(self):
-        """Set extraction timestamp if not provided."""
+        """Set extraction timestamp and derive file_name if not provided."""
         if self.extraction_timestamp is None:
             object.__setattr__(self, 'extraction_timestamp', datetime.now())
+        
+        # Derive file_name from file_path if not provided
+        if self.file_name is None and self.file_path:
+            from pathlib import Path
+            object.__setattr__(self, 'file_name', Path(self.file_path).name)
+        
+        # Use page_number as alias for page
+        if self.page_number is not None and self.page is None:
+            object.__setattr__(self, 'page', self.page_number)
+        
+        # Auto-detect source_type if not provided
+        if self.source_type is None and self.file_name:
+            ext = self.file_name.split('.')[-1].lower()
+            for st in SourceType:
+                if st.value == ext:
+                    object.__setattr__(self, 'source_type', st)
+                    break
     
     def to_string(self) -> str:
         """Convert to standardized string format: file.pdf|p.12|tab:1|row:Ricavi"""
@@ -168,7 +188,8 @@ class ProvenancedValue:
     # Quality indicators
     is_calculated: bool = False
     calculation_formula: Optional[str] = None
-    input_sources: Optional[list] = None  # List of other ProvenancedValues used in calculation
+    calculated_from: Optional[List['ProvenancedValue']] = None  # Input values used in calculation
+    calculation_confidence: Optional[float] = None  # Confidence in the calculation
     
     # Validation flags
     quality_flags: Optional[Dict[str, bool]] = None  # e.g., {'range_check': True, 'coherence_check': False}
@@ -183,15 +204,22 @@ class ProvenancedValue:
         lineage = {
             'primary_source': self.source_ref.to_string(),
             'is_calculated': self.is_calculated,
-            'extraction_timestamp': self.source_ref.extraction_timestamp.isoformat(),
+            'extraction_timestamp': self.source_ref.extraction_timestamp.isoformat() if self.source_ref.extraction_timestamp else None,
         }
         
-        if self.is_calculated and self.input_sources:
+        if self.is_calculated and self.calculated_from:
             lineage['calculation_formula'] = self.calculation_formula
-            lineage['input_sources'] = [
-                source.source_ref.to_string() if hasattr(source, 'source_ref') else str(source)
-                for source in self.input_sources
-            ]
+            lineage['calculation_confidence'] = self.calculation_confidence
+            lineage['calculated_from'] = []
+            
+            for input_value in self.calculated_from:
+                input_info = {
+                    'metric': input_value.metric_name,
+                    'value': input_value.value,
+                    'source': input_value.source_ref.to_string(),
+                    'period': input_value.period
+                }
+                lineage['calculated_from'].append(input_info)
         
         return lineage
     
