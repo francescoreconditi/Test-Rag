@@ -449,3 +449,510 @@ capitale_circolante_netto:
     - working capital
     - net working capital
     - capital circulante
+
+# ============================================================================
+# AR/AP DETAILED METRICS / METRICHE CREDITI/DEBITI DETTAGLIATE
+# ============================================================================
+
+dso:
+  canonical_name: "Days Sales Outstanding"
+  category: "ar_ap"
+  subcategory: "receivables"
+  unit: "days"
+  calculation: "(crediti_commerciali / ricavi) * 365"
+  synonyms:
+    - dso
+    - days sales outstanding
+    - giorni medi di incasso
+    - tempo medio incasso
+    - giorni crediti
+    - collection period
+    - average collection period
+    - giorni di vendita in sospeso
+  italian_synonyms:
+    - giorni medi crediti
+    - periodo medio di incasso
+    - tempo di realizzo crediti
+    - giorni di rotazione crediti
+
+dpo:
+  canonical_name: "Days Payable Outstanding"
+  category: "ar_ap"
+  subcategory: "payables"
+  unit: "days"
+  calculation: "(debiti_commerciali / cogs) * 365"
+  synonyms:
+    - dpo
+    - days payable outstanding
+    - giorni medi di pagamento
+    - tempo medio pagamento
+    - giorni debiti
+    - payment period
+    - average payment period
+    - giorni di debiti in sospeso
+  italian_synonyms:
+    - giorni medi debiti
+    - periodo medio di pagamento
+    - tempo di pagamento fornitori
+    - giorni di rotazione debiti
+
+crediti_correnti:
+  canonical_name: "Crediti Correnti"
+  category: "ar_ap"
+  subcategory: "receivables"
+  unit: "currency"
+  synonyms:
+    - crediti correnti
+    - crediti entro 12 mesi
+    - current receivables
+    - short term receivables
+    - crediti a breve termine
+    - crediti circolanti
+
+crediti_non_correnti:
+  canonical_name: "Crediti Non Correnti"
+  category: "ar_ap"
+  subcategory: "receivables"
+  unit: "currency"
+  synonyms:
+    - crediti non correnti
+    - crediti oltre 12 mesi
+    - non current receivables
+    - long term receivables
+    - crediti a lungo termine
+
+debiti_correnti:
+  canonical_name: "Debiti Correnti"
+  category: "ar_ap"
+  subcategory: "payables"
+  unit: "currency"
+  synonyms:
+    - debiti correnti
+    - debiti entro 12 mesi
+    - current payables
+    - short term payables
+    - debiti a breve termine
+    - debiti circolanti
+
+debiti_non_correnti:
+  canonical_name: "Debiti Non Correnti"
+  category: "ar_ap"
+  subcategory: "payables"
+  unit: "currency"
+  synonyms:
+    - debiti non correnti
+    - debiti oltre 12 mesi
+    - non current payables
+    - long term payables
+    - debiti a lungo termine
+
+fondo_svalutazione_crediti:
+  canonical_name: "Fondo Svalutazione Crediti"
+  category: "ar_ap"
+  subcategory: "provisions"
+  unit: "currency"
+  synonyms:
+    - fondo svalutazione crediti
+    - allowance for doubtful accounts
+    - bad debt provision
+    - provision for bad debts
+    - fondo rischi crediti
+    - accantonamento crediti
+
+crediti_in_sofferenza:
+  canonical_name: "Crediti in Sofferenza"
+  category: "ar_ap"
+  subcategory: "quality"
+  unit: "currency"
+  synonyms:
+    - crediti in sofferenza
+    - bad debts
+    - non performing loans
+    - crediti inesigibili
+    - crediti deteriorati
+    - crediti dubbi
+
+turnover_crediti:
+  canonical_name: "Turnover Crediti"
+  category: "ar_ap"
+  subcategory: "efficiency"
+  unit: "ratio"
+  calculation: "ricavi / crediti_commerciali"
+  synonyms:
+    - turnover crediti
+    - receivables turnover
+    - rotazione crediti
+    - indice di rotazione crediti
+    - velocità di incasso
+
+# ============================================================================
+# GRANULAR SALES METRICS / VENDITE GRANULARI
+# ============================================================================
+
+ticket_medio:
+  canonical_name: "Ticket Medio"
+  category: "sales"
+  subcategory: "performance"
+  unit: "currency"
+  synonyms:
+    - ticket medio
+    - average ticket
+    - scontrino medio
+    - valore medio transazione
+    - average transaction value
+    - average order value
+    - aov
+
+arpu:
+  canonical_name: "ARPU"
+  category: "sales"
+  subcategory: "performance"
+  unit: "currency"
+  synonyms:
+    - arpu
+    - average revenue per user
+    - ricavo medio per utente
+    - ricavo medio cliente
+    - average revenue per customer
+    - revenue per customer
+
+vendite_per_cliente:
+  canonical_name: "Vendite per Cliente"
+  category: "sales"
+  subcategory: "performance"
+  unit: "currency"
+  calculation: "ricavi / numero_clienti"
+  synonyms:
+    - vendite per cliente
+    - sales per customer
+    - fatturato per cliente
+    - ricavi per cliente
+    - revenue per customer
+    - customer value
+
+numero_clienti:
+  canonical_name: "Numero Clienti"
+  category: "sales"
+  subcategory: "customer_base"
+  unit: "count"
+  synonyms:
+    - numero clienti
+    - customer count
+    - clienti attivi
+    - base clienti
+    - customer base
+    - active customers
+
+nuovi_clienti:
+  canonical_name: "Nuovi Clienti"
+  category: "sales"
+  subcategory: "acquisition"
+  unit: "count"
+  synonyms:
+    - nuovi clienti
+    - new customers
+    - clienti acquisiti
+    - customer acquisitions
+    - new customer count
+
+clienti_persi:
+  canonical_name: "Clienti Persi"
+  category: "sales"
+  subcategory: "churn"
+  unit: "count"
+  synonyms:
+    - clienti persi
+    - lost customers
+    - customer churn
+    - clienti abbandonati
+    - churned customers
+
+tasso_churn_pct:
+  canonical_name: "Tasso di Churn %"
+  category: "sales"
+  subcategory: "churn"
+  unit: "percentage"
+  calculation: "(clienti_persi / numero_clienti) * 100"
+  synonyms:
+    - tasso churn
+    - churn rate
+    - tasso di abbandono
+    - customer churn rate
+    - attrition rate
+    - tasso di perdita clienti
+
+cac:
+  canonical_name: "Costo Acquisizione Cliente"
+  category: "sales"
+  subcategory: "acquisition"
+  unit: "currency"
+  synonyms:
+    - cac
+    - customer acquisition cost
+    - costo acquisizione cliente
+    - cost per acquisition
+    - cpa
+    - costo per nuovo cliente
+
+ltv:
+  canonical_name: "Lifetime Value Cliente"
+  category: "sales"
+  subcategory: "value"
+  unit: "currency"
+  synonyms:
+    - ltv
+    - lifetime value
+    - customer lifetime value
+    - clv
+    - valore vita cliente
+    - valore cliente
+
+conversion_rate_pct:
+  canonical_name: "Tasso di Conversione %"
+  category: "sales"
+  subcategory: "performance"
+  unit: "percentage"
+  synonyms:
+    - conversion rate
+    - tasso conversione
+    - tasso di conversione
+    - conversion percentage
+    - lead conversion rate
+
+# ============================================================================
+# INVENTORY/WAREHOUSE METRICS / METRICHE MAGAZZINO
+# ============================================================================
+
+rotazione_magazzino:
+  canonical_name: "Rotazione Magazzino"
+  category: "inventory"
+  subcategory: "efficiency"
+  unit: "ratio"
+  calculation: "cogs / rimanenze"
+  synonyms:
+    - rotazione magazzino
+    - inventory turnover
+    - turnover scorte
+    - indice di rotazione
+    - velocità di rotazione
+    - stock turnover
+    - inventory turns
+
+giorni_magazzino:
+  canonical_name: "Giorni di Magazzino"
+  category: "inventory"
+  subcategory: "efficiency"
+  unit: "days"
+  calculation: "(rimanenze / cogs) * 365"
+  synonyms:
+    - giorni magazzino
+    - days in inventory
+    - inventory days
+    - giorni di scorta
+    - inventory holding period
+    - stock days
+    - dio
+
+giacenza_media:
+  canonical_name: "Giacenza Media"
+  category: "inventory"
+  subcategory: "levels"
+  unit: "currency"
+  synonyms:
+    - giacenza media
+    - average inventory
+    - scorta media
+    - stock medio
+    - inventario medio
+    - magazzino medio
+
+scorte_obsolete:
+  canonical_name: "Scorte Obsolete"
+  category: "inventory"
+  subcategory: "quality"
+  unit: "currency"
+  synonyms:
+    - scorte obsolete
+    - obsolete inventory
+    - stock obsoleto
+    - dead stock
+    - slow moving inventory
+    - rimanenze morte
+
+copertura_scorte:
+  canonical_name: "Copertura Scorte"
+  category: "inventory"
+  subcategory: "planning"
+  unit: "days"
+  synonyms:
+    - copertura scorte
+    - stock coverage
+    - inventory coverage
+    - giorni di copertura
+    - stock days coverage
+
+stock_out_pct:
+  canonical_name: "Tasso Stock-Out %"
+  category: "inventory"
+  subcategory: "service_level"
+  unit: "percentage"
+  synonyms:
+    - stock out
+    - tasso stock out
+    - out of stock rate
+    - tasso rottura stock
+    - stockout percentage
+
+fill_rate_pct:
+  canonical_name: "Fill Rate %"
+  category: "inventory"
+  subcategory: "service_level"
+  unit: "percentage"
+  synonyms:
+    - fill rate
+    - service level
+    - tasso servizio
+    - livello servizio
+    - order fill rate
+
+# ============================================================================
+# HR METRICS / METRICHE RISORSE UMANE
+# ============================================================================
+
+fte:
+  canonical_name: "Full Time Equivalent"
+  category: "hr"
+  subcategory: "headcount"
+  unit: "count"
+  synonyms:
+    - fte
+    - full time equivalent
+    - equivalenti tempo pieno
+    - organico equivalente
+    - headcount fte
+
+costo_medio_dipendente:
+  canonical_name: "Costo Medio per Dipendente"
+  category: "hr"
+  subcategory: "costs"
+  unit: "currency"
+  calculation: "costo_personale / dipendenti"
+  synonyms:
+    - costo medio dipendente
+    - average employee cost
+    - costo per dipendente
+    - cost per employee
+    - employee cost
+    - costo pro capite personale
+
+costo_personale:
+  canonical_name: "Costo del Personale"
+  category: "hr"
+  subcategory: "costs"
+  unit: "currency"
+  synonyms:
+    - costo personale
+    - personnel cost
+    - costo del lavoro
+    - labor cost
+    - payroll cost
+    - employee costs
+    - staff costs
+
+turnover_personale_pct:
+  canonical_name: "Turnover del Personale %"
+  category: "hr"
+  subcategory: "retention"
+  unit: "percentage"
+  synonyms:
+    - turnover personale
+    - employee turnover
+    - staff turnover
+    - tasso di turnover
+    - turnover rate
+    - attrition rate
+
+assunzioni:
+  canonical_name: "Nuove Assunzioni"
+  category: "hr"
+  subcategory: "hiring"
+  unit: "count"
+  synonyms:
+    - assunzioni
+    - new hires
+    - nuovi assunti
+    - recruiting
+    - hiring
+    - new employees
+
+dimissioni:
+  canonical_name: "Dimissioni"
+  category: "hr"
+  subcategory: "departure"
+  unit: "count"
+  synonyms:
+    - dimissioni
+    - resignations
+    - voluntary turnover
+    - quit rate
+    - employee departures
+
+licenziamenti:
+  canonical_name: "Licenziamenti"
+  category: "hr"
+  subcategory: "departure"
+  unit: "count"
+  synonyms:
+    - licenziamenti
+    - terminations
+    - layoffs
+    - involuntary turnover
+    - dismissals
+
+assenteismo_pct:
+  canonical_name: "Tasso di Assenteismo %"
+  category: "hr"
+  subcategory: "performance"
+  unit: "percentage"
+  synonyms:
+    - assenteismo
+    - absenteeism rate
+    - tasso assenteismo
+    - absence rate
+    - absentee rate
+
+ore_straordinari:
+  canonical_name: "Ore di Straordinario"
+  category: "hr"
+  subcategory: "workload"
+  unit: "hours"
+  synonyms:
+    - ore straordinari
+    - overtime hours
+    - straordinari
+    - lavoro straordinario
+    - extra hours
+
+formazione_ore:
+  canonical_name: "Ore di Formazione"
+  category: "hr"
+  subcategory: "development"
+  unit: "hours"
+  synonyms:
+    - ore formazione
+    - training hours
+    - formazione
+    - ore di training
+    - development hours
+
+formazione_per_dipendente:
+  canonical_name: "Ore Formazione per Dipendente"
+  category: "hr"
+  subcategory: "development"
+  unit: "hours"
+  calculation: "formazione_ore / dipendenti"
+  synonyms:
+    - formazione per dipendente
+    - training per employee
+    - ore formazione pro capite
+    - average training hours

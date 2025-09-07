@@ -21,6 +21,9 @@ class ValidationCategory(Enum):
     CONSISTENCY_CHECK = "consistency_check"        # Cross-metric consistency
     FORMAT_CHECK = "format_check"                 # Data format validation
     BUSINESS_LOGIC = "business_logic"             # Business rule validation
+    PERIMETER_CHECK = "perimeter_check"           # Perimeter consistency validation
+    PERIOD_CHECK = "period_check"                 # Period consistency validation
+    DOMAIN_VALIDATION = "domain_validation"       # Domain-specific validations
 
 
 @dataclass(frozen=True)
@@ -221,7 +224,7 @@ class FinancialGuardrails:
         
         if allow_zero:
             passed = value >= 0
-            condition = "≥ 0"
+            condition = ">= 0"
         else:
             passed = value > 0
             condition = "> 0"
@@ -335,3 +338,308 @@ class FinancialGuardrails:
             'pass_rate': (passed / total * 100) if total > 0 else 0,
             'overall_status': 'PASS' if errors == 0 else 'FAIL' if errors > 0 else 'WARNING'
         }
+
+    # ============================================================================
+    # ADVANCED VALIDATIONS - Range Constraints
+    # ============================================================================
+    
+    def validate_ar_ap_metrics(self, financial_data: Dict[str, Optional[float]]) -> List[ValidationResult]:
+        """Validate AR/AP domain-specific metrics."""
+        results = []
+        
+        # DSO range check (typical 30-90 days)
+        if 'dso' in financial_data and financial_data['dso'] is not None:
+            dso = financial_data['dso']
+            passed = 15 <= dso <= 180  # Reasonable range for DSO
+            level = ValidationLevel.WARNING if not passed else ValidationLevel.INFO
+            
+            results.append(ValidationResult(
+                rule_name="dso_range_check",
+                category=ValidationCategory.RANGE_CHECK,
+                level=level,
+                passed=passed,
+                message=f"DSO: {dso:.0f} giorni (range atteso: 15-180 giorni)",
+                expected_value="15-180 giorni",
+                actual_value=f"{dso:.0f} giorni"
+            ))
+        
+        # DPO range check (typical 30-60 days)
+        if 'dpo' in financial_data and financial_data['dpo'] is not None:
+            dpo = financial_data['dpo']
+            passed = 15 <= dpo <= 120
+            level = ValidationLevel.WARNING if not passed else ValidationLevel.INFO
+            
+            results.append(ValidationResult(
+                rule_name="dpo_range_check",
+                category=ValidationCategory.RANGE_CHECK,
+                level=level,
+                passed=passed,
+                message=f"DPO: {dpo:.0f} giorni (range atteso: 15-120 giorni)",
+                expected_value="15-120 giorni",
+                actual_value=f"{dpo:.0f} giorni"
+            ))
+        
+        return results
+    
+    def validate_sales_metrics(self, financial_data: Dict[str, Optional[float]]) -> List[ValidationResult]:
+        """Validate sales domain metrics."""
+        results = []
+        
+        # Churn rate should be reasonable (0-50%)
+        if 'tasso_churn_pct' in financial_data and financial_data['tasso_churn_pct'] is not None:
+            churn = financial_data['tasso_churn_pct']
+            passed = 0 <= churn <= 50
+            level = ValidationLevel.WARNING if not passed else ValidationLevel.INFO
+            
+            results.append(ValidationResult(
+                rule_name="churn_rate_range_check",
+                category=ValidationCategory.RANGE_CHECK,
+                level=level,
+                passed=passed,
+                message=f"Tasso Churn: {churn:.1f}% (range atteso: 0-50%)",
+                expected_value="0-50%",
+                actual_value=f"{churn:.1f}%"
+            ))
+        
+        # Conversion rate should be reasonable (0.1-50%)
+        if 'conversion_rate_pct' in financial_data and financial_data['conversion_rate_pct'] is not None:
+            conversion = financial_data['conversion_rate_pct']
+            passed = 0.1 <= conversion <= 50
+            level = ValidationLevel.WARNING if not passed else ValidationLevel.INFO
+            
+            results.append(ValidationResult(
+                rule_name="conversion_rate_range_check", 
+                category=ValidationCategory.RANGE_CHECK,
+                level=level,
+                passed=passed,
+                message=f"Tasso Conversione: {conversion:.1f}% (range atteso: 0.1-50%)",
+                expected_value="0.1-50%",
+                actual_value=f"{conversion:.1f}%"
+            ))
+        
+        return results
+    
+    def validate_inventory_metrics(self, financial_data: Dict[str, Optional[float]]) -> List[ValidationResult]:
+        """Validate inventory domain metrics."""
+        results = []
+        
+        # Inventory turnover should be positive and reasonable (0.5-50x per year)
+        if 'rotazione_magazzino' in financial_data and financial_data['rotazione_magazzino'] is not None:
+            turnover = financial_data['rotazione_magazzino']
+            passed = 0.5 <= turnover <= 50
+            level = ValidationLevel.WARNING if not passed else ValidationLevel.INFO
+            
+            results.append(ValidationResult(
+                rule_name="inventory_turnover_range_check",
+                category=ValidationCategory.RANGE_CHECK,
+                level=level,
+                passed=passed,
+                message=f"Rotazione Magazzino: {turnover:.1f}x (range atteso: 0.5-50x)",
+                expected_value="0.5-50x",
+                actual_value=f"{turnover:.1f}x"
+            ))
+        
+        # Days in inventory (7-730 days reasonable)
+        if 'giorni_magazzino' in financial_data and financial_data['giorni_magazzino'] is not None:
+            days = financial_data['giorni_magazzino']
+            passed = 7 <= days <= 730
+            level = ValidationLevel.WARNING if not passed else ValidationLevel.INFO
+            
+            results.append(ValidationResult(
+                rule_name="inventory_days_range_check",
+                category=ValidationCategory.RANGE_CHECK,
+                level=level,
+                passed=passed,
+                message=f"Giorni Magazzino: {days:.0f} giorni (range atteso: 7-730 giorni)",
+                expected_value="7-730 giorni",
+                actual_value=f"{days:.0f} giorni"
+            ))
+        
+        return results
+    
+    def validate_hr_metrics(self, financial_data: Dict[str, Optional[float]]) -> List[ValidationResult]:
+        """Validate HR domain metrics."""
+        results = []
+        
+        # Employee turnover should be reasonable (0-100%)
+        if 'turnover_personale_pct' in financial_data and financial_data['turnover_personale_pct'] is not None:
+            turnover = financial_data['turnover_personale_pct']
+            passed = 0 <= turnover <= 100
+            level = ValidationLevel.WARNING if not passed else ValidationLevel.INFO
+            
+            results.append(ValidationResult(
+                rule_name="employee_turnover_range_check",
+                category=ValidationCategory.RANGE_CHECK,
+                level=level,
+                passed=passed,
+                message=f"Turnover Personale: {turnover:.1f}% (range atteso: 0-100%)",
+                expected_value="0-100%",
+                actual_value=f"{turnover:.1f}%"
+            ))
+        
+        # Absenteeism rate should be reasonable (0-30%)
+        if 'assenteismo_pct' in financial_data and financial_data['assenteismo_pct'] is not None:
+            absenteeism = financial_data['assenteismo_pct']
+            passed = 0 <= absenteeism <= 30
+            level = ValidationLevel.WARNING if not passed else ValidationLevel.INFO
+            
+            results.append(ValidationResult(
+                rule_name="absenteeism_rate_range_check",
+                category=ValidationCategory.RANGE_CHECK,
+                level=level,
+                passed=passed,
+                message=f"Tasso Assenteismo: {absenteeism:.1f}% (range atteso: 0-30%)",
+                expected_value="0-30%",
+                actual_value=f"{absenteeism:.1f}%"
+            ))
+        
+        return results
+
+    # ============================================================================
+    # PERIMETER AND PERIOD CONSISTENCY VALIDATIONS
+    # ============================================================================
+    
+    def validate_perimeter_consistency(self, 
+                                     perimeter_data: List[Dict[str, Any]]) -> List[ValidationResult]:
+        """Validate consistency across different perimeters (Consolidated/Standalone)."""
+        results = []
+        
+        if len(perimeter_data) < 2:
+            return results
+        
+        # Group by period to compare perimeters
+        period_groups = {}
+        for data in perimeter_data:
+            period = data.get('period', 'unknown')
+            perimeter = data.get('perimeter', 'unknown')
+            
+            if period not in period_groups:
+                period_groups[period] = {}
+            period_groups[period][perimeter] = data
+        
+        # Check consolidated >= standalone for key metrics
+        for period, perimeters in period_groups.items():
+            if 'Consolidated' in perimeters and 'Standalone' in perimeters:
+                cons_data = perimeters['Consolidated']
+                stand_data = perimeters['Standalone']
+                
+                # Revenue should be Consolidated >= Standalone
+                cons_revenue = cons_data.get('ricavi')
+                stand_revenue = stand_data.get('ricavi')
+                
+                if cons_revenue is not None and stand_revenue is not None:
+                    passed = cons_revenue >= stand_revenue * 0.95  # Small tolerance for rounding
+                    level = ValidationLevel.ERROR if not passed else ValidationLevel.INFO
+                    
+                    results.append(ValidationResult(
+                        rule_name="perimeter_revenue_consistency",
+                        category=ValidationCategory.PERIMETER_CHECK,
+                        level=level,
+                        passed=passed,
+                        message=f"Ricavi {period}: Consolidato ({cons_revenue:,.0f}) vs Standalone ({stand_revenue:,.0f})",
+                        expected_value=f">= {stand_revenue:,.0f}",
+                        actual_value=cons_revenue
+                    ))
+        
+        return results
+    
+    def validate_period_consistency(self, 
+                                  period_data: List[Dict[str, Any]]) -> List[ValidationResult]:
+        """Validate consistency across different periods."""
+        results = []
+        
+        if len(period_data) < 2:
+            return results
+        
+        # Sort by period for chronological comparison
+        sorted_data = sorted(period_data, key=lambda x: x.get('period', ''))
+        
+        # Check for reasonable growth rates YoY
+        for i in range(1, len(sorted_data)):
+            prev_data = sorted_data[i-1]
+            curr_data = sorted_data[i]
+            
+            prev_period = prev_data.get('period', 'unknown')
+            curr_period = curr_data.get('period', 'unknown')
+            
+            # Revenue growth rate check
+            prev_revenue = prev_data.get('ricavi')
+            curr_revenue = curr_data.get('ricavi')
+            
+            if prev_revenue is not None and curr_revenue is not None and prev_revenue != 0:
+                growth_rate = (curr_revenue - prev_revenue) / abs(prev_revenue) * 100
+                
+                # Reasonable growth rate: -50% to +200%
+                passed = -50 <= growth_rate <= 200
+                level = ValidationLevel.WARNING if not passed else ValidationLevel.INFO
+                
+                results.append(ValidationResult(
+                    rule_name="period_revenue_growth_check",
+                    category=ValidationCategory.PERIOD_CHECK,
+                    level=level,
+                    passed=passed,
+                    message=f"Crescita Ricavi {prev_period} -> {curr_period}: {growth_rate:.1f}% (range atteso: -50% / +200%)",
+                    expected_value="-50% / +200%",
+                    actual_value=f"{growth_rate:.1f}%"
+                ))
+        
+        return results
+    
+    # ============================================================================
+    # COMPREHENSIVE VALIDATION ENGINE
+    # ============================================================================
+    
+    def validate_comprehensive(self, 
+                             financial_data: Dict[str, Optional[float]], 
+                             perimeter_data: Optional[List[Dict[str, Any]]] = None,
+                             period_data: Optional[List[Dict[str, Any]]] = None) -> List[ValidationResult]:
+        """Run comprehensive validation including advanced checks."""
+        results = []
+        
+        # Standard validations
+        results.extend(self.validate_financial_ratios(financial_data))
+        
+        # Domain-specific validations
+        results.extend(self.validate_ar_ap_metrics(financial_data))
+        results.extend(self.validate_sales_metrics(financial_data))
+        results.extend(self.validate_inventory_metrics(financial_data))
+        results.extend(self.validate_hr_metrics(financial_data))
+        
+        # Perimeter consistency
+        if perimeter_data:
+            results.extend(self.validate_perimeter_consistency(perimeter_data))
+        
+        # Period consistency
+        if period_data:
+            results.extend(self.validate_period_consistency(period_data))
+        
+        return results
+    
+    def get_advanced_validation_summary(self, results: List[ValidationResult]) -> Dict[str, Any]:
+        """Enhanced summary including category breakdown."""
+        base_summary = self.get_validation_summary(results)
+        
+        # Category breakdown
+        categories = {}
+        for result in results:
+            cat = result.category.value
+            if cat not in categories:
+                categories[cat] = {'total': 0, 'passed': 0, 'errors': 0, 'warnings': 0}
+            
+            categories[cat]['total'] += 1
+            if result.passed:
+                categories[cat]['passed'] += 1
+            if result.level == ValidationLevel.ERROR:
+                categories[cat]['errors'] += 1
+            elif result.level == ValidationLevel.WARNING:
+                categories[cat]['warnings'] += 1
+        
+        # Calculate pass rates per category
+        for cat_data in categories.values():
+            total = cat_data['total']
+            cat_data['pass_rate'] = (cat_data['passed'] / total * 100) if total > 0 else 0
+        
+        base_summary['categories'] = categories
+        base_summary['validation_scope'] = list(categories.keys())
+        
+        return base_summary
