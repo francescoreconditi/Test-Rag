@@ -22,8 +22,15 @@ docker-compose up -d               # Starts Qdrant + Streamlit app
 
 ### Running the Application
 ```bash
+# Streamlit Web Interface
 streamlit run app.py              # Local development (localhost:8501)
 streamlit run app.py --server.port 8502  # Alternative port
+
+# FastAPI REST API
+uv run uvicorn api:app --host 0.0.0.0 --port 8000 --reload  # API server (localhost:8000)
+uvicorn api:app --host 0.0.0.0 --port 8000 --reload         # Alternative without uv
+
+# Docker deployment
 docker-compose up app             # Containerized with Qdrant
 ```
 

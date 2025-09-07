@@ -163,10 +163,12 @@ class EnterpriseOrchestrator:
         for doc in documents:
             try:
                 # Create source reference
+                filename = doc.get('filename', 'unknown')
                 source_ref = SourceReference(
-                    file_name=doc.get('filename', 'unknown'),
+                    file_path=filename,  # Required parameter
+                    file_name=filename,
                     file_hash=doc.get('hash', ''),
-                    source_type=SourceType.PDF if doc.get('filename', '').endswith('.pdf') else SourceType.EXCEL,
+                    source_type=SourceType.PDF if filename.endswith('.pdf') else SourceType.EXCEL,
                     extraction_timestamp=datetime.now(),
                     confidence_score=1.0
                 )

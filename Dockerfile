@@ -1,45 +1,80 @@
-FROM python:3.10-slim
+# Multi-stage Docker build for Business Intelligence RAG API
+FROM python:3.11-slim as base
 
-# Set working directory
-WORKDIR /app
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install system dependencies and curl for health check
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
+    build-essential \
     curl \
+    git \
+    tesseract-ocr \
+    tesseract-ocr-ita \
+    tesseract-ocr-eng \
+    poppler-utils \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv using the direct download method
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+# Install UV for faster package management
+RUN pip install uv
 
-# Set environment variables for uv
-ENV PATH="/root/.local/bin:${PATH}"
-ENV UV_CACHE_DIR=/tmp/uv-cache
+WORKDIR /app
 
-# Copy project files for dependency installation
-COPY pyproject.toml .
+# Copy dependency files
+COPY requirements.txt requirements-enterprise.txt pyproject.toml ./
 
-# Create virtual environment and install dependencies with uv
-RUN /root/.local/bin/uv venv .venv --python 3.10
-ENV VIRTUAL_ENV=/app/.venv
-ENV PATH="/app/.venv/bin:${PATH}"
+# Install Python dependencies using UV
+RUN uv pip install --system -r requirements.txt
+RUN uv pip install --system -r requirements-enterprise.txt || echo "Enterprise requirements optional"
 
-# Install dependencies using uv (much faster than pip)
-RUN /root/.local/bin/uv sync
+# Production stage
+FROM base as production
+
+# Create non-root user
+RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser
 
 # Copy application code
-COPY . .
+COPY --chown=appuser:appuser . /app
 
 # Create necessary directories
-RUN mkdir -p data/uploads data/cache
+RUN mkdir -p /app/data /app/logs && \
+    chown -R appuser:appuser /app
 
-# Expose Streamlit port
-EXPOSE 8501
+# Switch to non-root user
+USER appuser
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8501/_stcore/health || exit 1
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
 
-# Run the application
-CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# Expose port
+EXPOSE 8000
+
+# Default command
+CMD ["python", "-m", "uvicorn", "api_main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# Development stage
+FROM base as development
+
+# Install additional development dependencies
+RUN uv pip install --system pytest pytest-asyncio httpx
+
+WORKDIR /app
+
+# Mount point for source code
+VOLUME ["/app"]
+
+# Expose port
+EXPOSE 8000
+
+# Development command with auto-reload
+CMD ["python", "-m", "uvicorn", "api_main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

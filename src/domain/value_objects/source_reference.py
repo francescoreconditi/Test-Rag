@@ -253,6 +253,7 @@ class SourceReferenceBuilder:
                 row_label: Optional[str] = None) -> SourceReference:
         """Create reference for PDF source."""
         return SourceReference(
+            file_path=file_name,  # Use file_name as file_path
             file_name=file_name,
             file_hash=file_hash,
             source_type=SourceType.PDF,
@@ -268,6 +269,7 @@ class SourceReferenceBuilder:
                   column_label: Optional[str] = None) -> SourceReference:
         """Create reference for Excel source."""
         return SourceReference(
+            file_path=file_name,  # Use file_name as file_path
             file_name=file_name,
             file_hash=file_hash,
             source_type=SourceType.EXCEL,
@@ -283,6 +285,7 @@ class SourceReferenceBuilder:
                 column_label: Optional[str] = None) -> SourceReference:
         """Create reference for CSV source."""
         return SourceReference(
+            file_path=file_name,  # Use file_name as file_path
             file_name=file_name,
             file_hash=file_hash,
             source_type=SourceType.CSV,

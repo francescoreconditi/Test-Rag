@@ -28,7 +28,16 @@
       "Read(//c/temp/**)",
       "WebFetch(domain:www.zcscompany.com)",
       "Bash(uv run streamlit run:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(uv run:*)",
+      "Bash(timeout:*)",
+      "Bash(npm install)",
+      "Bash(npm start)",
+      "Bash(npx ng generate component:*)",
+      "Bash(npx:*)",
+      "Bash(uv add:*)",
+      "WebFetch(domain:localhost)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

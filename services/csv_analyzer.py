@@ -201,6 +201,75 @@ class CSVAnalyzer:
         
         return analysis
     
+    def analyze_comprehensive(self, file_path: str) -> Dict[str, Any]:
+        """Comprehensive analysis of CSV data with automatic detection of data type."""
+        try:
+            # Load the CSV file
+            df = self.load_csv(file_path)
+            
+            # Detect data type and perform appropriate analysis
+            if self._is_balance_sheet_data(df):
+                return self.analyze_balance_sheet(df)
+            else:
+                # Generic analysis for other data types
+                return self._analyze_generic(df)
+                
+        except Exception as e:
+            logger.error(f"Error in comprehensive analysis: {str(e)}")
+            raise ValueError(f"Analysis failed: {str(e)}")
+    
+    def _is_balance_sheet_data(self, df: pd.DataFrame) -> bool:
+        """Detect if the CSV contains balance sheet data."""
+        balance_sheet_keywords = [
+            'fatturato', 'revenue', 'ricavi', 'vendite', 'sales',
+            'ebitda', 'ebit', 'utile', 'profit', 'costi', 'costs',
+            'attivo', 'passivo', 'assets', 'liabilities'
+        ]
+        
+        column_names = [col.lower() for col in df.columns]
+        matches = sum(1 for keyword in balance_sheet_keywords 
+                     for col in column_names if keyword in col)
+        
+        return matches >= 2  # At least 2 financial keywords
+    
+    def _analyze_generic(self, df: pd.DataFrame) -> Dict[str, Any]:
+        """Generic analysis for non-balance sheet data."""
+        analysis = {
+            'data_info': {
+                'rows': len(df),
+                'columns': len(df.columns),
+                'column_names': list(df.columns),
+                'numeric_columns': list(df.select_dtypes(include=[np.number]).columns),
+                'text_columns': list(df.select_dtypes(include=['object']).columns)
+            },
+            'summary_statistics': {},
+            'insights': [],
+            'recommendations': []
+        }
+        
+        # Calculate summary statistics for numeric columns
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            stats = df[col].describe().to_dict()
+            stats['null_count'] = df[col].isnull().sum()
+            analysis['summary_statistics'][col] = stats
+        
+        # Generate insights
+        analysis['insights'].append(f"Dataset contains {len(df)} records across {len(df.columns)} columns")
+        analysis['insights'].append(f"Found {len(numeric_cols)} numeric columns for analysis")
+        
+        if self.parsed_values:
+            analysis['insights'].append(f"Successfully parsed {len(self.parsed_values)} values with provenance tracking")
+        
+        # Generate recommendations
+        if len(numeric_cols) > 0:
+            analysis['recommendations'].append("Consider trend analysis for numeric columns over time")
+        
+        if df.isnull().sum().sum() > 0:
+            analysis['recommendations'].append("Review and handle missing data values")
+        
+        return analysis
+
     def compare_periods(self, df1: pd.DataFrame, df2: pd.DataFrame, 
                         key_metrics: List[str]) -> Dict[str, Any]:
         """Compare two periods or datasets."""
