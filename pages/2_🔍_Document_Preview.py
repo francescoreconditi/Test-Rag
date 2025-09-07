@@ -6,6 +6,7 @@ from pathlib import Path
 import base64
 from datetime import datetime
 import json
+import pandas as pd
 
 # Import our services
 try:
@@ -45,7 +46,7 @@ def display_thumbnails(thumbnails):
         
         with cols[col_idx]:
             st.markdown(f"**Page {thumb['page']}**")
-            st.image(thumb['thumbnail'], use_column_width=True)
+            st.image(thumb['thumbnail'], width='stretch')
 
 def display_statistics(statistics):
     """Display document statistics."""
@@ -127,7 +128,7 @@ def display_statistics(statistics):
         if null_values:
             with st.expander("🔍 Data Quality - Null Values"):
                 null_df = pd.DataFrame(list(null_values.items()), columns=['Column', 'Null Count'])
-                st.dataframe(null_df, use_container_width=True)
+                st.dataframe(null_df, width='stretch')
     
     elif 'format' in statistics:
         # Image statistics  

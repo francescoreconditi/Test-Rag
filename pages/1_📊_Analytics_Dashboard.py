@@ -116,7 +116,7 @@ def main():
         ))
         
         fig_health.update_layout(height=300)
-        st.plotly_chart(fig_health, use_container_width=True)
+        st.plotly_chart(fig_health, width='stretch')
         
         st.markdown(f"**{health_data['description']}**")
     
@@ -221,7 +221,7 @@ def main():
                                             'thickness': 0.75, 'value': ebitda_kpi.get('target_value', 15)}}
                     ))
                     fig_ebitda.update_layout(height=250)
-                    st.plotly_chart(fig_ebitda, use_container_width=True)
+                    st.plotly_chart(fig_ebitda, width='stretch')
             
             with gauge_cols[1]:
                 # DSO
@@ -239,7 +239,7 @@ def main():
                                             'thickness': 0.75, 'value': dso_kpi.get('target_value', 45)}}
                     ))
                     fig_dso.update_layout(height=250)
-                    st.plotly_chart(fig_dso, use_container_width=True)
+                    st.plotly_chart(fig_dso, width='stretch')
     
     with chart_tabs[1]:
         # Profitability Waterfall
@@ -269,7 +269,7 @@ def main():
             height=400
         )
         
-        st.plotly_chart(fig_waterfall, use_container_width=True)
+        st.plotly_chart(fig_waterfall, width='stretch')
         
         # Profitability ratios
         col1, col2, col3 = st.columns(3)
@@ -327,7 +327,7 @@ def main():
                 height=400
             )
             
-            st.plotly_chart(fig_trends, use_container_width=True)
+            st.plotly_chart(fig_trends, width='stretch')
             
             # Growth rates
             if len(sample_periods) >= 2:
@@ -397,7 +397,7 @@ def main():
             height=500
         )
         
-        st.plotly_chart(fig_radar, use_container_width=True)
+        st.plotly_chart(fig_radar, width='stretch')
     
     # Insights Section
     st.subheader("🔍 Key Insights")

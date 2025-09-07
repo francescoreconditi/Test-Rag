@@ -154,7 +154,7 @@ def display_suggestions(suggestions, session_id, editor_service):
         col1, col2, col3, col4, col5 = st.columns([1, 2, 2, 2, 1])
         
         with col1:
-            if st.checkbox("", key=f"suggest_{i}"):
+            if st.checkbox("Apply", key=f"suggest_{i}", label_visibility="collapsed"):
                 selected_suggestions.append(i)
         
         with col2:
@@ -231,7 +231,7 @@ def display_edit_history(history):
         df = pd.DataFrame(history_data)
         
         # Display as a table
-        st.dataframe(df.drop('ID', axis=1), use_container_width=True)
+        st.dataframe(df.drop('ID', axis=1), width='stretch')
         
         # Undo functionality
         with st.expander("🔄 Undo Operations"):
@@ -465,7 +465,7 @@ def main():
                     })
                 
                 if ranges_df:
-                    st.dataframe(pd.DataFrame(ranges_df), use_container_width=True)
+                    st.dataframe(pd.DataFrame(ranges_df), width='stretch')
             
             # Balance equations
             if 'balance_equations' in validation_rules:

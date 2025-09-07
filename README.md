@@ -4,12 +4,16 @@ Una **piattaforma di Business Intelligence aziendale di nuova generazione** che 
 
 ## 🎯 Funzionalità Principali
 
-### 🚀 **NOVITÀ: Modalità Enterprise**
+### 🚀 **NOVITÀ: UI/UX Avanzata con Modalità Enterprise**
 - **🔧 Attivazione Enterprise**: Attivazione con un clic nella barra laterale di Streamlit
+- **📊 Dashboard Analytics Avanzato**: KPI interattivi, trend analysis, waterfall charts, radar efficienza
+- **🔍 Anteprima Documenti**: Thumbnails, estrazione contenuti, statistiche automatiche
+- **✏️ Editor Interattivo Metriche**: Editing real-time, validazione automatica, suggerimenti AI
+- **📈 Visualizzazioni Professionali**: Plotly charts, gauge KPI, heatmap di rischio
+- **🎯 68 Metriche Finanziarie**: Ontologia estesa AR/AP, Vendite, Magazzino, HR
+- **✅ Validazioni Avanzate**: Range constraints, coerenza perimetro/periodo, controlli dominio
 - **📊 Riferimenti di Origine**: Tracciamento completo della provenienza dei dati
-- **✅ Controlli Finanziari**: Validazione automatica di bilanci e PFN
 - **🤖 Recupero Ibrido**: BM25 + Embeddings + Riclassificazione con cross-encoder
-- **🧠 Mappatura Ontologia**: 31 metriche canoniche con oltre 219 sinonimi (Italiano/Inglese)
 - **🗄️ Tabella Dimensionale**: Schema a stella con persistenza DuckDB/SQLite
 - **⚡ Orchestrazione Enterprise**: Flusso di lavoro integrato con pipeline a 6 fasi
 
@@ -269,8 +273,11 @@ src/
 │       ├── enterprise_orchestrator.py  # Coordinatore principale del flusso
 │       ├── document_router.py          # Classificazione documenti
 │       ├── hybrid_retrieval.py         # Ricerca BM25 + Embeddings
-│       ├── ontology_mapper.py          # Mappatura sinonimi metriche
-│       └── data_normalizer.py          # Normalizzazione multi-locale
+│       ├── ontology_mapper.py          # Mappatura sinonimi metriche (68 metriche)
+│       ├── data_normalizer.py          # Normalizzazione multi-locale
+│       ├── document_preview.py         # NUOVO: Anteprima documenti con thumbnails
+│       ├── interactive_editor.py       # NUOVO: Editor interattivo metriche
+│       └── analytics_dashboard.py      # NUOVO: Dashboard analytics avanzato
 ├── infrastructure/           # Aspetti esterni (database, API)
 │   └── repositories/         # Implementazioni persistenza dati
 │       └── fact_table_repository.py   # NUOVO: Data warehouse dimensionale
@@ -281,6 +288,10 @@ src/
 ├── presentation/             # Livello UI (Streamlit)
 │   └── streamlit/
 │       └── pdf_exporter.py   # NUOVO: Export PDF professionale (stile ZCS)
+├── pages/                    # NUOVO: Pagine UI/UX avanzate
+│   ├── 1_📊_Analytics_Dashboard.py    # Dashboard KPI interattivo
+│   ├── 2_🔍_Document_Preview.py       # Anteprima documenti con thumbnails
+│   └── 3_✏️_Interactive_Editor.py      # Editor metriche real-time
 └── services/                 # Servizi legacy (in migrazione)
     ├── rag_engine.py        # Potenziato con orchestratore enterprise
     └── query_cache.py       # Ottimizzazione performance
@@ -316,6 +327,34 @@ tests/
 - **⚡ Statistiche di Elaborazione**: Tempo, confidenza, record salvati
 - **🔍 Riferimenti di Origine**: Provenienza completa dei dati
 - **⚠️ Avvisi di Validazione**: Incongruenze contabili segnalate
+
+### 🚀 **NUOVO: Funzionalità UI/UX Avanzate**
+
+#### 📊 Dashboard Analytics Avanzato (`1_📊_Analytics_Dashboard.py`)
+- **Gauge KPI Interattivi**: Visualizzazione metriche con soglie e colori dinamici
+- **Waterfall Charts**: Analisi breakdown finanziario (Ricavi → EBITDA → Utile Netto)
+- **Trend Analysis**: Grafici temporali con analisi crescita YoY
+- **Health Score**: Punteggio di salute aziendale con algoritmi di scoring
+- **Radar Efficienza**: Visualizzazione multi-dimensionale delle performance
+- **Risk Assessment**: Analisi del rischio con matrice di valutazione
+
+#### 🔍 Anteprima Documenti (`2_🔍_Document_Preview.py`)
+- **Supporto Multi-Formato**: PDF, Excel, CSV, Immagini, Text, JSON, Markdown
+- **Thumbnails Automatici**: Generazione preview pagine PDF e documenti
+- **Estrazione Contenuti**: Analisi automatica e preview del testo
+- **Statistiche Documenti**: Metadati dettagliati e analisi qualità dati
+- **Rilevamento Metriche**: Identificazione automatica valori finanziari
+- **Sistema Caching**: Ottimizzazione performance per documenti ricorrenti
+- **Export Funzionale**: Download dati preview in formato JSON
+
+#### ✏️ Editor Interattivo Metriche (`3_✏️_Interactive_Editor.py`)
+- **Editing Real-Time**: Modifica valori con validazione immediata
+- **Gestione Sessioni**: Controllo stato editing multi-utente
+- **Suggerimenti AI**: Raccomandazioni automatiche per correzioni
+- **Cronologia Modifiche**: Tracking completo operazioni con undo/redo
+- **Validazione Avanzata**: Controlli dominio (AR/AP, Sales, HR, Inventory)
+- **Integrazione Ontologia**: Mappatura automatica sinonimi 68 metriche
+- **Import/Export Bulk**: Funzionalità caricamento/scaricamento dati massivo
 
 ### 1. 📊 Analisi Dati Finanziari
 
@@ -367,6 +406,9 @@ pytest -v --tb=short            # Output dettagliato
 # Test delle Prestazioni
 pytest -m slow                   # Benchmark delle prestazioni
 pytest --cov=src --cov-report=html  # Report di copertura
+
+# Test UI/UX Integration (NUOVO)
+python test_ui_integration.py    # Test completo funzionalità UI/UX avanzate
 ```
 
 ### Gestione Dipendenze
