@@ -2,11 +2,14 @@
 
 import re
 import locale
+import json
+import requests
 from datetime import datetime, date
 from decimal import Decimal, InvalidOperation
 from typing import Optional, Dict, Any, Tuple, Union, List
 from enum import Enum
 from dataclasses import dataclass
+from pathlib import Path
 try:
     import babel.numbers
     from babel.core import Locale
@@ -14,6 +17,9 @@ try:
 except ImportError:
     BABEL_AVAILABLE = False
 import dateutil.parser
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ScaleUnit(Enum):
@@ -62,6 +68,16 @@ class NormalizedPeriod:
                 self.display_name = f"{self.start_date} to {self.end_date}"
 
 
+@dataclass
+class CurrencyRate:
+    """Currency conversion rate with metadata."""
+    from_currency: str
+    to_currency: str
+    rate: Decimal
+    source: str
+    timestamp: datetime
+    
+    
 @dataclass 
 class NormalizedValue:
     """A normalized numeric value with metadata."""
@@ -70,7 +86,9 @@ class NormalizedValue:
     scale_applied: ScaleUnit
     currency: Optional[str] = None
     is_negative: bool = False
+    is_percentage: bool = False
     confidence: float = 1.0
+    conversion_rate: Optional[CurrencyRate] = None
     
     def to_float(self) -> float:
         """Convert to float for calculations."""
@@ -78,15 +96,41 @@ class NormalizedValue:
     
     def to_base_units(self) -> float:
         """Convert to base units (applying scale)."""
-        return float(self.value * self.scale_applied.multiplier)
+        base_value = float(self.value * self.scale_applied.multiplier)
+        if self.is_percentage:
+            return base_value / 100.0
+        return base_value
+    
+    def convert_currency(self, target_currency: str, rate: CurrencyRate) -> 'NormalizedValue':
+        """Convert to different currency."""
+        if not self.currency or self.currency == target_currency:
+            return self
+        
+        converted_value = self.value * rate.rate
+        
+        return NormalizedValue(
+            value=converted_value,
+            original_value=self.original_value,
+            scale_applied=self.scale_applied,
+            currency=target_currency,
+            is_negative=self.is_negative,
+            is_percentage=self.is_percentage,
+            confidence=self.confidence * 0.95,  # Slight confidence reduction for conversion
+            conversion_rate=rate
+        )
 
 
 class DataNormalizer:
     """Service for normalizing financial data."""
     
-    def __init__(self, default_locale: str = "it_IT"):
+    def __init__(self, default_locale: str = "it_IT", enable_currency_conversion: bool = False):
         """Initialize normalizer with locale settings."""
         self.default_locale = default_locale
+        self.enable_currency_conversion = enable_currency_conversion
+        self.currency_rates_cache: Dict[str, CurrencyRate] = {}
+        self.rates_cache_file = Path("cache/currency_rates.json")
+        self.rates_cache_file.parent.mkdir(exist_ok=True)
+        
         if BABEL_AVAILABLE:
             try:
                 self.babel_locale = Locale.parse(default_locale)
@@ -94,6 +138,9 @@ class DataNormalizer:
                 self.babel_locale = Locale.parse("en_US")
         else:
             self.babel_locale = None
+            
+        # Load cached rates
+        self._load_cached_rates()
         
         # Common scale indicators
         self.scale_patterns = {
@@ -125,6 +172,14 @@ class DataNormalizer:
             (r'\$|USD|dollar', 'USD'),
             (r'£|GBP|pound', 'GBP'),
             (r'¥|JPY|yen', 'JPY')
+        ]
+        
+        # Percentage patterns
+        self.percentage_patterns = [
+            r'%',
+            r'(?i)percentuale',
+            r'(?i)percent',
+            r'(?i)per\s+cent'
         ]
         
         # Period patterns
@@ -168,8 +223,9 @@ class DataNormalizer:
         
         original_value = str(value_str).strip()
         
-        # Detect currency
+        # Detect currency and percentage
         currency = self._extract_currency(original_value)
+        is_percentage = self._is_percentage(original_value + " " + context)
         
         # Clean the string
         clean_value = self._clean_numeric_string(original_value)
@@ -223,6 +279,7 @@ class DataNormalizer:
                 scale_applied=scale,
                 currency=currency,
                 is_negative=is_negative,
+                is_percentage=is_percentage,
                 confidence=self._calculate_confidence(original_value, clean_value)
             )
             
@@ -408,6 +465,107 @@ class DataNormalizer:
         
         return results
     
+    def _is_percentage(self, text: str) -> bool:
+        """Check if value represents a percentage."""
+        for pattern in self.percentage_patterns:
+            if re.search(pattern, text):
+                return True
+        return False
+    
+    def _load_cached_rates(self):
+        """Load cached currency rates."""
+        try:
+            if self.rates_cache_file.exists():
+                with open(self.rates_cache_file, 'r') as f:
+                    data = json.load(f)
+                    for key, rate_data in data.items():
+                        rate = CurrencyRate(
+                            from_currency=rate_data['from_currency'],
+                            to_currency=rate_data['to_currency'],
+                            rate=Decimal(str(rate_data['rate'])),
+                            source=rate_data['source'],
+                            timestamp=datetime.fromisoformat(rate_data['timestamp'])
+                        )
+                        self.currency_rates_cache[key] = rate
+        except Exception as e:
+            logger.warning(f"Failed to load currency rates cache: {e}")
+    
+    def _save_cached_rates(self):
+        """Save currency rates to cache."""
+        try:
+            data = {}
+            for key, rate in self.currency_rates_cache.items():
+                data[key] = {
+                    'from_currency': rate.from_currency,
+                    'to_currency': rate.to_currency,
+                    'rate': str(rate.rate),
+                    'source': rate.source,
+                    'timestamp': rate.timestamp.isoformat()
+                }
+            
+            with open(self.rates_cache_file, 'w') as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            logger.warning(f"Failed to save currency rates cache: {e}")
+    
+    def get_currency_rate(self, from_currency: str, to_currency: str) -> Optional[CurrencyRate]:
+        """Get currency exchange rate."""
+        if from_currency == to_currency:
+            return CurrencyRate(
+                from_currency=from_currency,
+                to_currency=to_currency,
+                rate=Decimal('1.0'),
+                source='identity',
+                timestamp=datetime.now()
+            )
+        
+        cache_key = f"{from_currency}_{to_currency}"
+        
+        # Check cache first (rates valid for 1 hour)
+        if cache_key in self.currency_rates_cache:
+            cached_rate = self.currency_rates_cache[cache_key]
+            if (datetime.now() - cached_rate.timestamp).seconds < 3600:
+                return cached_rate
+        
+        # Try to fetch from external API (example with exchangerate-api.com)
+        if self.enable_currency_conversion:
+            try:
+                url = f"https://api.exchangerate-api.com/v4/latest/{from_currency}"
+                response = requests.get(url, timeout=5)
+                response.raise_for_status()
+                data = response.json()
+                
+                if to_currency in data['rates']:
+                    rate = CurrencyRate(
+                        from_currency=from_currency,
+                        to_currency=to_currency,
+                        rate=Decimal(str(data['rates'][to_currency])),
+                        source='exchangerate-api.com',
+                        timestamp=datetime.now()
+                    )
+                    
+                    # Cache the rate
+                    self.currency_rates_cache[cache_key] = rate
+                    self._save_cached_rates()
+                    
+                    return rate
+                    
+            except Exception as e:
+                logger.warning(f"Failed to fetch currency rate {from_currency}->{to_currency}: {e}")
+        
+        return None
+    
+    def convert_currency(self, value: NormalizedValue, target_currency: str) -> Optional[NormalizedValue]:
+        """Convert normalized value to target currency."""
+        if not value.currency or value.currency == target_currency:
+            return value
+        
+        rate = self.get_currency_rate(value.currency, target_currency)
+        if rate:
+            return value.convert_currency(target_currency, rate)
+        
+        return None
+    
     def get_normalization_summary(self, results: Dict[str, NormalizedValue]) -> Dict[str, Any]:
         """Get summary of normalization results."""
         if not results:
@@ -424,5 +582,6 @@ class DataNormalizer:
             'average_confidence': avg_confidence,
             'currencies_found': list(currencies),
             'scales_detected': [s.unit_name for s in scales],
-            'negative_values': sum(1 for r in results.values() if r.is_negative)
+            'negative_values': sum(1 for r in results.values() if r.is_negative),
+            'percentage_values': sum(1 for r in results.values() if r.is_percentage)
         }

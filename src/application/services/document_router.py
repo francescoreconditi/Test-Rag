@@ -370,7 +370,7 @@ class DocumentRouter:
                 'use_llm': False,
                 'parsers': [classification.recommended_parser],
                 'extractors': ['tabular_data', 'metadata'],
-                'post_processors': ['synonym_mapping', 'validation', 'calculation_engine'],
+                'post_processors': ['table_analyzer', 'synonym_mapping', 'validation', 'calculation_engine'],
                 'indexing': 'structured_facts'
             }
         

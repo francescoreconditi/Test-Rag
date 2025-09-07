@@ -1,383 +1,383 @@
-# Business Intelligence RAG System 🏢
+# Sistema RAG di Business Intelligence 🏢
 
-A **next-generation Enterprise Business Intelligence platform** that combines structured data analysis with advanced RAG (Retrieval-Augmented Generation) capabilities. Built with **Clean Architecture**, **Domain-Driven Design**, and **enterprise-grade patterns** for scalable financial analysis and document intelligence.
+Una **piattaforma di Business Intelligence aziendale di nuova generazione** che combina l'analisi di dati strutturati con funzionalità avanzate RAG (Retrieval-Augmented Generation). Costruita con **Clean Architecture**, **Domain-Driven Design**, e **pattern di livello enterprise** per analisi finanziarie scalabili e intelligenza documentale.
 
-## 🎯 Core Features
+## 🎯 Funzionalità Principali
 
-### 🚀 **NEW: Enterprise Mode**
-- **🔧 Enterprise Toggle**: One-click activation in Streamlit sidebar
-- **📊 Source References**: Complete data provenance tracking
-- **✅ Financial Guardrails**: Automated balance sheet and PFN validation
-- **🤖 Hybrid Retrieval**: BM25 + Embeddings + Cross-encoder reranking
-- **🧠 Ontology Mapping**: 31 canonical metrics with 219+ synonyms (Italian/English)
-- **🗄️ Dimensional Fact Table**: Star schema with DuckDB/SQLite persistence
-- **⚡ Enterprise Orchestration**: Integrated workflow with 6-step processing pipeline
+### 🚀 **NOVITÀ: Modalità Enterprise**
+- **🔧 Attivazione Enterprise**: Attivazione con un clic nella barra laterale di Streamlit
+- **📊 Riferimenti di Origine**: Tracciamento completo della provenienza dei dati
+- **✅ Controlli Finanziari**: Validazione automatica di bilanci e PFN
+- **🤖 Recupero Ibrido**: BM25 + Embeddings + Riclassificazione con cross-encoder
+- **🧠 Mappatura Ontologia**: 31 metriche canoniche con oltre 219 sinonimi (Italiano/Inglese)
+- **🗄️ Tabella Dimensionale**: Schema a stella con persistenza DuckDB/SQLite
+- **⚡ Orchestrazione Enterprise**: Flusso di lavoro integrato con pipeline a 6 fasi
 
-### 📊 Advanced Financial Analytics
-- **Smart CSV Processing** with Italian number format support (`1.234,56`)
-- **Automated Financial Modeling** (YoY growth, ratios, KPIs)
-- **Anomaly Detection** with statistical algorithms
-- **Multi-Currency Support** with conversion tracking
-- **Interactive Dashboards** with real-time visualizations
-- **Comparative Analysis** across multiple periods and entities
+### 📊 Analisi Finanziarie Avanzate
+- **Elaborazione CSV Intelligente** con supporto per formati numerici italiani (`1.234,56`)
+- **Modellazione Finanziaria Automatizzata** (crescita YoY, rapporti, KPI)
+- **Rilevamento Anomalie** con algoritmi statistici
+- **Supporto Multi-Valuta** con tracciamento delle conversioni
+- **Dashboard Interattive** con visualizzazioni in tempo reale
+- **Analisi Comparativa** tra più periodi ed entità
 
-### 🧠 RAG-Powered Document Intelligence  
-- **Multi-Format Support** (PDF, DOCX, TXT, Markdown, Excel)
-- **Semantic Search** with Qdrant vector database
-- **Context-Aware Queries** combining structured and unstructured data
-- **Metadata Extraction** with provenance tracking
-- **Professional PDF Export** with ZCS Company styling
-- **Intelligent Chunking** with overlap optimization
+### 🧠 Intelligenza Documentale Basata su RAG  
+- **Supporto Multi-Formato** (PDF, DOCX, TXT, Markdown, Excel)
+- **Ricerca Semantica** con database vettoriale Qdrant
+- **Query Context-Aware** che combinano dati strutturati e non strutturati
+- **Estrazione Metadati** con tracciamento della provenienza
+- **Export PDF Professionale** con stile ZCS Company
+- **Chunking Intelligente** con ottimizzazione delle sovrapposizioni
 
-### 🤖 AI-Driven Business Intelligence
-- **Executive Reporting** with strategic insights
-- **Predictive Analytics** using historical patterns
-- **Risk Assessment** with confidence scoring
-- **Natural Language Queries** in Italian and English
-- **Automated Recommendations** with priority levels
-- **Trend Analysis** with statistical significance
+### 🤖 Business Intelligence Guidata dall'AI
+- **Report Esecutivi** con insight strategici
+- **Analisi Predittive** basate su pattern storici
+- **Valutazione del Rischio** con punteggi di confidenza
+- **Query in Linguaggio Naturale** in italiano e inglese
+- **Raccomandazioni Automatiche** con livelli di priorità
+- **Analisi dei Trend** con significatività statistica
 
-### 💼 Enterprise-Ready Architecture
-- **Clean Architecture** with domain separation
-- **Repository Pattern** with SQLite/DuckDB persistence
+### 💼 Architettura Enterprise-Ready
+- **Clean Architecture** con separazione dei domini
+- **Pattern Repository** con persistenza SQLite/DuckDB
 - **Dependency Injection** container
-- **Comprehensive Logging** with sensitive data filtering
-- **Type Safety** with full MyPy compliance
-- **Error Handling** with structured exceptions
-- **Graceful Degradation** for optional enterprise components
+- **Logging Completo** con filtraggio dei dati sensibili
+- **Type Safety** con piena conformità MyPy
+- **Gestione Errori** con eccezioni strutturate
+- **Degradazione Graduale** per componenti enterprise opzionali
 
-## 🏗️ Architecture Overview
+## 🏗️ Panoramica dell'Architettura
 
-### System Design
-The application follows **Clean Architecture** principles with clear layer separation:
+### Progettazione del Sistema
+L'applicazione segue i principi della **Clean Architecture** con una chiara separazione dei livelli:
 
 ```mermaid
 graph TD
-    UI[Streamlit UI] --> APP[Application Layer]
-    APP --> DOMAIN[Domain Layer] 
-    APP --> INFRA[Infrastructure Layer]
+    UI[Streamlit UI] --> APP[Livello Applicazione]
+    APP --> DOMAIN[Livello Dominio] 
+    APP --> INFRA[Livello Infrastruttura]
     
-    subgraph "Domain Layer"
-        ENT[Entities]
-        VO[Value Objects]
-        EXC[Exceptions]
+    subgraph "Livello Dominio"
+        ENT[Entità]
+        VO[Oggetti Valore]
+        EXC[Eccezioni]
     end
     
-    subgraph "Application Layer"  
-        INT[Interfaces]
-        UC[Use Cases]
+    subgraph "Livello Applicazione"  
+        INT[Interfacce]
+        UC[Casi d'Uso]
         DTO[DTOs]
     end
     
-    subgraph "Infrastructure Layer"
-        REPO[Repositories]
-        EXT[External Services]
-        PERS[Persistence]
+    subgraph "Livello Infrastruttura"
+        REPO[Repository]
+        EXT[Servizi Esterni]
+        PERS[Persistenza]
     end
 ```
 
-### Enterprise Technology Stack
+### Stack Tecnologico Enterprise
 
-| Layer | Component | Technology | Purpose |
-|-------|-----------|------------|---------|
-| **Presentation** | UI Framework | Streamlit 1.29+ | Web interface with Enterprise mode |
-| **Application** | Business Logic | Python 3.10+ | Use cases & interfaces |
-| | **Enterprise Orchestrator** | **Custom Pipeline** | **6-step processing workflow** |
-| | **Document Router** | **Content Classification** | **Structured/Unstructured routing** |
-| | **Hybrid Retrieval** | **BM25 + Embeddings** | **Advanced search with reranking** |
-| **Domain** | Core Models | Pydantic 2.0+ | Entities & value objects |
-| | **Source References** | **Provenance Tracking** | **Complete data lineage** |
-| | **Financial Guardrails** | **Validation Rules** | **Balance sheet coherence checks** |
-| **Infrastructure** | Vector DB | Qdrant 1.7+ | Semantic search |
-| | **Fact Table** | **DuckDB/SQLite** | **Dimensional data warehouse** |
-| | LLM Service | OpenAI GPT-4 | AI reasoning |
-| | **Ontology Mapping** | **YAML + RapidFuzz** | **31 metrics, 219+ synonyms** |
-| | **Data Normalization** | **Multi-locale Support** | **Italian formats & periods** |
-| | Data Processing | Pandas 2.1+ | CSV analysis |
-| | Visualization | Plotly 5.18+ | Interactive charts |
-| **ML/AI** | **Embeddings** | **SentenceTransformers** | **All-MiniLM-L6-v2 model** |
+| Livello | Componente | Tecnologia | Scopo |
+|---------|------------|------------|--------|
+| **Presentazione** | Framework UI | Streamlit 1.29+ | Interfaccia web con modalità Enterprise |
+| **Applicazione** | Logica di Business | Python 3.10+ | Casi d'uso e interfacce |
+| | **Orchestratore Enterprise** | **Pipeline Personalizzata** | **Flusso di lavoro a 6 fasi** |
+| | **Router Documenti** | **Classificazione Contenuti** | **Routing Strutturato/Non Strutturato** |
+| | **Recupero Ibrido** | **BM25 + Embeddings** | **Ricerca avanzata con riclassificazione** |
+| **Dominio** | Modelli Core | Pydantic 2.0+ | Entità e oggetti valore |
+| | **Riferimenti Origine** | **Tracciamento Provenienza** | **Lineage completo dei dati** |
+| | **Controlli Finanziari** | **Regole di Validazione** | **Verifiche coerenza bilancio** |
+| **Infrastruttura** | Database Vettoriale | Qdrant 1.7+ | Ricerca semantica |
+| | **Tabella Fatti** | **DuckDB/SQLite** | **Data warehouse dimensionale** |
+| | Servizio LLM | OpenAI GPT-4 | Ragionamento AI |
+| | **Mappatura Ontologia** | **YAML + RapidFuzz** | **31 metriche, oltre 219 sinonimi** |
+| | **Normalizzazione Dati** | **Supporto Multi-locale** | **Formati e periodi italiani** |
+| | Elaborazione Dati | Pandas 2.1+ | Analisi CSV |
+| | Visualizzazione | Plotly 5.18+ | Grafici interattivi |
+| **ML/AI** | **Embeddings** | **SentenceTransformers** | **Modello All-MiniLM-L6-v2** |
 | | **Reranker** | **CrossEncoder** | **MS-MARCO-MiniLM-L-2-v2** |
-| | **Search** | **BM25Okapi** | **Keyword-based retrieval** |
-| **DevOps** | Package Manager | uv | Fast dependencies |
-| | Linting | Ruff + Black | Code quality |
-| | Type Checking | MyPy | Type safety |
-| | Testing | Pytest | Quality assurance |
+| | **Ricerca** | **BM25Okapi** | **Recupero basato su parole chiave** |
+| **DevOps** | Package Manager | uv | Dipendenze veloci |
+| | Linting | Ruff + Black | Qualità del codice |
+| | Controllo Tipi | MyPy | Sicurezza dei tipi |
+| | Testing | Pytest | Garanzia qualità |
 
-## Prerequisites
+## Prerequisiti
 
 - **Python 3.10+**
-- **OpenAI API Key** (required for LLM and embeddings)
-- **Docker + Docker Compose** (optional, for containerized deployment)
-- **8GB+ RAM** (recommended for vector operations)
-- **Tesseract OCR** (required for PDF text extraction and OCR functionality)
+- **Chiave API OpenAI** (richiesta per LLM ed embeddings)
+- **Docker + Docker Compose** (opzionale, per deployment containerizzato)
+- **8GB+ RAM** (raccomandato per operazioni vettoriali)
+- **Tesseract OCR** (richiesto per estrazione testo PDF e funzionalità OCR)
 
-## Installation
+## Installazione
 
-### Option 1: Quick Start (Recommended)
+### Opzione 1: Avvio Rapido (Raccomandato)
 
 ```bash
-# 1. Clone repository
+# 1. Clona il repository
 git clone <repository-url>
 cd RAG
 
-# 2. Configure environment
+# 2. Configura l'ambiente
 cp .env.example .env
-# Edit .env and add your OPENAI_API_KEY
+# Modifica .env e aggiungi la tua OPENAI_API_KEY
 
-# 3. Automatic startup (installs uv if missing)
+# 3. Avvio automatico (installa uv se mancante)
 start.bat      # Windows  
 ./start.sh     # Linux/Mac
 
-# 4. Open browser: http://localhost:8501
+# 4. Apri il browser: http://localhost:8501
 ```
 
-### Option 2: Manual Setup with uv
+### Opzione 2: Configurazione Manuale con uv
 
 ```bash
-# Install uv (if not present)
+# Installa uv (se non presente)
 curl -LsSf https://astral.sh/uv/install.sh | sh  # Linux/Mac
 powershell -c "irm https://astral.sh/uv/install.ps1 | iex"  # Windows
 
-# Setup environment
-uv venv                              # Create virtual environment
+# Configura l'ambiente
+uv venv                              # Crea ambiente virtuale
 source .venv/bin/activate           # Linux/Mac
 .venv\Scripts\activate              # Windows
 
-# Install dependencies (10-100x faster than pip)
+# Installa le dipendenze (10-100x più veloce di pip)
 uv pip install -r requirements.txt
 
-# Start Qdrant
+# Avvia Qdrant
 docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant
 
-# Start application
+# Avvia l'applicazione
 streamlit run app.py
 ```
 
-### Option 3: Docker Deployment
+### Opzione 3: Deployment Docker
 
 ```bash
-# Complete setup with one command
-cp .env.example .env  # Add OPENAI_API_KEY
+# Configurazione completa con un comando
+cp .env.example .env  # Aggiungi OPENAI_API_KEY
 docker-compose up -d
 
-# Access app: http://localhost:8501
-# Qdrant UI: http://localhost:6333/dashboard
+# Accedi all'app: http://localhost:8501
+# UI Qdrant: http://localhost:6333/dashboard
 ```
 
-### OCR Dependencies Installation
+### Installazione Dipendenze OCR
 
-The application requires **Tesseract OCR** for PDF text extraction and OCR functionality.
+L'applicazione richiede **Tesseract OCR** per l'estrazione di testo dai PDF e la funzionalità OCR.
 
-#### Windows Installation
+#### Installazione Windows
 
-**Option 1: Using Windows Package Manager (Recommended)**
+**Opzione 1: Utilizzo di Windows Package Manager (Raccomandato)**
 ```bash
-# Install using winget (Windows 10+)
+# Installa usando winget (Windows 10+)
 winget install --id UB-Mannheim.TesseractOCR
 
-# Verify installation
+# Verifica l'installazione
 tesseract --version
 ```
 
-**Option 2: Manual Installation**
-1. Download the latest Tesseract installer from [UB Mannheim](https://github.com/UB-Mannheim/tesseract/releases)
-2. Run the installer (`tesseract-ocr-w64-setup-5.x.x.exe`)
-3. Make sure to check "Add to PATH" during installation
-4. Restart your terminal/command prompt
-5. Verify: `tesseract --version`
+**Opzione 2: Installazione Manuale**
+1. Scarica l'installer più recente di Tesseract da [UB Mannheim](https://github.com/UB-Mannheim/tesseract/releases)
+2. Esegui l'installer (`tesseract-ocr-w64-setup-5.x.x.exe`)
+3. Assicurati di selezionare "Aggiungi al PATH" durante l'installazione
+4. Riavvia il terminale/prompt dei comandi
+5. Verifica: `tesseract --version`
 
-**If Tesseract is not in PATH:**
+**Se Tesseract non è nel PATH:**
 ```bash
-# Add to current session (temporary)
+# Aggiungi alla sessione corrente (temporaneo)
 set PATH=C:\Program Files\Tesseract-OCR;%PATH%
 
-# Or permanently add C:\Program Files\Tesseract-OCR to your system PATH
+# Oppure aggiungi permanentemente C:\Program Files\Tesseract-OCR al PATH di sistema
 ```
 
-#### Linux Installation
+#### Installazione Linux
 ```bash
 # Ubuntu/Debian
 sudo apt update && sudo apt install tesseract-ocr
 
 # CentOS/RHEL/Fedora
-sudo yum install tesseract  # or sudo dnf install tesseract
+sudo yum install tesseract  # oppure sudo dnf install tesseract
 
-# Verify
+# Verifica
 tesseract --version
 ```
 
-#### macOS Installation
+#### Installazione macOS
 ```bash
-# Using Homebrew
+# Usando Homebrew
 brew install tesseract
 
-# Verify
+# Verifica
 tesseract --version
 ```
 
-**Note:** If Tesseract is not installed, the application will display a warning and OCR functionality will be disabled, but other features will continue to work.
+**Nota:** Se Tesseract non è installato, l'applicazione mostrerà un avviso e la funzionalità OCR sarà disabilitata, ma le altre funzionalità continueranno a funzionare.
 
-## Configuration
+## Configurazione
 
-### Environment Variables (.env)
+### Variabili d'Ambiente (.env)
 
 ```env
-# OpenAI (Required)
-OPENAI_API_KEY=sk-...your-key-here...
+# OpenAI (Obbligatorio)
+OPENAI_API_KEY=sk-...la-tua-chiave-qui...
 
-# Qdrant Vector Database
+# Database Vettoriale Qdrant
 QDRANT_HOST=localhost
 QDRANT_PORT=6333
 QDRANT_COLLECTION_NAME=business_documents
 
-# AI Configuration
+# Configurazione AI
 LLM_MODEL=gpt-4-turbo-preview
 EMBEDDING_MODEL=text-embedding-3-small
 TEMPERATURE=0.1
 MAX_TOKENS=2000
 
-# Document Processing
+# Elaborazione Documenti
 CHUNK_SIZE=512
 CHUNK_OVERLAP=50
 
-# RAG Performance (NEW)
+# Performance RAG (NUOVO)
 RAG_RESPONSE_MODE=compact
 RAG_SIMILARITY_TOP_K=3
 RAG_ENABLE_CACHING=True
 
-# Enterprise Features (NEW)
+# Funzionalità Enterprise (NUOVO)
 HF_HUB_DISABLE_SYMLINKS_WARNING=1
 
-# Application
+# Applicazione
 DEBUG_MODE=false
-APP_NAME=Business Intelligence RAG System
+APP_NAME=Sistema RAG di Business Intelligence
 ```
 
-## 📁 Enterprise Project Structure
+## 📁 Struttura del Progetto Enterprise
 
 ```
 src/
-├── domain/                    # Core business logic (entities, value objects)
-│   ├── entities/             # Business entities (FinancialData, Document, AnalysisResult)
-│   ├── value_objects/        # NEW: Source references, guardrails, validation
-│   │   ├── source_reference.py    # Complete data provenance tracking
-│   │   └── guardrails.py          # Financial validation rules
-│   └── exceptions/           # Domain-specific exceptions
-├── application/              # Use cases and interfaces  
-│   ├── interfaces/           # Contracts for external dependencies
-│   └── services/             # NEW: Enterprise application services
-│       ├── enterprise_orchestrator.py  # Main workflow coordinator
-│       ├── document_router.py          # Document classification
-│       ├── hybrid_retrieval.py         # BM25 + Embeddings search
-│       ├── ontology_mapper.py          # Metric synonyms mapping
-│       └── data_normalizer.py          # Multi-locale normalization
-├── infrastructure/           # External concerns (databases, APIs)
-│   └── repositories/         # Data persistence implementations
-│       └── fact_table_repository.py   # NEW: Dimensional data warehouse
-├── core/                     # Cross-cutting concerns
-│   ├── config.py            # Configuration management
-│   ├── logging_config.py    # Structured logging
-│   └── dependency_injection.py # DI container
-├── presentation/             # UI layer (Streamlit)
+├── domain/                    # Logica di business principale (entità, oggetti valore)
+│   ├── entities/             # Entità di business (FinancialData, Document, AnalysisResult)
+│   ├── value_objects/        # NUOVO: Riferimenti origine, controlli, validazione
+│   │   ├── source_reference.py    # Tracciamento completo provenienza dati
+│   │   └── guardrails.py          # Regole di validazione finanziaria
+│   └── exceptions/           # Eccezioni specifiche del dominio
+├── application/              # Casi d'uso e interfacce  
+│   ├── interfaces/           # Contratti per dipendenze esterne
+│   └── services/             # NUOVO: Servizi applicativi enterprise
+│       ├── enterprise_orchestrator.py  # Coordinatore principale del flusso
+│       ├── document_router.py          # Classificazione documenti
+│       ├── hybrid_retrieval.py         # Ricerca BM25 + Embeddings
+│       ├── ontology_mapper.py          # Mappatura sinonimi metriche
+│       └── data_normalizer.py          # Normalizzazione multi-locale
+├── infrastructure/           # Aspetti esterni (database, API)
+│   └── repositories/         # Implementazioni persistenza dati
+│       └── fact_table_repository.py   # NUOVO: Data warehouse dimensionale
+├── core/                     # Aspetti trasversali
+│   ├── config.py            # Gestione configurazione
+│   ├── logging_config.py    # Logging strutturato
+│   └── dependency_injection.py # Container DI
+├── presentation/             # Livello UI (Streamlit)
 │   └── streamlit/
-│       └── pdf_exporter.py   # NEW: Professional PDF export (ZCS styling)
-└── services/                 # Legacy services (being migrated)
-    ├── rag_engine.py        # Enhanced with enterprise orchestrator
-    └── query_cache.py       # Performance optimization
+│       └── pdf_exporter.py   # NUOVO: Export PDF professionale (stile ZCS)
+└── services/                 # Servizi legacy (in migrazione)
+    ├── rag_engine.py        # Potenziato con orchestratore enterprise
+    └── query_cache.py       # Ottimizzazione performance
 
 config/
-└── ontology/                 # NEW: Financial metrics ontology
-    └── financial_metrics.yaml     # 31 metrics, 219+ synonyms
+└── ontology/                 # NUOVO: Ontologia metriche finanziarie
+    └── financial_metrics.yaml     # 31 metriche, oltre 219 sinonimi
 
 tests/
-├── unit/                     # Unit tests for domain logic
-├── integration/              # Integration tests for repositories
-└── e2e/                     # End-to-end workflow tests
+├── unit/                     # Test unitari per logica dominio
+├── integration/              # Test integrazione per repository
+└── e2e/                     # Test end-to-end flussi lavoro
 ```
 
-## 🚀 Usage Guide
+## 🚀 Guida all'Uso
 
-### 🚀 **NEW: Enterprise Mode Usage**
+### 🚀 **NUOVO: Utilizzo Modalità Enterprise**
 
-**Activate Enterprise Features:**
-1. **Toggle Enterprise Mode** in Streamlit sidebar (🚀 Modalità Enterprise)
-2. **Upload Financial Documents** (PDF, Excel, Word)
-3. **Ask Questions** - Enterprise pipeline automatically:
-   - Routes documents (structured/unstructured/hybrid)
-   - Performs hybrid retrieval (BM25 + embeddings + reranking)
-   - Extracts and normalizes financial metrics
-   - Maps to canonical ontology (Italian ↔ English)
-   - Validates balance sheet coherence
-   - Stores with full provenance in dimensional fact table
+**Attiva le Funzionalità Enterprise:**
+1. **Attiva la Modalità Enterprise** nella barra laterale di Streamlit (🚀 Modalità Enterprise)
+2. **Carica Documenti Finanziari** (PDF, Excel, Word)
+3. **Poni Domande** - La pipeline Enterprise automaticamente:
+   - Instradata i documenti (strutturati/non strutturati/ibridi)
+   - Esegue recupero ibrido (BM25 + embeddings + riclassificazione)
+   - Estrae e normalizza le metriche finanziarie
+   - Mappa all'ontologia canonica (Italiano ↔ Inglese)
+   - Valida la coerenza del bilancio
+   - Archivia con piena provenienza nella tabella dimensionale
 
-**Enterprise Query Results Include:**
-- **📊 Metriche Rilevate**: Normalized values with confidence scores
-- **✅ Risultati di Validazione**: Coherence checks (balance sheet, PFN)
-- **⚡ Processing Statistics**: Time, confidence, records saved
-- **🔍 Source References**: Complete data provenance
-- **⚠️ Validation Warnings**: Accounting inconsistencies flagged
+**I Risultati delle Query Enterprise Includono:**
+- **📊 Metriche Rilevate**: Valori normalizzati con punteggi di confidenza
+- **✅ Risultati di Validazione**: Controlli di coerenza (bilancio, PFN)
+- **⚡ Statistiche di Elaborazione**: Tempo, confidenza, record salvati
+- **🔍 Riferimenti di Origine**: Provenienza completa dei dati
+- **⚠️ Avvisi di Validazione**: Incongruenze contabili segnalate
 
-### 1. 📊 Financial Data Analysis
+### 1. 📊 Analisi Dati Finanziari
 
-**Enterprise-Grade CSV Processing:**
-1. **Smart Upload**: Auto-detects Italian formats (`1.234,56`, date formats)
-2. **Financial Modeling**: Automatic KPI calculation and trend analysis
-3. **Advanced Analytics**:
-   - YoY growth with statistical significance
-   - Financial ratios and margin analysis
-   - Anomaly detection with confidence scores
-   - Multi-period comparative analysis
-4. **Interactive Visualizations**: Plotly dashboards with drill-down capabilities
+**Elaborazione CSV di Livello Enterprise:**
+1. **Upload Intelligente**: Rileva automaticamente i formati italiani (`1.234,56`, formati data)
+2. **Modellazione Finanziaria**: Calcolo automatico di KPI e analisi dei trend
+3. **Analisi Avanzate**:
+   - Crescita YoY con significatività statistica
+   - Rapporti finanziari e analisi dei margini
+   - Rilevamento anomalie con punteggi di confidenza
+   - Analisi comparative multi-periodo
+4. **Visualizzazioni Interattive**: Dashboard Plotly con capacità di drill-down
 
-### 2. 🔍 RAG Document Intelligence
+### 2. 🔍 Intelligenza Documentale RAG
 
-**Semantic Document Processing:**
-1. **Multi-Format Ingestion**: PDF, DOCX, TXT, Markdown with metadata extraction
-2. **Intelligent Indexing**: Context-aware chunking with Qdrant vector storage
-3. **Natural Language Queries**: Ask complex questions in Italian or English
-4. **Context Integration**: Combines financial data insights with document content
-5. **Professional PDF Export** - Export Q&A sessions with ZCS Company styling
+**Elaborazione Semantica dei Documenti:**
+1. **Ingestione Multi-Formato**: PDF, DOCX, TXT, Markdown con estrazione metadati
+2. **Indicizzazione Intelligente**: Chunking context-aware con archiviazione vettoriale Qdrant
+3. **Query in Linguaggio Naturale**: Poni domande complesse in italiano o inglese
+4. **Integrazione del Contesto**: Combina insights dei dati finanziari con il contenuto dei documenti
+5. **Export PDF Professionale** - Esporta sessioni Q&A con stile ZCS Company
 
-### 3. 🤖 AI-Powered Business Intelligence
+### 3. 🤖 Business Intelligence Basata su AI
 
-**Strategic Decision Support:**
-- **Executive Dashboards**: C-suite ready reports with key insights
-- **Predictive Analytics**: Trend forecasting with confidence intervals  
-- **Risk Assessment**: Automated risk scoring with mitigation strategies
-- **Compliance Reporting**: Audit-ready documentation with provenance tracking
-- **Multi-Language Support**: Italian and English query processing
+**Supporto Decisionale Strategico:**
+- **Dashboard Esecutive**: Report pronti per il C-suite con insight chiave
+- **Analisi Predittive**: Previsioni sui trend con intervalli di confidenza  
+- **Valutazione del Rischio**: Scoring automatico del rischio con strategie di mitigazione
+- **Report di Conformità**: Documentazione pronta per audit con tracciamento provenienza
+- **Supporto Multi-Lingua**: Elaborazione query in italiano e inglese
 
-## 🛠️ Development
+## 🛠️ Sviluppo
 
-### Quality Assurance
+### Garanzia della Qualità
 
 ```bash
-# Code Quality
-ruff check .                       # Fast linting with 800+ rules
-black .                           # Consistent code formatting  
-mypy src/                         # Type checking
-bandit src/                       # Security scanning
+# Qualità del Codice
+ruff check .                       # Linting veloce con oltre 800 regole
+black .                           # Formattazione coerente del codice  
+mypy src/                         # Controllo dei tipi
+bandit src/                       # Scansione sicurezza
 
-# Testing Suite  
-pytest                            # Run all tests (80% coverage target)
-pytest -m unit                   # Unit tests only
-pytest -m integration            # Integration tests  
-pytest -v --tb=short            # Verbose output
+# Suite di Test  
+pytest                            # Esegui tutti i test (obiettivo copertura 80%)
+pytest -m unit                   # Solo test unitari
+pytest -m integration            # Test di integrazione  
+pytest -v --tb=short            # Output dettagliato
 
-# Performance Testing
-pytest -m slow                   # Performance benchmarks
-pytest --cov=src --cov-report=html  # Coverage report
+# Test delle Prestazioni
+pytest -m slow                   # Benchmark delle prestazioni
+pytest --cov=src --cov-report=html  # Report di copertura
 ```
 
-### Dependency Management
+### Gestione Dipendenze
 
 ```bash
-# Fast dependency management with uv (10-100x faster than pip)
-uv add package-name               # Add production dependency
-uv add --dev package-name         # Add development dependency
-uv remove package-name            # Remove dependency
-uv pip compile requirements.txt   # Update lockfile
-uv sync                          # Sync environment
+# Gestione dipendenze veloce con uv (10-100x più veloce di pip)
+uv add nome-pacchetto              # Aggiungi dipendenza di produzione
+uv add --dev nome-pacchetto        # Aggiungi dipendenza di sviluppo
+uv remove nome-pacchetto           # Rimuovi dipendenza
+uv pip compile requirements.txt   # Aggiorna file di lock
+uv sync                           # Sincronizza ambiente
 ```
 
 ### Architecture Validation
@@ -394,56 +394,56 @@ python -m src.infrastructure.repositories    # Test data persistence
 python -m src.core.dependency_injection      # Test DI container
 ```
 
-## Troubleshooting
+## Risoluzione Problemi
 
-### Common Issues
+### Problemi Comuni
 
-#### OpenAI API Errors
+#### Errori API OpenAI
 ```bash
-# Invalid API key
-export OPENAI_API_KEY=sk-your-key-here
-# Or edit .env file
+# Chiave API non valida
+export OPENAI_API_KEY=sk-la-tua-chiave-qui
+# Oppure modifica il file .env
 
-# Rate limit exceeded  
-# Solution: Reduce request frequency or upgrade plan
+# Limite di velocità superato  
+# Soluzione: Riduci la frequenza delle richieste o aggiorna il piano
 ```
 
-#### Qdrant Connection Issues
+#### Problemi di Connessione Qdrant
 ```bash
-# Check Qdrant status
+# Controlla lo stato di Qdrant
 curl http://localhost:6333/health
 
-# Restart Qdrant
+# Riavvia Qdrant
 docker restart qdrant
 ```
 
-#### Memory Issues
+#### Problemi di Memoria
 ```bash
-# Reduce chunk size
+# Riduci la dimensione del chunk
 CHUNK_SIZE=256  # Default: 512
 
-# Increase Docker memory
+# Aumenta la memoria Docker
 docker-compose up --memory=4g
 ```
 
-## Contributing
+## Contribuire
 
-1. **Fork** the repository
-2. **Create feature branch**: `git checkout -b feature/amazing-feature`
-3. **Commit changes**: `git commit -m 'Add amazing feature'`
-4. **Push to branch**: `git push origin feature/amazing-feature`
-5. **Open Pull Request**
+1. **Fork** del repository
+2. **Crea branch feature**: `git checkout -b feature/funzionalita-incredibile`
+3. **Commit delle modifiche**: `git commit -m 'Aggiungi funzionalità incredibile'`
+4. **Push al branch**: `git push origin feature/funzionalita-incredibile`
+5. **Apri Pull Request**
 
-## License
+## Licenza
 
-This project is released under the **MIT License** - see [LICENSE](LICENSE) for details.
+Questo progetto è rilasciato sotto la **Licenza MIT** - vedi [LICENSE](LICENSE) per i dettagli.
 
-## Support
+## Supporto
 
-- **Issues**: GitHub Issues for bug reports
-- **Discussions**: GitHub Discussions for Q&A
-- **Documentation**: Complete wiki on GitHub
+- **Problemi**: GitHub Issues per segnalazioni di bug
+- **Discussioni**: GitHub Discussions per domande e risposte
+- **Documentazione**: Wiki completa su GitHub
 
 ---
 
-**Ready to transform your data into business intelligence? Start now with a simple `start.bat`!**
+**Pronto a trasformare i tuoi dati in business intelligence? Inizia ora con un semplice `start.bat`!**
