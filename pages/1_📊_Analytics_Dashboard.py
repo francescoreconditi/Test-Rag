@@ -184,8 +184,7 @@ def main():
                         {kpi['actual_value']:.1f}{' %' if kpi['unit'] == 'percentage' else ''}
                     </h3>
                     <small style="color: #666;">
-                        Target: {kpi.get('target_value', 'N/A')}
-                        {' %' if kpi['unit'] == 'percentage' else ''}
+                        Target: {kpi.get('target_value', 'N/A')}{' %' if kpi['unit'] == 'percentage' else ''}
                     </small>
                 </div>
                 """, unsafe_allow_html=True)

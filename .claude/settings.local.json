@@ -45,7 +45,8 @@
       "Bash(\"C:\\Program Files\\Tesseract-OCR\\tesseract.exe\" --version)",
       "Bash(set PATH=C:Program FilesTesseract-OCR)",
       "Bash(%PATH%)",
-      "Bash(del test_enterprise_integration.py)"
+      "Bash(del test_enterprise_integration.py)",
+      "Bash(where:*)"
     ],
     "deny": [],
     "ask": []
