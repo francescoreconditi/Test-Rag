@@ -7,12 +7,41 @@ from typing import Dict, List, Optional, Any, Union, Tuple
 from datetime import datetime, date
 import json
 import logging
-from dataclasses import asdict
+from dataclasses import dataclass, asdict
 
 from src.domain.value_objects.source_reference import ProvenancedValue, SourceReference
 
 
 logger = logging.getLogger(__name__)
+
+@dataclass
+class FactRecord:
+    """Fact record for dimensional data warehouse."""
+    fact_id: str
+    metric_name: str
+    value: float
+    entity_name: str
+    period_key: str
+    scenario: str
+    source_reference: SourceReference
+    confidence_score: float
+    metadata: Dict[str, Any]
+    created_at: datetime
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert fact record to dictionary."""
+        return {
+            'fact_id': self.fact_id,
+            'metric_name': self.metric_name,
+            'value': self.value,
+            'entity_name': self.entity_name,
+            'period_key': self.period_key,
+            'scenario': self.scenario,
+            'source_reference': self.source_reference.to_dict(),
+            'confidence_score': self.confidence_score,
+            'metadata': self.metadata,
+            'created_at': self.created_at.isoformat()
+        }
 
 
 class FactTableRepository:
