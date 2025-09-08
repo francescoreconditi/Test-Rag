@@ -14,6 +14,8 @@ from src.application.services.document_router import DocumentRouter, ProcessingM
 from src.application.services.data_normalizer import DataNormalizer, NormalizedValue, NormalizedPeriod
 from src.application.services.hybrid_retrieval import HybridRetriever, RetrievalResult
 from src.application.services.ontology_mapper import OntologyMapper
+from src.application.parsers.excel_parser import ExcelParser
+from src.application.services.raw_blocks_extractor import RawBlocksExtractor, DocumentBlocks, BlockType
 try:
     from src.infrastructure.repositories.fact_table_repository import FactTableRepository
     FACT_TABLE_AVAILABLE = True
@@ -82,6 +84,10 @@ class EnterpriseOrchestrator:
         else:
             self.fact_table_repo = None
         self.guardrails = FinancialGuardrails()
+        
+        # Initialize new parsers
+        self.excel_parser = ExcelParser()
+        self.raw_blocks_extractor = RawBlocksExtractor()
         
         # Processing statistics
         self.stats = {
@@ -409,6 +415,64 @@ class EnterpriseOrchestrator:
             return final_confidence
         else:
             return 0.5  # Neutral confidence if no factors available
+    
+    async def process_excel_file(self, file_path: Union[str, Path]) -> Tuple[Any, List[SourceReference]]:
+        """
+        Process Excel file with enhanced metadata extraction.
+        
+        Args:
+            file_path: Path to Excel file
+            
+        Returns:
+            Tuple of ExtractedData and list of SourceReference
+        """
+        try:
+            logger.info(f"Processing Excel file: {file_path}")
+            extracted_data, source_refs = self.excel_parser.extract_with_source_references(file_path)
+            
+            # Store raw blocks for reference
+            blocks = self.raw_blocks_extractor.extract(file_path)
+            
+            # Save blocks for future reference
+            blocks_path = Path("data/raw_blocks") / f"{Path(file_path).stem}_blocks.json"
+            blocks_path.parent.mkdir(parents=True, exist_ok=True)
+            blocks.save_to_json(blocks_path)
+            
+            logger.info(f"Extracted {len(source_refs)} source references from Excel")
+            logger.info(f"Saved {len(blocks.get_all_blocks())} raw blocks to {blocks_path}")
+            
+            return extracted_data, source_refs
+            
+        except Exception as e:
+            logger.error(f"Excel processing failed: {e}")
+            raise
+    
+    async def extract_raw_blocks(self, file_path: Union[str, Path]) -> DocumentBlocks:
+        """
+        Extract raw blocks from any document type.
+        
+        Args:
+            file_path: Path to document
+            
+        Returns:
+            DocumentBlocks with all extracted blocks
+        """
+        try:
+            logger.info(f"Extracting raw blocks from: {file_path}")
+            blocks = self.raw_blocks_extractor.extract(file_path)
+            
+            # Log statistics
+            total_blocks = len(blocks.get_all_blocks())
+            text_blocks = len(blocks.get_blocks_by_type(BlockType.TEXT))
+            table_blocks = len(blocks.get_blocks_by_type(BlockType.TABLE))
+            
+            logger.info(f"Extracted {total_blocks} blocks: {text_blocks} text, {table_blocks} tables")
+            
+            return blocks
+            
+        except Exception as e:
+            logger.error(f"Raw blocks extraction failed: {e}")
+            raise
     
     def get_processing_stats(self) -> Dict[str, Any]:
         """Get processing statistics."""
