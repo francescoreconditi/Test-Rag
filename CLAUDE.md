@@ -98,9 +98,10 @@ Documents → Document Router → [Structured|Unstructured|Hybrid]
 
 **`src/application/services/hybrid_retrieval.py`**:
 - BM25Okapi for keyword-based search
-- SentenceTransformers for semantic embeddings
+- OpenAI text-embedding-3-small for semantic embeddings (1536 dimensions)
 - CrossEncoder for result reranking
 - Configurable weighting and optimization
+- Requires OpenAI API key for embeddings
 
 **`src/application/services/ontology_mapper.py`**:
 - YAML-based financial metrics ontology
@@ -149,12 +150,13 @@ RAG_ENABLE_CACHING=True             # Query result caching
 # Enterprise features
 HF_HUB_DISABLE_SYMLINKS_WARNING=1   # Suppress HuggingFace warnings
 
-# Optional ML dependencies (graceful degradation if missing):
-# - rank_bm25 (BM25 search)
-# - sentence-transformers (embeddings)
-# - rapidfuzz (fuzzy matching)
-# - babel (locale support)
-# - python-magic (file type detection)
+# Enterprise features dependencies:
+# - rank_bm25 (BM25 search) - optional, fallback if missing
+# - sentence-transformers (reranking only) - optional for CrossEncoder
+# - rapidfuzz (fuzzy matching) - optional, fallback if missing
+# - babel (locale support) - optional, fallback if missing
+# - python-magic (file type detection) - optional, fallback if missing
+# Note: OpenAI API key required for embeddings (text-embedding-3-small)
 ```
 
 ### Enterprise Data Flow and State Management
@@ -167,10 +169,11 @@ HF_HUB_DISABLE_SYMLINKS_WARNING=1   # Suppress HuggingFace warnings
 
 ### Enterprise Vector Database (Qdrant)
 - Collection: `business_documents` (configurable via `QDRANT_COLLECTION_NAME`)
-- Embedding model: `text-embedding-3-small` (1536 dimensions)
+- Embedding model: `text-embedding-3-small` (OpenAI, 1536 dimensions)
 - Reranker model: `cross-encoder/ms-marco-MiniLM-L-2-v2`
 - Distance metric: Cosine similarity
 - Enhanced metadata with source references and document classification
+- **Note**: Requires OpenAI API key for embeddings generation
 
 ### Enterprise UI Architecture (Streamlit)
 Enhanced multi-page application:

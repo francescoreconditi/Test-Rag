@@ -8,7 +8,7 @@ from datetime import datetime
 import asyncio
 import pandas as pd
 
-from src.domain.value_objects.source_reference import SourceReference, SourceType
+from src.domain.value_objects.source_reference import SourceReference, SourceType, ProvenancedValue
 from src.domain.value_objects.guardrails import FinancialGuardrails, ValidationResult
 from src.application.services.document_router import DocumentRouter, ProcessingMode
 from src.application.services.data_normalizer import DataNormalizer, NormalizedValue, NormalizedPeriod
@@ -67,16 +67,23 @@ class EnterpriseOrchestrator:
     def __init__(self,
                  rag_engine=None,
                  csv_analyzer=None,
-                 fact_table_path: str = "data/enterprise_facts.duckdb"):
+                 fact_table_path: str = "data/enterprise_facts.duckdb",
+                 openai_api_key: Optional[str] = None):
         """Initialize enterprise orchestrator."""
+        import os
         self.rag_engine = rag_engine
         self.csv_analyzer = csv_analyzer
+        
+        # Get OpenAI API key from parameter or environment
+        api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
         
         # Initialize enterprise components
         self.document_router = DocumentRouter()
         self.data_normalizer = DataNormalizer(default_locale="it_IT")
         self.hybrid_retriever = HybridRetriever(
-            cache_dir="data/cache/hybrid_retrieval"
+            embedding_model_name="text-embedding-3-small",
+            cache_dir="data/cache/hybrid_retrieval",
+            openai_api_key=api_key
         )
         self.ontology_mapper = OntologyMapper()
         if FACT_TABLE_AVAILABLE:
@@ -141,16 +148,25 @@ class EnterpriseOrchestrator:
             
             # Step 5: Validate financial coherence
             if query.require_validation:
+                logger.info("DEBUG: Starting financial validation")
                 await self._validate_financial_data(result)
+                logger.info(f"DEBUG: Validation completed. Results: {len(result.validation_results)}")
             
             # Step 6: Store in fact table
             if query.store_in_fact_table and self.fact_table_repo:
+                logger.info("DEBUG: Starting fact table storage")
                 await self._store_in_fact_table(result)
+                logger.info(f"DEBUG: Fact table storage completed. Records: {result.fact_table_records}")
             
             # Calculate final metrics
+            logger.info("DEBUG: Calculating final metrics")
             end_time = datetime.now()
             result.processing_time_ms = (end_time - start_time).total_seconds() * 1000
+            logger.info(f"DEBUG: Processing time calculated: {result.processing_time_ms:.1f}ms")
+            
+            logger.info("DEBUG: Calculating confidence score")
             result.confidence_score = self._calculate_overall_confidence(result)
+            logger.info(f"DEBUG: Confidence score calculated: {result.confidence_score:.1%}")
             
             self.stats['successful_queries'] += 1
             logger.info(f"Enterprise query processed successfully in {result.processing_time_ms:.1f}ms")
@@ -265,7 +281,8 @@ class EnterpriseOrchestrator:
                 context=context_text[:1000]  # First 1000 chars for context
             )
             
-            logger.debug(f"Normalized {len(result.normalized_data)} financial values")
+            logger.info(f"DEBUG: Raw values extracted: {len(raw_values)} - {list(raw_values.keys())[:5]}")
+            logger.info(f"DEBUG: Normalized {len(result.normalized_data)} financial values - {list(result.normalized_data.keys())[:5]}")
             
         except Exception as e:
             result.errors.append(f"Data normalization failed: {str(e)}")
@@ -288,7 +305,8 @@ class EnterpriseOrchestrator:
                     f"Only {successful_mappings}/{len(metric_names)} metrics mapped to ontology"
                 )
             
-            logger.debug(f"Mapped {successful_mappings}/{len(metric_names)} metrics to ontology")
+            logger.info(f"DEBUG: Mapped {successful_mappings}/{len(metric_names)} metrics to ontology")
+            logger.info(f"DEBUG: Mapped metrics sample: {list(result.mapped_metrics.items())[:3]}")
             
         except Exception as e:
             result.errors.append(f"Metric mapping failed: {str(e)}")
@@ -302,8 +320,9 @@ class EnterpriseOrchestrator:
             for original_name, normalized_value in result.normalized_data.items():
                 # Try to map to canonical metric
                 mapping = result.mapped_metrics.get(original_name)
-                if mapping:
-                    canonical_key, canonical_name, confidence = mapping
+                if mapping and isinstance(mapping, dict):
+                    # Extract values from mapping dictionary
+                    canonical_key = mapping.get('metric_key', original_name.lower())
                     validation_data[canonical_key] = normalized_value.to_base_units()
                 else:
                     validation_data[original_name.lower()] = normalized_value.to_base_units()
@@ -348,26 +367,34 @@ class EnterpriseOrchestrator:
             for original_name, normalized_value in result.normalized_data.items():
                 # Get canonical mapping
                 mapping = result.mapped_metrics.get(original_name)
-                canonical_metric = mapping[0] if mapping else original_name
+                canonical_metric = mapping.get('metric_key', original_name) if mapping else original_name
                 
                 # Find corresponding source reference
                 source_ref = result.source_refs[0] if result.source_refs else None
                 
-                # Create fact record
-                fact_id = self.fact_table_repo.insert_provenanced_value(
-                    entity_name="default_entity",
-                    metric_name=canonical_metric,
-                    period_key=f"FY{datetime.now().year}",
-                    scenario="actual",
+                # Get unit from mapping or use currency/default
+                unit = None
+                if mapping and isinstance(mapping, dict):
+                    unit = mapping.get('unit', 'currency')
+                elif normalized_value.currency:
+                    unit = normalized_value.currency
+                else:
+                    unit = 'number'
+                
+                # Create ProvenancedValue object
+                provenanced_value = ProvenancedValue(
                     value=normalized_value.to_base_units(),
-                    source_reference=source_ref,
-                    processing_metadata={
-                        'original_name': original_name,
-                        'confidence': normalized_value.confidence,
-                        'normalization_applied': normalized_value.scale_applied.unit_name,
-                        'processing_timestamp': datetime.now().isoformat()
-                    }
+                    source_ref=source_ref,
+                    metric_name=canonical_metric,
+                    unit=unit,
+                    currency=normalized_value.currency,
+                    period=f"FY{datetime.now().year}",
+                    entity="default_entity",
+                    scenario="actual"
                 )
+                
+                # Insert into fact table
+                fact_id = self.fact_table_repo.insert_provenanced_value(provenanced_value)
                 
                 if fact_id:
                     records_created += 1
@@ -380,6 +407,11 @@ class EnterpriseOrchestrator:
         except Exception as e:
             result.errors.append(f"Fact table storage failed: {str(e)}")
             logger.error(f"Fact table storage failed: {e}")
+            logger.error(f"Debug - Normalized data: {len(result.normalized_data)} items")
+            logger.error(f"Debug - Mapped metrics: {len(result.mapped_metrics)} items")
+            logger.error(f"Debug - Source refs: {len(result.source_refs)} items")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
     
     def _calculate_overall_confidence(self, result: ProcessingResult) -> float:
         """Calculate overall processing confidence score."""
@@ -397,7 +429,7 @@ class EnterpriseOrchestrator:
         
         # Mapping confidence
         if result.mapped_metrics:
-            mapped_scores = [mapping[2] for mapping in result.mapped_metrics.values() if mapping]
+            mapped_scores = [mapping.get('confidence', 0.0) for mapping in result.mapped_metrics.values() if mapping]
             if mapped_scores:
                 avg_mapping_conf = sum(mapped_scores) / len(mapped_scores) / 100.0  # Convert to 0-1 scale
                 confidence_factors.append(avg_mapping_conf)

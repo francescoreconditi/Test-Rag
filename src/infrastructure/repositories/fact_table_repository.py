@@ -79,20 +79,21 @@ class FactTableRepository:
         
         # Dimension tables
         dim_tables = {
-            'dim_entity': '''
+            'dim_entity': f'''
                 CREATE TABLE IF NOT EXISTS dim_entity (
-                    entity_key INTEGER PRIMARY KEY,
+                    entity_key INTEGER {'PRIMARY KEY AUTOINCREMENT' if not self.use_duckdb else ''},
                     entity_id TEXT UNIQUE NOT NULL,
                     entity_name TEXT NOT NULL,
                     entity_type TEXT,  -- Company, BU, Subsidiary
                     parent_entity TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    {', PRIMARY KEY (entity_key)' if self.use_duckdb else ''}
                 )
             ''',
             
-            'dim_metric': '''
+            'dim_metric': f'''
                 CREATE TABLE IF NOT EXISTS dim_metric (
-                    metric_key INTEGER PRIMARY KEY,
+                    metric_key INTEGER {'PRIMARY KEY AUTOINCREMENT' if not self.use_duckdb else ''},
                     metric_id TEXT UNIQUE NOT NULL,
                     canonical_name TEXT NOT NULL,
                     category TEXT,
@@ -100,12 +101,13 @@ class FactTableRepository:
                     unit TEXT,
                     calculation_formula TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    {', PRIMARY KEY (metric_key)' if self.use_duckdb else ''}
                 )
             ''',
             
-            'dim_period': '''
+            'dim_period': f'''
                 CREATE TABLE IF NOT EXISTS dim_period (
-                    period_key INTEGER PRIMARY KEY,
+                    period_key INTEGER {'PRIMARY KEY AUTOINCREMENT' if not self.use_duckdb else ''},
                     period_id TEXT UNIQUE NOT NULL,
                     period_type TEXT NOT NULL,  -- FY, Q, M, YTD, CUSTOM
                     year INTEGER NOT NULL,
@@ -114,36 +116,39 @@ class FactTableRepository:
                     end_date DATE,
                     display_name TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    {', PRIMARY KEY (period_key)' if self.use_duckdb else ''}
                 )
             ''',
             
-            'dim_scenario': '''
+            'dim_scenario': f'''
                 CREATE TABLE IF NOT EXISTS dim_scenario (
-                    scenario_key INTEGER PRIMARY KEY,
+                    scenario_key INTEGER {'PRIMARY KEY AUTOINCREMENT' if not self.use_duckdb else ''},
                     scenario_id TEXT UNIQUE NOT NULL,
                     scenario_name TEXT NOT NULL,  -- Actual, Budget, Forecast, Plan
                     scenario_type TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    {', PRIMARY KEY (scenario_key)' if self.use_duckdb else ''}
                 )
             ''',
             
-            'dim_source': '''
+            'dim_source': f'''
                 CREATE TABLE IF NOT EXISTS dim_source (
-                    source_key INTEGER PRIMARY KEY,
+                    source_key INTEGER {'PRIMARY KEY AUTOINCREMENT' if not self.use_duckdb else ''},
                     file_name TEXT NOT NULL,
                     file_hash TEXT NOT NULL,
                     source_type TEXT NOT NULL,
                     upload_timestamp TIMESTAMP,
                     file_size INTEGER,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    {', PRIMARY KEY (source_key)' if self.use_duckdb else ''}
                 )
             '''
         }
         
         # Main fact table
-        fact_table = '''
+        fact_table = f'''
             CREATE TABLE IF NOT EXISTS fact_kpi (
-                fact_id INTEGER PRIMARY KEY,
+                fact_id INTEGER {'PRIMARY KEY AUTOINCREMENT' if not self.use_duckdb else ''},
                 entity_key INTEGER NOT NULL,
                 metric_key INTEGER NOT NULL,
                 period_key INTEGER NOT NULL,
@@ -192,6 +197,7 @@ class FactTableRepository:
                 
                 -- Business key constraint (prevent duplicates)
                 UNIQUE(entity_key, metric_key, period_key, scenario_key, source_reference)
+                {', PRIMARY KEY (fact_id)' if self.use_duckdb else ''}
             )
         '''
         
@@ -239,6 +245,11 @@ class FactTableRepository:
         scenario_key = self._get_or_create_scenario(pv.scenario or "actual")
         source_key = self._get_or_create_source(pv.source_ref)
         
+        # Generate fact_id for DuckDB manually
+        if self.use_duckdb:
+            max_fact_result = self.conn.execute("SELECT COALESCE(MAX(fact_id), 0) + 1 FROM fact_kpi").fetchone()
+            next_fact_id = max_fact_result[0]
+        
         # Prepare fact record
         fact_data = {
             'entity_key': entity_key,
@@ -258,28 +269,45 @@ class FactTableRepository:
             'row_label': pv.source_ref.row_label,
             'column_label': pv.source_ref.column_label,
             'confidence_score': pv.source_ref.confidence_score or 1.0,
-            'is_calculated': pv.is_calculated,
-            'calculation_formula': pv.calculation_formula,
-            'input_sources': json.dumps(pv.input_sources) if pv.input_sources else None,
-            'quality_flags': json.dumps(pv.quality_flags) if pv.quality_flags else None,
+            'is_calculated': getattr(pv, 'is_calculated', False),
+            'calculation_formula': getattr(pv, 'calculation_formula', None),
+            'input_sources': json.dumps(getattr(pv, 'input_sources', None)) if getattr(pv, 'input_sources', None) else None,
+            'quality_flags': json.dumps(getattr(pv, 'quality_flags', None)) if getattr(pv, 'quality_flags', None) else None,
             'scale_applied': getattr(pv, 'scale_applied', 'units'),
             'scale_multiplier': 1,
             'extraction_timestamp': pv.source_ref.extraction_timestamp
         }
         
-        # Insert fact record
-        insert_sql = '''
-            INSERT OR REPLACE INTO fact_kpi (
-                entity_key, metric_key, period_key, scenario_key, source_key,
-                value, original_value, currency, unit, source_reference,
-                page_number, sheet_name, cell_reference, table_index, 
-                row_label, column_label, confidence_score, is_calculated,
-                calculation_formula, input_sources, quality_flags,
-                scale_applied, scale_multiplier, extraction_timestamp
-            ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-            )
-        '''
+        # Insert fact record (different syntax for DuckDB vs SQLite)
+        if self.use_duckdb:
+            # Add fact_id to data for DuckDB
+            fact_data = {'fact_id': next_fact_id, **fact_data}
+            
+            insert_sql = '''
+                INSERT OR IGNORE INTO fact_kpi (
+                    fact_id, entity_key, metric_key, period_key, scenario_key, source_key,
+                    value, original_value, currency, unit, source_reference,
+                    page_number, sheet_name, cell_reference, table_index, 
+                    row_label, column_label, confidence_score, is_calculated,
+                    calculation_formula, input_sources, quality_flags,
+                    scale_applied, scale_multiplier, extraction_timestamp
+                ) VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                )
+            '''
+        else:
+            insert_sql = '''
+                INSERT OR REPLACE INTO fact_kpi (
+                    entity_key, metric_key, period_key, scenario_key, source_key,
+                    value, original_value, currency, unit, source_reference,
+                    page_number, sheet_name, cell_reference, table_index, 
+                    row_label, column_label, confidence_score, is_calculated,
+                    calculation_formula, input_sources, quality_flags,
+                    scale_applied, scale_multiplier, extraction_timestamp
+                ) VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                )
+            '''
         
         try:
             if self.use_duckdb:
@@ -290,7 +318,7 @@ class FactTableRepository:
                 return cursor.lastrowid
             
             logger.debug(f"Inserted fact: {pv.metric_name} = {pv.value}")
-            return 1  # DuckDB doesn't return rowid easily
+            return next_fact_id if self.use_duckdb else 1
             
         except Exception as e:
             logger.error(f"Failed to insert provenanced value: {e}")
@@ -306,20 +334,30 @@ class FactTableRepository:
         if result:
             return result[0] if self.use_duckdb else result['entity_key']
         
-        # Create new
-        insert_sql = '''
-            INSERT INTO dim_entity (entity_id, entity_name, entity_type) 
-            VALUES (?, ?, ?)
-        '''
-        
-        self.conn.execute(insert_sql, [entity_id, entity_id.title(), 'company'])
-        
-        if not self.use_duckdb:
+        # Create new with manual key generation for DuckDB
+        if self.use_duckdb:
+            # Get next key manually for DuckDB
+            max_key_result = self.conn.execute("SELECT COALESCE(MAX(entity_key), 0) + 1 FROM dim_entity").fetchone()
+            next_key = max_key_result[0]
+            
+            insert_sql = '''
+                INSERT INTO dim_entity (entity_key, entity_id, entity_name, entity_type) 
+                VALUES (?, ?, ?, ?)
+            '''
+            self.conn.execute(insert_sql, [next_key, entity_id, entity_id.title(), 'company'])
+            return next_key
+        else:
+            # SQLite with AUTOINCREMENT
+            insert_sql = '''
+                INSERT INTO dim_entity (entity_id, entity_name, entity_type) 
+                VALUES (?, ?, ?)
+            '''
+            self.conn.execute(insert_sql, [entity_id, entity_id.title(), 'company'])
             self.conn.commit()
-        
-        # Get the new key
-        result = self.conn.execute(select_sql, [entity_id]).fetchone()
-        return result[0] if self.use_duckdb else result['entity_key']
+            
+            # Get the new key
+            result = self.conn.execute(select_sql, [entity_id]).fetchone()
+            return result['entity_key']
     
     def _get_or_create_metric(self, metric_name: str, unit: Optional[str] = None) -> int:
         """Get or create metric dimension record."""
@@ -332,19 +370,29 @@ class FactTableRepository:
         if result:
             return result[0] if self.use_duckdb else result['metric_key']
         
-        # Create new
-        insert_sql = '''
-            INSERT INTO dim_metric (metric_id, canonical_name, unit) 
-            VALUES (?, ?, ?)
-        '''
-        
-        self.conn.execute(insert_sql, [metric_id, metric_name, unit])
-        
-        if not self.use_duckdb:
+        # Create new with manual key generation for DuckDB
+        if self.use_duckdb:
+            # Get next key manually for DuckDB
+            max_key_result = self.conn.execute("SELECT COALESCE(MAX(metric_key), 0) + 1 FROM dim_metric").fetchone()
+            next_key = max_key_result[0]
+            
+            insert_sql = '''
+                INSERT INTO dim_metric (metric_key, metric_id, canonical_name, unit) 
+                VALUES (?, ?, ?, ?)
+            '''
+            self.conn.execute(insert_sql, [next_key, metric_id, metric_name, unit])
+            return next_key
+        else:
+            # SQLite with AUTOINCREMENT
+            insert_sql = '''
+                INSERT INTO dim_metric (metric_id, canonical_name, unit) 
+                VALUES (?, ?, ?)
+            '''
+            self.conn.execute(insert_sql, [metric_id, metric_name, unit])
             self.conn.commit()
-        
-        result = self.conn.execute(select_sql, [metric_id]).fetchone()
-        return result[0] if self.use_duckdb else result['metric_key']
+            
+            result = self.conn.execute(select_sql, [metric_id]).fetchone()
+            return result['metric_key']
     
     def _get_or_create_period(self, 
                              period: Optional[str],
@@ -375,23 +423,35 @@ class FactTableRepository:
             year = start_date.year if start_date else datetime.now().year
             period_number = None
         
-        # Create new
-        insert_sql = '''
-            INSERT INTO dim_period (period_id, period_type, year, period_number, 
-                                  start_date, end_date, display_name) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        '''
-        
-        self.conn.execute(insert_sql, [
-            period_id, period_type, year, period_number,
-            start_date, end_date, period or period_id
-        ])
-        
-        if not self.use_duckdb:
+        # Create new with manual key generation for DuckDB
+        if self.use_duckdb:
+            max_key_result = self.conn.execute("SELECT COALESCE(MAX(period_key), 0) + 1 FROM dim_period").fetchone()
+            next_key = max_key_result[0]
+            
+            insert_sql = '''
+                INSERT INTO dim_period (period_key, period_id, period_type, year, period_number, 
+                                      start_date, end_date, display_name) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            '''
+            self.conn.execute(insert_sql, [
+                next_key, period_id, period_type, year, period_number,
+                start_date, end_date, period or period_id
+            ])
+            return next_key
+        else:
+            insert_sql = '''
+                INSERT INTO dim_period (period_id, period_type, year, period_number, 
+                                      start_date, end_date, display_name) 
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            '''
+            self.conn.execute(insert_sql, [
+                period_id, period_type, year, period_number,
+                start_date, end_date, period or period_id
+            ])
             self.conn.commit()
-        
-        result = self.conn.execute(select_sql, [period_id]).fetchone()
-        return result[0] if self.use_duckdb else result['period_key']
+            
+            result = self.conn.execute(select_sql, [period_id]).fetchone()
+            return result['period_key']
     
     def _get_or_create_scenario(self, scenario_name: str) -> int:
         """Get or create scenario dimension record."""
@@ -404,19 +464,27 @@ class FactTableRepository:
         if result:
             return result[0] if self.use_duckdb else result['scenario_key']
         
-        # Create new
-        insert_sql = '''
-            INSERT INTO dim_scenario (scenario_id, scenario_name, scenario_type) 
-            VALUES (?, ?, ?)
-        '''
-        
-        self.conn.execute(insert_sql, [scenario_id, scenario_name.title(), 'financial'])
-        
-        if not self.use_duckdb:
+        # Create new with manual key generation for DuckDB
+        if self.use_duckdb:
+            max_key_result = self.conn.execute("SELECT COALESCE(MAX(scenario_key), 0) + 1 FROM dim_scenario").fetchone()
+            next_key = max_key_result[0]
+            
+            insert_sql = '''
+                INSERT INTO dim_scenario (scenario_key, scenario_id, scenario_name, scenario_type) 
+                VALUES (?, ?, ?, ?)
+            '''
+            self.conn.execute(insert_sql, [next_key, scenario_id, scenario_name.title(), 'financial'])
+            return next_key
+        else:
+            insert_sql = '''
+                INSERT INTO dim_scenario (scenario_id, scenario_name, scenario_type) 
+                VALUES (?, ?, ?)
+            '''
+            self.conn.execute(insert_sql, [scenario_id, scenario_name.title(), 'financial'])
             self.conn.commit()
-        
-        result = self.conn.execute(select_sql, [scenario_id]).fetchone()
-        return result[0] if self.use_duckdb else result['scenario_key']
+            
+            result = self.conn.execute(select_sql, [scenario_id]).fetchone()
+            return result['scenario_key']
     
     def _get_or_create_source(self, source_ref: SourceReference) -> int:
         """Get or create source dimension record."""
@@ -427,18 +495,38 @@ class FactTableRepository:
         if result:
             return result[0] if self.use_duckdb else result['source_key']
         
-        # Create new
-        insert_sql = '''
-            INSERT INTO dim_source (file_name, file_hash, source_type, upload_timestamp) 
-            VALUES (?, ?, ?, ?)
-        '''
-        
-        self.conn.execute(insert_sql, [
-            source_ref.file_name, 
-            source_ref.file_hash,
-            source_ref.source_type.value,
-            source_ref.extraction_timestamp
-        ])
+        # Create new with manual key generation for DuckDB
+        if self.use_duckdb:
+            max_key_result = self.conn.execute("SELECT COALESCE(MAX(source_key), 0) + 1 FROM dim_source").fetchone()
+            next_key = max_key_result[0]
+            
+            insert_sql = '''
+                INSERT INTO dim_source (source_key, file_name, file_hash, source_type, upload_timestamp) 
+                VALUES (?, ?, ?, ?, ?)
+            '''
+            self.conn.execute(insert_sql, [
+                next_key,
+                source_ref.file_name, 
+                source_ref.file_hash,
+                source_ref.source_type.value,
+                source_ref.extraction_timestamp
+            ])
+            return next_key
+        else:
+            insert_sql = '''
+                INSERT INTO dim_source (file_name, file_hash, source_type, upload_timestamp) 
+                VALUES (?, ?, ?, ?)
+            '''
+            self.conn.execute(insert_sql, [
+                source_ref.file_name, 
+                source_ref.file_hash,
+                source_ref.source_type.value,
+                source_ref.extraction_timestamp
+            ])
+            self.conn.commit()
+            
+            result = self.conn.execute(select_sql, [source_ref.file_name, source_ref.file_hash]).fetchone()
+            return result['source_key']
         
         if not self.use_duckdb:
             self.conn.commit()

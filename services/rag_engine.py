@@ -84,7 +84,8 @@ class RAGEngine:
             if ENTERPRISE_AVAILABLE:
                 self.enterprise_orchestrator = EnterpriseOrchestrator(
                     rag_engine=self,
-                    csv_analyzer=None  # Will be set externally if needed
+                    csv_analyzer=None,  # Will be set externally if needed
+                    openai_api_key=settings.openai_api_key  # Pass API key for embeddings
                 )
             else:
                 self.enterprise_orchestrator = None
@@ -703,7 +704,7 @@ class RAGEngine:
                     metadata_parts.append("\n\n## 📊 Metriche Finanziarie Rilevate")
                     for metric_name, normalized in processing_result.normalized_data.items():
                         mapped = processing_result.mapped_metrics.get(metric_name)
-                        canonical_name = mapped[1] if mapped else metric_name
+                        canonical_name = mapped.get('canonical_name', metric_name) if mapped else metric_name
                         metadata_parts.append(
                             f"- **{canonical_name}**: {normalized.to_base_units():,.0f}"
                             f" (scala: {normalized.scale_applied.unit_name})"

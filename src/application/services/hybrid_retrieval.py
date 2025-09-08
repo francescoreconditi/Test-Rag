@@ -5,6 +5,8 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+from openai import OpenAI
+import os
 
 try:
     from rank_bm25 import BM25Okapi
@@ -14,11 +16,12 @@ except ImportError:
     BM25_AVAILABLE = False
 
 try:
-    from sentence_transformers import CrossEncoder, SentenceTransformer
+    from sentence_transformers import CrossEncoder
 
-    TRANSFORMERS_AVAILABLE = True
+    RERANKER_AVAILABLE = True
 except ImportError:
-    TRANSFORMERS_AVAILABLE = False
+    RERANKER_AVAILABLE = False
+
 import hashlib
 from pathlib import Path
 import pickle
@@ -67,28 +70,28 @@ class HybridRetriever:
 
     def __init__(
         self,
-        embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
+        embedding_model_name: str = "text-embedding-3-small",
         reranker_model_name: str = "cross-encoder/ms-marco-MiniLM-L-2-v2",
         cache_dir: str = "data/cache",
+        openai_api_key: Optional[str] = None,
     ):
         """Initialize hybrid retriever."""
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(exist_ok=True)
-
-        # Load embedding model
-        if TRANSFORMERS_AVAILABLE:
-            try:
-                self.embedding_model = SentenceTransformer(embedding_model_name)
-                logger.info(f"Loaded embedding model: {embedding_model_name}")
-            except Exception as e:
-                logger.warning(f"Failed to load embedding model {embedding_model_name}: {e}")
-                self.embedding_model = None
+        
+        # Initialize OpenAI client for embeddings
+        api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
+        if api_key:
+            self.openai_client = OpenAI(api_key=api_key)
+            self.embedding_model_name = embedding_model_name
+            logger.info(f"Initialized OpenAI embeddings with model: {embedding_model_name}")
         else:
-            logger.warning("SentenceTransformers not available, embedding functionality disabled")
-            self.embedding_model = None
+            logger.error("No OpenAI API key provided, embedding functionality disabled")
+            self.openai_client = None
+            self.embedding_model_name = None
 
         # Load reranker model
-        if TRANSFORMERS_AVAILABLE:
+        if RERANKER_AVAILABLE:
             try:
                 self.reranker = CrossEncoder(reranker_model_name)
                 logger.info(f"Loaded reranker model: {reranker_model_name}")
@@ -96,7 +99,7 @@ class HybridRetriever:
                 logger.warning(f"Failed to load reranker {reranker_model_name}: {e}")
                 self.reranker = None
         else:
-            logger.warning("SentenceTransformers not available, reranker functionality disabled")
+            logger.warning("CrossEncoder not available, reranker functionality disabled")
             self.reranker = None
 
         # Index components
@@ -128,12 +131,16 @@ class HybridRetriever:
 
             # Generate embedding
             embedding = None
-            if self.embedding_model:
+            if self.openai_client:
                 try:
-                    embedding = self.embedding_model.encode(content, convert_to_numpy=True)
+                    response = self.openai_client.embeddings.create(
+                        model=self.embedding_model_name,
+                        input=content[:8191]  # OpenAI max input length
+                    )
+                    embedding = np.array(response.data[0].embedding)
                 except Exception as e:
                     logger.warning(f"Failed to generate embedding for doc {doc_id}: {e}")
-                    embedding = np.zeros(1536)  # Fallback empty embedding
+                    embedding = np.zeros(1536)  # Fallback empty embedding for text-embedding-3-small
 
             indexed_doc = IndexedDocument(
                 content=content, embedding=embedding, tokens=tokens, metadata=metadata, doc_id=doc_id
@@ -172,7 +179,7 @@ class HybridRetriever:
 
     def _build_embedding_index(self) -> None:
         """Build embedding index from documents."""
-        if not self.documents or not self.embedding_model:
+        if not self.documents or not self.openai_client:
             return
 
         embeddings = []
@@ -182,12 +189,16 @@ class HybridRetriever:
             else:
                 # Generate embedding if missing
                 try:
-                    emb = self.embedding_model.encode(doc.content, convert_to_numpy=True)
+                    response = self.openai_client.embeddings.create(
+                        model=self.embedding_model_name,
+                        input=doc.content[:8191]  # OpenAI max input length
+                    )
+                    emb = np.array(response.data[0].embedding)
                     embeddings.append(emb)
                     doc.embedding = emb
                 except Exception as e:
                     logger.warning(f"Failed to generate embedding: {e}")
-                    embeddings.append(np.zeros(1536))
+                    embeddings.append(np.zeros(1536))  # text-embedding-3-small dimensions
 
         if embeddings:
             self.doc_embeddings = np.vstack(embeddings)
@@ -236,12 +247,16 @@ class HybridRetriever:
 
     def _embedding_search(self, query: str, top_k: int = 50) -> List[Tuple[int, float]]:
         """Search using embedding similarity."""
-        if not self.embedding_model or self.doc_embeddings is None:
+        if not self.openai_client or self.doc_embeddings is None:
             return []
 
         try:
             # Generate query embedding
-            query_embedding = self.embedding_model.encode(query, convert_to_numpy=True)
+            response = self.openai_client.embeddings.create(
+                model=self.embedding_model_name,
+                input=query[:8191]  # OpenAI max input length  
+            )
+            query_embedding = np.array(response.data[0].embedding)
 
             # Calculate cosine similarities
             similarities = np.dot(self.doc_embeddings, query_embedding) / (
