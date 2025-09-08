@@ -1,0 +1,189 @@
+# Enhanced Enterprise Features Configuration
+# =========================================
+
+# Data Lineage Configuration
+lineage:
+  enabled: true
+  max_depth: 10
+  track_transformations: true
+  calculate_confidence: true
+  validation_rules:
+    - check_source_existence
+    - validate_formulas
+    - verify_dependencies
+
+# Enhanced Fact Table Configuration  
+fact_table:
+  database:
+    type: "duckdb"  # or "sqlite"
+    path: "data/facts_enhanced.db"
+    enable_wal: true
+  lineage:
+    store_full_lineage: true
+    compress_lineage: false
+    max_lineage_size: "10MB"
+  performance:
+    batch_insert_size: 1000
+    enable_indexes: true
+    vacuum_frequency: "weekly"
+
+# Prefect Orchestration Configuration
+prefect:
+  server:
+    host: "localhost"
+    port: 4200
+  flows:
+    process_documents:
+      retries: 3
+      retry_delay: 60  # seconds
+      timeout: 1800  # 30 minutes
+      concurrency: 4
+    scheduled_refresh:
+      schedule: "0 * * * *"  # Every hour
+      timezone: "Europe/Rome"
+      enabled: true
+  storage:
+    artifacts_path: "data/prefect/artifacts"
+    logs_path: "data/prefect/logs"
+    keep_artifacts_days: 30
+
+# Great Expectations Configuration
+data_quality:
+  enabled: true
+  data_dir: "data/great_expectations"
+  validation_suites:
+    financial_metrics:
+      enabled: true
+      run_on_insert: true
+      fail_on_error: false
+    balance_sheet:
+      enabled: true
+      run_on_insert: true
+      fail_on_error: true  # Critical validations
+    income_statement:
+      enabled: true
+      run_on_insert: true 
+      fail_on_error: false
+    completeness:
+      enabled: true
+      run_on_insert: true
+      fail_on_error: true
+  reporting:
+    generate_html: true
+    send_alerts: false
+    alert_threshold: 0.95  # 95% success rate
+    report_frequency: "daily"
+  expectations:
+    ricavi:
+      min_value: 0
+      max_value: 1e12
+      not_null: true
+    margine_ebitda_pct:
+      min_value: -50
+      max_value: 50
+      mostly: 0.95
+    leverage_ratio:
+      min_value: 0
+      max_value: 10
+    dso:
+      min_value: 0
+      max_value: 365
+
+# Document Preview Configuration
+document_preview:
+  enabled: true
+  cache_dir: "data/preview_cache"
+  pdf:
+    dpi: 150
+    max_pages: 10
+    thumbnail_size: [200, 280]
+    highlight_colors:
+      extracted: "yellow"
+      calculated: "green"
+      validation_error: "red"
+      warning: "orange"
+  excel:
+    preview_rows: 20
+    preview_columns: 10
+    generate_thumbnails: false
+  caching:
+    enabled: true
+    max_cache_size: "500MB"
+    cache_ttl: 86400  # 24 hours
+  highlighting:
+    enabled: true
+    auto_detect_regions: true
+    label_font_size: 12
+    overlay_opacity: 0.4
+
+# Integration Settings
+integration:
+  enterprise_orchestrator:
+    use_enhanced_fact_table: true
+    enable_lineage_tracking: true
+    run_data_quality_checks: true
+    generate_source_previews: true
+  rag_engine:
+    use_prefect_flows: false  # Keep async for interactive queries
+    store_lineage_in_responses: true
+    include_source_previews: true
+  analytics_dashboard:
+    show_lineage_graphs: true
+    display_quality_metrics: true
+    enable_source_preview: true
+
+# Monitoring and Logging
+monitoring:
+  enabled: true
+  metrics:
+    - processing_time
+    - data_quality_score
+    - lineage_depth
+    - extraction_confidence
+  logging:
+    level: "INFO"
+    structured: true
+    include_lineage: true
+  alerts:
+    quality_threshold: 0.90
+    processing_time_limit: 300  # seconds
+    email_notifications: false
+
+# Security and Compliance
+security:
+  audit_trail:
+    enabled: true
+    store_user_actions: true
+    retention_days: 365
+  data_protection:
+    mask_pii: false  # Enable in production
+    encrypt_lineage: false  # Enable in production
+  access_control:
+    role_based: false  # Enable in production
+    require_authentication: false
+
+# Performance Optimization
+performance:
+  parallel_processing:
+    max_workers: 4
+    chunk_size: 100
+  memory_management:
+    max_memory_usage: "2GB"
+    cleanup_frequency: "hourly"
+  database_optimization:
+    enable_connection_pooling: true
+    pool_size: 10
+    query_timeout: 30
+
+# Development and Testing
+development:
+  debug_mode: false
+  generate_test_data: true
+  mock_external_services: false
+  profiling:
+    enabled: false
+    output_path: "data/profiling"
+  testing:
+    run_integration_tests: true
+    create_sample_data: true
+    cleanup_after_tests: true

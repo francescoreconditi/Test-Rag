@@ -17,23 +17,32 @@ streamlit run app.py
 # ❌ Funzionalità modalità enterprise disabilitate con eleganza
 ```
 
-### Opzione 2: Deployment Enterprise (Funzionalità Complete)  
+### Opzione 2: Deployment Enterprise Avanzato (Funzionalità Complete)  
 **Ideale per**: Produzione, ambienti enterprise, funzionalità complete
 
 ```bash
 # 1. Installa tutte le dipendenze incluse quelle enterprise
 uv pip install -r requirements.txt
-uv pip install -r requirements-enterprise.txt
+uv add great-expectations  # NUOVO: Data quality validation
 
-# 2. Verifica componenti enterprise
-python -c "from src.application.services.enterprise_orchestrator import EnterpriseOrchestrator; print('✅ Enterprise Pronto')"
+# 2. Verifica componenti enterprise avanzati
+python -c "
+from src.application.services.advanced_enterprise_orchestrator import AdvancedEnterpriseOrchestrator
+from src.domain.services.data_quality_service import DataQualityService
+from src.domain.services.calculation_engine import CalculationEngine
+from src.domain.services.granular_provenance_service import GranularProvenanceService
+print('✅ Enterprise Avanzato Pronto')
+"
 
-# 3. Avvio con funzionalità enterprise
+# 3. Avvio con funzionalità enterprise complete
 streamlit run app.py --server.port 8501
 
-# Funzionalità disponibili:
+# Funzionalità disponibili (Gennaio 2025):
 # ✅ Tutte le funzionalità base
-# ✅ Modalità enterprise con pipeline completa
+# ✅ Modalità enterprise con pipeline avanzata
+# ✅ Data Quality Validation (Great Expectations) 
+# ✅ Calcoli Derivati Automatici (15+ formule + lineage)
+# ✅ Provenienza Granulare (tracking cella-per-cella)
 # ✅ Recupero ibrido, validazione, tabella fatti
 ```
 

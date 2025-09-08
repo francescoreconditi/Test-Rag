@@ -2,7 +2,7 @@
 
 ## 📖 Introduzione
 
-Benvenuto nel **Sistema RAG di Business Intelligence Enterprise**! Questa guida ti aiuterà a utilizzare rapidamente le nuove funzionalità UI/UX avanzate per analizzare i tuoi dati finanziari.
+Benvenuto nel **Sistema RAG di Business Intelligence Enterprise**! Questa guida ti aiuterà a utilizzare rapidamente le **funzionalità avanzate** (Gennaio 2025) tra cui data quality validation, calcoli derivati automatici e tracciabilità granulare per analizzare i tuoi dati finanziari con massima precisione.
 
 ---
 
@@ -21,9 +21,13 @@ start.bat
 - Vai su: `http://localhost:8501`
 - Il sistema si avvierà automaticamente
 
-### 3. **Attiva la Modalità Enterprise**
+### 3. **Attiva la Modalità Enterprise Avanzata** 
 - Nella barra laterale sinistra, attiva **🚀 Modalità Enterprise**
-- Vedrai apparire le statistiche enterprise in tempo reale
+- Vedrai apparire:
+  - ✅ **Quality Metrics**: Completeness, Accuracy, Consistency, Validity 
+  - 🔄 **Calculated Metrics**: 15+ formule automatiche (PFN, ROE, Current Ratio, DSO)
+  - 📊 **Granular Provenance**: Tracciabilità cella-per-cella
+  - ⚡ **Processing Statistics**: Tempi elaborazione e confidence scores
 
 ---
 
@@ -46,6 +50,60 @@ start.bat
 ### **✏️ Interactive Editor**
 - **Accesso**: Pagina dedicata nel menu  
 - **Funzionalità**: Modifica metriche in tempo reale, validazione automatica
+
+---
+
+## 🚀 Funzionalità Enterprise Avanzate (NUOVO - Gennaio 2025)
+
+### **✅ Data Quality Validation**
+Il sistema ora include **Great Expectations** per validazioni automatiche:
+
+**1. Validazioni Balance Sheet**
+- ✅ **Coerenza Attivo = Passivo** (tolleranza ±1%)
+- ⚠️ Segnala incongruenze contabili automaticamente
+
+**2. Validazioni PFN (Posizione Finanziaria Netta)**  
+- ✅ **Verifica PFN = Debito Lordo - Cassa** (tolleranza ±1%)
+- 📊 Mostra deviazioni e suggerimenti correzioni
+
+**3. Validazioni Range**
+- ✅ **Percentuali ragionevoli** (-100% < x < 100%)
+- ✅ **Valori finanziari non estremi** 
+
+### **🔄 Calcoli Derivati Automatici**
+Il **Calculation Engine** calcola automaticamente **15+ metriche finanziarie**:
+
+**Metriche Disponibili:**
+- **Margini**: Margine Lordo, EBITDA %, ROS %
+- **Redditività**: ROE %, ROIC %  
+- **Liquidità**: Current Ratio, Quick Ratio
+- **Efficienza**: DSO (giorni), Rotazione Magazzino
+- **Posizione Finanziaria**: PFN, PFN/EBITDA Ratio
+- **Coverage**: Interest Coverage Ratio
+
+**Lineage Completo:** Ogni calcolo include:
+- 📐 **Formula** utilizzata (es: "pfn = debito_lordo - cassa")
+- 📊 **Input Sources** con provenienza precisa  
+- 🎯 **Confidence Score** (0.0 - 1.0)
+- ⏰ **Timestamp** elaborazione
+
+### **📍 Provenienza Granulare** 
+Tracciabilità **cella-per-cella** per massima precisione:
+
+**Excel Tracking:**
+```
+bilancio.xlsx|sheet:Conto Economico|cell:B12|row:Ricavi|col:2024
+```
+
+**PDF Tracking:**
+```  
+report.pdf|p.5|tab:2|coords(100.0,200.0,500.0,400.0)|row:EBITDA
+```
+
+**Calculated Values:**
+```
+calculated/pfn|formula:debito_lordo-cassa|confidence:0.85
+```
 
 ---
 

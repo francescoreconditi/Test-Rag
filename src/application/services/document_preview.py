@@ -560,3 +560,294 @@ class DocumentPreviewService:
                 pass
         
         return None
+    
+    def get_page_with_highlights(self, 
+                                file_path: str, 
+                                page_number: int,
+                                highlight_regions: List[Dict[str, Any]] = None,
+                                dpi: int = 150) -> Optional[str]:
+        """
+        Get a page image with extraction highlights.
+        
+        Args:
+            file_path: Path to the PDF file
+            page_number: Page number (1-indexed)
+            highlight_regions: List of regions to highlight
+                Format: [{"x": float, "y": float, "width": float, "height": float, 
+                         "color": str, "label": str}]
+            dpi: Image resolution
+        
+        Returns:
+            Base64-encoded PNG image or None if error
+        """
+        if not PYMUPDF_AVAILABLE or not PIL_AVAILABLE:
+            logger.warning("Page highlighting requires PyMuPDF and Pillow")
+            return None
+        
+        try:
+            doc = fitz.open(file_path)
+            page = doc[page_number - 1]
+            
+            # Render page to image
+            mat = fitz.Matrix(dpi/72, dpi/72)
+            pix = page.get_pixmap(matrix=mat, alpha=False)
+            
+            # Convert to PIL Image
+            img_data = pix.pil_tobytes(format="PNG")
+            img = Image.open(io.BytesIO(img_data))
+            
+            # Add highlights if provided
+            if highlight_regions:
+                img = self._add_highlight_overlays(img, highlight_regions, page.rect, dpi)
+            
+            # Convert to base64
+            buffered = io.BytesIO()
+            img.save(buffered, format="PNG", optimize=True)
+            img_base64 = base64.b64encode(buffered.getvalue()).decode()
+            
+            doc.close()
+            
+            return f"data:image/png;base64,{img_base64}"
+            
+        except Exception as e:
+            logger.error(f"Error generating highlighted page: {e}")
+            return None
+    
+    def _add_highlight_overlays(self, 
+                               img: Image.Image, 
+                               regions: List[Dict], 
+                               page_rect: fitz.Rect,
+                               dpi: int) -> Image.Image:
+        """Add highlight overlays to the image."""
+        from PIL import ImageDraw, ImageFont
+        
+        # Create overlay for drawing
+        overlay = Image.new('RGBA', img.size, (255, 255, 255, 0))
+        draw = ImageDraw.Draw(overlay, 'RGBA')
+        
+        # Scale factor from PDF points to image pixels
+        scale = dpi / 72
+        
+        # Color mapping
+        color_map = {
+            'yellow': (255, 255, 0, 100),
+            'red': (255, 0, 0, 100),
+            'green': (0, 255, 0, 100),
+            'blue': (0, 0, 255, 100),
+            'orange': (255, 165, 0, 100),
+            'purple': (128, 0, 128, 100)
+        }
+        
+        for region in regions:
+            # Convert PDF coordinates to image pixels
+            x = region['x'] * scale
+            y = region['y'] * scale
+            width = region['width'] * scale
+            height = region['height'] * scale
+            
+            # Get color
+            color_name = region.get('color', 'yellow')
+            fill_color = color_map.get(color_name, color_map['yellow'])
+            
+            # Draw filled rectangle
+            draw.rectangle(
+                [x, y, x + width, y + height],
+                fill=fill_color,
+                outline=(255, 0, 0, 255),
+                width=2
+            )
+            
+            # Add label if provided
+            if 'label' in region and region['label']:
+                try:
+                    font = ImageFont.truetype("arial.ttf", 12)
+                except:
+                    try:
+                        font = ImageFont.load_default()
+                    except:
+                        continue  # Skip label if no font available
+                
+                label_text = str(region['label'])
+                
+                # Get text dimensions
+                bbox = draw.textbbox((0, 0), label_text, font=font)
+                text_width = bbox[2] - bbox[0]
+                text_height = bbox[3] - bbox[1]
+                
+                # Label position (above the highlight)
+                label_x = max(0, x)
+                label_y = max(0, y - text_height - 5)
+                
+                # Draw label background
+                draw.rectangle(
+                    [label_x, label_y, label_x + text_width + 4, label_y + text_height + 4],
+                    fill=(255, 255, 255, 220),
+                    outline=(0, 0, 0, 255)
+                )
+                
+                # Draw label text
+                draw.text(
+                    (label_x + 2, label_y + 2),
+                    label_text,
+                    fill=(0, 0, 0, 255),
+                    font=font
+                )
+        
+        # Composite overlay onto original image
+        result = Image.alpha_composite(img.convert('RGBA'), overlay)
+        return result.convert('RGB')
+    
+    def find_text_regions(self, 
+                         file_path: str, 
+                         page_number: int,
+                         search_texts: List[str]) -> List[Dict[str, Any]]:
+        """
+        Find text regions on a PDF page.
+        
+        Args:
+            file_path: Path to PDF
+            page_number: Page number (1-indexed)
+            search_texts: List of texts to find
+        
+        Returns:
+            List of found regions with positions
+        """
+        if not PYMUPDF_AVAILABLE:
+            return []
+        
+        regions = []
+        
+        try:
+            doc = fitz.open(file_path)
+            page = doc[page_number - 1]
+            
+            for search_text in search_texts:
+                # Find all instances of the text
+                text_instances = page.search_for(search_text)
+                
+                for i, rect in enumerate(text_instances):
+                    regions.append({
+                        'text': search_text,
+                        'instance': i,
+                        'x': rect.x0,
+                        'y': rect.y0,
+                        'width': rect.width,
+                        'height': rect.height,
+                        'color': 'yellow',
+                        'label': f"'{search_text}'"
+                    })
+            
+            doc.close()
+            
+        except Exception as e:
+            logger.error(f"Error finding text regions: {e}")
+        
+        return regions
+    
+    def generate_source_preview(self, 
+                               source_ref: str, 
+                               extracted_value: str = None) -> Optional[str]:
+        """
+        Generate a preview image with the source reference highlighted.
+        
+        Args:
+            source_ref: Source reference string (e.g., "file.pdf|p.12|row:Ricavi")
+            extracted_value: The value that was extracted
+        
+        Returns:
+            Base64-encoded image with highlights
+        """
+        try:
+            # Parse source reference
+            parts = source_ref.split('|')
+            file_path = None
+            page_num = None
+            search_text = None
+            
+            for part in parts:
+                if part.endswith('.pdf') or part.endswith('.xlsx'):
+                    file_path = part
+                elif part.startswith('p.'):
+                    try:
+                        page_num = int(part[2:])
+                    except:
+                        continue
+                elif part.startswith('row:') or part.startswith('cell:'):
+                    search_text = part.split(':', 1)[1]
+            
+            if not file_path or not page_num:
+                logger.warning(f"Invalid source reference: {source_ref}")
+                return None
+            
+            # Handle different file types
+            if file_path.endswith('.pdf'):
+                return self._generate_pdf_source_preview(
+                    file_path, page_num, search_text, extracted_value
+                )
+            elif file_path.endswith(('.xlsx', '.xls')):
+                return self._generate_excel_source_preview(
+                    file_path, search_text, extracted_value
+                )
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error generating source preview: {e}")
+            return None
+    
+    def _generate_pdf_source_preview(self, 
+                                    file_path: str, 
+                                    page_num: int,
+                                    search_text: str = None,
+                                    extracted_value: str = None) -> Optional[str]:
+        """Generate PDF source preview with highlights."""
+        
+        highlight_regions = []
+        
+        if search_text:
+            # Find the text and create highlight regions
+            regions = self.find_text_regions(file_path, page_num, [search_text])
+            highlight_regions.extend(regions)
+        
+        # Add extracted value highlight if different from search text
+        if extracted_value and extracted_value != search_text:
+            value_regions = self.find_text_regions(file_path, page_num, [extracted_value])
+            for region in value_regions:
+                region['color'] = 'green'
+                region['label'] = f"Extracted: {extracted_value}"
+            highlight_regions.extend(value_regions)
+        
+        return self.get_page_with_highlights(
+            file_path, page_num, highlight_regions
+        )
+    
+    def _generate_excel_source_preview(self, 
+                                      file_path: str,
+                                      cell_ref: str = None,
+                                      extracted_value: str = None) -> Optional[str]:
+        """Generate Excel source preview (simplified table view)."""
+        try:
+            # For Excel, we create a text-based preview since visual highlighting is complex
+            df = pd.read_excel(file_path, nrows=20, sheet_name=0)
+            
+            # Create a simple HTML table representation
+            html_table = df.to_html(max_rows=20, max_cols=10, classes="excel-preview")
+            
+            # Convert HTML to image using a simple text representation
+            preview_text = f"Excel File: {Path(file_path).name}\n\n"
+            preview_text += f"Shape: {df.shape[0]} rows × {df.shape[1]} columns\n\n"
+            preview_text += "First 10 rows:\n"
+            preview_text += df.head(10).to_string(max_cols=8)
+            
+            if cell_ref:
+                preview_text += f"\n\n[HIGHLIGHTED] Cell reference: {cell_ref}"
+            if extracted_value:
+                preview_text += f"\n[EXTRACTED] Value: {extracted_value}"
+            
+            # For now, return None - could implement HTML-to-image conversion
+            logger.info(f"Excel preview generated (text-based): {len(preview_text)} chars")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error generating Excel preview: {e}")
+            return None

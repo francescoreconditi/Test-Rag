@@ -1,0 +1,533 @@
+# Extended Financial Ontology with HR and AR/AP Metrics
+# ========================================================
+
+# Core Financial Metrics (existing)
+financial:
+  revenue:
+    canonical_name: "ricavi"
+    category: "income_statement"
+    subcategory: "top_line"
+    unit: "currency"
+    synonyms:
+      italian:
+        - ricavi
+        - ricavi delle vendite
+        - fatturato
+        - ricavi totali
+        - vendite
+        - ricavi netti
+      english:
+        - revenue
+        - revenues
+        - sales
+        - net sales
+        - total revenue
+        - turnover
+        - top line
+    calculation: null
+
+  ebitda:
+    canonical_name: "ebitda"
+    category: "income_statement"
+    subcategory: "profitability"
+    unit: "currency"
+    synonyms:
+      italian:
+        - ebitda
+        - mol
+        - margine operativo lordo
+      english:
+        - ebitda
+        - earnings before interest taxes depreciation amortization
+    calculation: "ricavi - costi_operativi + ammortamenti"
+
+  net_income:
+    canonical_name: "utile_netto"
+    category: "income_statement"
+    subcategory: "bottom_line"
+    unit: "currency"
+    synonyms:
+      italian:
+        - utile netto
+        - risultato netto
+        - utile dell'esercizio
+        - profitto netto
+      english:
+        - net income
+        - net profit
+        - net earnings
+        - bottom line
+    calculation: "ebit - oneri_finanziari - imposte"
+
+# HR Metrics (NEW)
+hr_metrics:
+  fte:
+    canonical_name: "fte"
+    category: "human_resources"
+    subcategory: "headcount"
+    unit: "count"
+    synonyms:
+      italian:
+        - fte
+        - dipendenti equivalenti
+        - organico medio
+        - forza lavoro equivalente
+      english:
+        - fte
+        - full time equivalent
+        - full time employees
+        - equivalent headcount
+    calculation: "sum(ore_lavorate / ore_standard_fulltime)"
+
+  headcount:
+    canonical_name: "numero_dipendenti"
+    category: "human_resources"
+    subcategory: "headcount"
+    unit: "count"
+    synonyms:
+      italian:
+        - numero dipendenti
+        - dipendenti
+        - organico
+        - forza lavoro
+        - personale
+        - numero di dipendenti
+      english:
+        - headcount
+        - employees
+        - number of employees
+        - staff
+        - workforce
+        - personnel
+    calculation: null
+
+  average_salary:
+    canonical_name: "stipendio_medio"
+    category: "human_resources"
+    subcategory: "compensation"
+    unit: "currency"
+    synonyms:
+      italian:
+        - stipendio medio
+        - retribuzione media
+        - costo medio dipendente
+        - ral media
+      english:
+        - average salary
+        - average wage
+        - average compensation
+        - mean salary
+    calculation: "costo_del_personale / numero_dipendenti"
+
+  labor_cost:
+    canonical_name: "costo_del_personale"
+    category: "human_resources"
+    subcategory: "costs"
+    unit: "currency"
+    synonyms:
+      italian:
+        - costo del personale
+        - costi del personale
+        - spese per il personale
+        - costo del lavoro
+      english:
+        - labor cost
+        - personnel cost
+        - employee cost
+        - staff cost
+        - payroll expense
+    calculation: "stipendi + contributi + benefits"
+
+  turnover_rate:
+    canonical_name: "tasso_turnover"
+    category: "human_resources"
+    subcategory: "retention"
+    unit: "percentage"
+    synonyms:
+      italian:
+        - tasso di turnover
+        - turnover
+        - rotazione del personale
+        - tasso di ricambio
+      english:
+        - turnover rate
+        - employee turnover
+        - staff turnover
+        - attrition rate
+    calculation: "(dipendenti_usciti / organico_medio) * 100"
+
+  absenteeism_rate:
+    canonical_name: "tasso_assenteismo"
+    category: "human_resources"
+    subcategory: "productivity"
+    unit: "percentage"
+    synonyms:
+      italian:
+        - tasso di assenteismo
+        - assenteismo
+        - assenze
+        - tasso di assenza
+      english:
+        - absenteeism rate
+        - absence rate
+        - sick leave rate
+    calculation: "(giorni_assenza / giorni_lavorativi_totali) * 100"
+
+  overtime_hours:
+    canonical_name: "ore_straordinario"
+    category: "human_resources"
+    subcategory: "productivity"
+    unit: "hours"
+    synonyms:
+      italian:
+        - ore di straordinario
+        - straordinari
+        - ore extra
+        - lavoro straordinario
+      english:
+        - overtime hours
+        - overtime
+        - extra hours
+        - additional hours
+    calculation: null
+
+  training_cost:
+    canonical_name: "costo_formazione"
+    category: "human_resources"
+    subcategory: "development"
+    unit: "currency"
+    synonyms:
+      italian:
+        - costo formazione
+        - spese formazione
+        - investimento formazione
+        - costi di training
+      english:
+        - training cost
+        - training expense
+        - education cost
+        - development cost
+    calculation: null
+
+  revenue_per_employee:
+    canonical_name: "ricavi_per_dipendente"
+    category: "human_resources"
+    subcategory: "productivity"
+    unit: "currency"
+    synonyms:
+      italian:
+        - ricavi per dipendente
+        - fatturato per dipendente
+        - produttività per dipendente
+      english:
+        - revenue per employee
+        - sales per employee
+        - productivity per employee
+    calculation: "ricavi / numero_dipendenti"
+
+  benefits_cost:
+    canonical_name: "costo_benefits"
+    category: "human_resources"
+    subcategory: "compensation"
+    unit: "currency"
+    synonyms:
+      italian:
+        - costo benefits
+        - benefit aziendali
+        - welfare aziendale
+        - fringe benefits
+      english:
+        - benefits cost
+        - employee benefits
+        - fringe benefits
+        - welfare cost
+    calculation: null
+
+# AR/AP Metrics (NEW)
+accounts_receivable:
+  trade_receivables:
+    canonical_name: "crediti_commerciali"
+    category: "working_capital"
+    subcategory: "receivables"
+    unit: "currency"
+    synonyms:
+      italian:
+        - crediti commerciali
+        - crediti verso clienti
+        - crediti v/clienti
+        - receivables
+      english:
+        - trade receivables
+        - accounts receivable
+        - customer receivables
+        - trade debtors
+    calculation: null
+
+  dso:
+    canonical_name: "dso"
+    category: "working_capital"
+    subcategory: "receivables"
+    unit: "days"
+    synonyms:
+      italian:
+        - dso
+        - giorni di incasso
+        - dilazione media clienti
+        - giorni credito clienti
+      english:
+        - dso
+        - days sales outstanding
+        - days receivables
+        - collection period
+    calculation: "(crediti_commerciali / ricavi) * 365"
+
+  overdue_receivables:
+    canonical_name: "crediti_scaduti"
+    category: "working_capital"
+    subcategory: "receivables"
+    unit: "currency"
+    synonyms:
+      italian:
+        - crediti scaduti
+        - scaduto
+        - crediti insoluti
+        - arretrato clienti
+      english:
+        - overdue receivables
+        - past due receivables
+        - aged receivables
+        - delinquent accounts
+    calculation: null
+
+  aging_30_days:
+    canonical_name: "scaduto_30_giorni"
+    category: "working_capital"
+    subcategory: "aging"
+    unit: "currency"
+    synonyms:
+      italian:
+        - scaduto 30 giorni
+        - crediti 0-30 giorni
+        - aging 30
+      english:
+        - 30 days past due
+        - 0-30 days aging
+        - current to 30 days
+    calculation: null
+
+  aging_60_days:
+    canonical_name: "scaduto_60_giorni"
+    category: "working_capital"
+    subcategory: "aging"
+    unit: "currency"
+    synonyms:
+      italian:
+        - scaduto 60 giorni
+        - crediti 31-60 giorni
+        - aging 60
+      english:
+        - 60 days past due
+        - 31-60 days aging
+    calculation: null
+
+  aging_90_days:
+    canonical_name: "scaduto_90_giorni"
+    category: "working_capital"
+    subcategory: "aging"
+    unit: "currency"
+    synonyms:
+      italian:
+        - scaduto 90 giorni
+        - crediti 61-90 giorni
+        - aging 90
+      english:
+        - 90 days past due
+        - 61-90 days aging
+    calculation: null
+
+  aging_over_90:
+    canonical_name: "scaduto_oltre_90"
+    category: "working_capital"
+    subcategory: "aging"
+    unit: "currency"
+    synonyms:
+      italian:
+        - scaduto oltre 90 giorni
+        - crediti oltre 90 giorni
+        - aging >90
+      english:
+        - over 90 days past due
+        - 90+ days aging
+    calculation: null
+
+  bad_debt_provision:
+    canonical_name: "fondo_svalutazione_crediti"
+    category: "working_capital"
+    subcategory: "provisions"
+    unit: "currency"
+    synonyms:
+      italian:
+        - fondo svalutazione crediti
+        - accantonamento crediti
+        - provision crediti
+        - fondo rischi su crediti
+      english:
+        - bad debt provision
+        - allowance for doubtful accounts
+        - credit loss provision
+    calculation: null
+
+accounts_payable:
+  trade_payables:
+    canonical_name: "debiti_commerciali"
+    category: "working_capital"
+    subcategory: "payables"
+    unit: "currency"
+    synonyms:
+      italian:
+        - debiti commerciali
+        - debiti verso fornitori
+        - debiti v/fornitori
+        - payables
+      english:
+        - trade payables
+        - accounts payable
+        - supplier payables
+        - trade creditors
+    calculation: null
+
+  dpo:
+    canonical_name: "dpo"
+    category: "working_capital"
+    subcategory: "payables"
+    unit: "days"
+    synonyms:
+      italian:
+        - dpo
+        - giorni di pagamento
+        - dilazione media fornitori
+        - giorni debito fornitori
+      english:
+        - dpo
+        - days payables outstanding
+        - payment period
+        - creditor days
+    calculation: "(debiti_commerciali / acquisti) * 365"
+
+  overdue_payables:
+    canonical_name: "debiti_scaduti"
+    category: "working_capital"
+    subcategory: "payables"
+    unit: "currency"
+    synonyms:
+      italian:
+        - debiti scaduti
+        - scaduto fornitori
+        - arretrato fornitori
+      english:
+        - overdue payables
+        - past due payables
+        - aged payables
+    calculation: null
+
+  cash_conversion_cycle:
+    canonical_name: "ciclo_conversione_cassa"
+    category: "working_capital"
+    subcategory: "efficiency"
+    unit: "days"
+    synonyms:
+      italian:
+        - ciclo conversione cassa
+        - ciclo del circolante
+        - ccc
+      english:
+        - cash conversion cycle
+        - ccc
+        - operating cycle
+        - working capital cycle
+    calculation: "dso + giorni_magazzino - dpo"
+
+  working_capital:
+    canonical_name: "capitale_circolante_netto"
+    category: "working_capital"
+    subcategory: "liquidity"
+    unit: "currency"
+    synonyms:
+      italian:
+        - capitale circolante netto
+        - ccn
+        - capitale circolante
+        - working capital
+      english:
+        - working capital
+        - net working capital
+        - nwc
+        - operating working capital
+    calculation: "attivo_circolante - passivo_circolante"
+
+# Additional Operational Metrics
+operational:
+  inventory_turnover:
+    canonical_name: "rotazione_magazzino"
+    category: "efficiency"
+    subcategory: "inventory"
+    unit: "times"
+    synonyms:
+      italian:
+        - rotazione magazzino
+        - rotazione scorte
+        - turnover magazzino
+        - indice rotazione rimanenze
+      english:
+        - inventory turnover
+        - stock turnover
+        - inventory turns
+    calculation: "costo_del_venduto / rimanenze_medie"
+
+  inventory_days:
+    canonical_name: "giorni_magazzino"
+    category: "efficiency"
+    subcategory: "inventory"
+    unit: "days"
+    synonyms:
+      italian:
+        - giorni di magazzino
+        - giacenza media giorni
+        - scorte in giorni
+      english:
+        - inventory days
+        - days inventory outstanding
+        - dio
+        - days in inventory
+    calculation: "(rimanenze / costo_del_venduto) * 365"
+
+  customer_concentration:
+    canonical_name: "concentrazione_clienti"
+    category: "risk"
+    subcategory: "concentration"
+    unit: "percentage"
+    synonyms:
+      italian:
+        - concentrazione clienti
+        - concentrazione fatturato
+        - dipendenza clienti
+      english:
+        - customer concentration
+        - client concentration
+        - revenue concentration
+    calculation: "ricavi_top_10_clienti / ricavi_totali * 100"
+
+  supplier_concentration:
+    canonical_name: "concentrazione_fornitori"
+    category: "risk"
+    subcategory: "concentration"
+    unit: "percentage"
+    synonyms:
+      italian:
+        - concentrazione fornitori
+        - dipendenza fornitori
+      english:
+        - supplier concentration
+        - vendor concentration
+        - procurement concentration
+    calculation: "acquisti_top_10_fornitori / acquisti_totali * 100"

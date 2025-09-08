@@ -4,32 +4,39 @@ Una **piattaforma di Business Intelligence aziendale di nuova generazione** che 
 
 ## 🎯 Funzionalità Principali
 
-### 🚀 **NOVITÀ: UI/UX Avanzata con Modalità Enterprise**
-- **🔧 Attivazione Enterprise**: Attivazione con un clic nella barra laterale di Streamlit
+### 🚀 **NOVITÀ: Architettura Enterprise Avanzata (Gennaio 2025)**
+- **🔧 Attivazione Enterprise**: Modalità enterprise con un clic nella barra laterale Streamlit
 - **📊 Dashboard Analytics Avanzato**: KPI interattivi, trend analysis, waterfall charts, radar efficienza
-- **🔍 Anteprima Documenti**: Thumbnails, estrazione contenuti, statistiche automatiche
+- **🔍 Anteprima Documenti**: Thumbnails automatici, estrazione contenuti, statistiche documenti
 - **✏️ Editor Interattivo Metriche**: Editing real-time, validazione automatica, suggerimenti AI
-- **📈 Visualizzazioni Professionali**: Plotly charts, gauge KPI, heatmap di rischio
+- **📈 Visualizzazioni Professionali**: Plotly charts, gauge KPI, heatmap rischio
 - **🎯 68 Metriche Finanziarie**: Ontologia estesa AR/AP, Vendite, Magazzino, HR
-- **✅ Validazioni Avanzate**: Range constraints, coerenza perimetro/periodo, controlli dominio
-- **📊 Riferimenti di Origine**: Tracciamento completo della provenienza dei dati
+- **✅ Great Expectations**: Validazioni data quality sistematiche su coerenza contabile
+- **🔄 Calcoli Derivati Automatici**: 15+ formule finanziarie con lineage completo  
+- **🔍 Provenienza Granulare**: Tracking pagina/cella/coordinata per massima tracciabilità
+- **📊 Riferimenti Origine**: Tracciamento completo provenienza dati (file.xlsx|sheet:CE|cell:B12)
 - **🤖 Recupero Ibrido**: BM25 + Embeddings + Riclassificazione con cross-encoder
 - **🗄️ Tabella Dimensionale**: Schema a stella con persistenza DuckDB/SQLite
-- **⚡ Orchestrazione Enterprise**: Flusso di lavoro integrato con pipeline a 6 fasi
+- **⚡ Orchestrazione Enterprise Avanzata**: Pipeline 6 fasi con quality checks e calculations
 
 ### 📊 Analisi Finanziarie Avanzate
 - **Elaborazione CSV Intelligente** con supporto per formati numerici italiani (`1.234,56`)
 - **Modellazione Finanziaria Automatizzata** (crescita YoY, rapporti, KPI)
-- **Rilevamento Anomalie** con algoritmi statistici
+- **Calcoli Derivati Automatici** - 15 formule finanziarie (PFN, ROS, ROIC, Current Ratio, DSO, ecc.)
+- **Lineage Tracking Completo** - tracciamento formula + inputs + confidence per ogni calcolo
+- **Data Quality Enterprise** - validazioni Great Expectations su coerenza bilancio/PFN
+- **Rilevamento Anomalie** con algoritmi statistici e range validation
 - **Supporto Multi-Valuta** con tracciamento delle conversioni
 - **Dashboard Interattive** con visualizzazioni in tempo reale
 - **Analisi Comparativa** tra più periodi ed entità
 
 ### 🧠 Intelligenza Documentale Basata su RAG  
 - **Supporto Multi-Formato** (PDF, DOCX, TXT, Markdown, Excel)
+- **Estrazione Avanzata** - OCR Tesseract, Camelot/Tabula per tabelle PDF, parsing Excel
+- **Provenienza Granulare** - tracking preciso pagina/cella (es: "bilancio.xlsx|sheet:CE|cell:B12")
 - **Ricerca Semantica** con database vettoriale Qdrant
 - **Query Context-Aware** che combinano dati strutturati e non strutturati
-- **Estrazione Metadati** con tracciamento della provenienza
+- **Estrazione Metadati** con tracciamento completo della provenienza
 - **Export PDF Professionale** con stile ZCS Company
 - **Chunking Intelligente** con ottimizzazione delle sovrapposizioni
 
@@ -44,6 +51,10 @@ Una **piattaforma di Business Intelligence aziendale di nuova generazione** che 
 ### 💼 Architettura Enterprise-Ready
 - **Clean Architecture** con separazione dei domini
 - **Pattern Repository** con persistenza SQLite/DuckDB
+- **Data Quality Service** - Great Expectations per validazioni sistematiche
+- **Calculation Engine** - motore calcoli derivati con dependency resolution
+- **Granular Provenance Service** - tracciamento provenienza cella-per-cella
+- **Advanced Enterprise Orchestrator** - coordinamento pipeline completo
 - **Dependency Injection** container
 - **Logging Completo** con filtraggio dei dati sensibili
 - **Type Safety** con piena conformità MyPy
@@ -266,18 +277,23 @@ src/
 │   ├── value_objects/        # NUOVO: Riferimenti origine, controlli, validazione
 │   │   ├── source_reference.py    # Tracciamento completo provenienza dati
 │   │   └── guardrails.py          # Regole di validazione finanziaria
+│   ├── services/             # NUOVO: Servizi enterprise core
+│   │   ├── data_quality_service.py      # Great Expectations per data quality
+│   │   ├── calculation_engine.py        # Calcoli derivati con lineage  
+│   │   └── granular_provenance_service.py  # Provenienza granulare
 │   └── exceptions/           # Eccezioni specifiche del dominio
 ├── application/              # Casi d'uso e interfacce  
 │   ├── interfaces/           # Contratti per dipendenze esterne
 │   └── services/             # NUOVO: Servizi applicativi enterprise
-│       ├── enterprise_orchestrator.py  # Coordinatore principale del flusso
-│       ├── document_router.py          # Classificazione documenti
-│       ├── hybrid_retrieval.py         # Ricerca BM25 + Embeddings
-│       ├── ontology_mapper.py          # Mappatura sinonimi metriche (68 metriche)
-│       ├── data_normalizer.py          # Normalizzazione multi-locale
-│       ├── document_preview.py         # NUOVO: Anteprima documenti con thumbnails
-│       ├── interactive_editor.py       # NUOVO: Editor interattivo metriche
-│       └── analytics_dashboard.py      # NUOVO: Dashboard analytics avanzato
+│       ├── enterprise_orchestrator.py       # Coordinatore principale del flusso
+│       ├── advanced_enterprise_orchestrator.py  # NUOVO: Orchestratore avanzato integrato
+│       ├── document_router.py               # Classificazione documenti
+│       ├── hybrid_retrieval.py              # Ricerca BM25 + Embeddings
+│       ├── ontology_mapper.py               # Mappatura sinonimi metriche (68 metriche)
+│       ├── data_normalizer.py               # Normalizzazione multi-locale
+│       ├── document_preview.py              # NUOVO: Anteprima documenti con thumbnails
+│       ├── interactive_editor.py            # NUOVO: Editor interattivo metriche
+│       └── analytics_dashboard.py           # NUOVO: Dashboard analytics avanzato
 ├── infrastructure/           # Aspetti esterni (database, API)
 │   └── repositories/         # Implementazioni persistenza dati
 │       └── fact_table_repository.py   # NUOVO: Data warehouse dimensionale
