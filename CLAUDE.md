@@ -167,7 +167,7 @@ HF_HUB_DISABLE_SYMLINKS_WARNING=1   # Suppress HuggingFace warnings
 
 ### Enterprise Vector Database (Qdrant)
 - Collection: `business_documents` (configurable via `QDRANT_COLLECTION_NAME`)
-- Embedding model: `sentence-transformers/all-MiniLM-L6-v2` (384 dimensions)
+- Embedding model: `text-embedding-3-small` (1536 dimensions)
 - Reranker model: `cross-encoder/ms-marco-MiniLM-L-2-v2`
 - Distance metric: Cosine similarity
 - Enhanced metadata with source references and document classification
