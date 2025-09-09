@@ -35,6 +35,23 @@ class Settings(BaseSettings):
     # Enterprise Features
     hf_hub_disable_symlinks_warning: Optional[str] = Field(default=None, env="HF_HUB_DISABLE_SYMLINKS_WARNING")
     
+    # Multi-Tenant Configuration
+    enable_multi_tenancy: bool = Field(default=False, env="ENABLE_MULTI_TENANCY")
+    jwt_secret_key: str = Field(default="your-secret-key-change-this", env="JWT_SECRET_KEY")
+    jwt_algorithm: str = Field(default="HS256", env="JWT_ALGORITHM")
+    session_duration_hours: int = Field(default=8, env="SESSION_DURATION_HOURS")
+    max_tenants_per_instance: int = Field(default=100, env="MAX_TENANTS_PER_INSTANCE")
+    
+    # Tenant Database
+    tenant_db_path: str = Field(default="data/multi_tenant.db", env="TENANT_DB_PATH")
+    tenant_facts_db_path: str = Field(default="data/multi_tenant_facts.db", env="TENANT_FACTS_DB_PATH")
+    
+    # Rate Limiting
+    rate_limit_basic: str = Field(default="60/minute", env="RATE_LIMIT_BASIC")
+    rate_limit_premium: str = Field(default="300/minute", env="RATE_LIMIT_PREMIUM")
+    rate_limit_enterprise: str = Field(default="1000/minute", env="RATE_LIMIT_ENTERPRISE")
+    rate_limit_custom: str = Field(default="unlimited", env="RATE_LIMIT_CUSTOM")
+    
     # Paths
     data_dir: Path = Field(default=Path("data"))
     upload_dir: Path = Field(default=Path("data/uploads"))

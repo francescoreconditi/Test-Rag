@@ -17,6 +17,7 @@ from config.settings import settings
 from services.format_helper import format_analysis_result
 from services.prompt_router import choose_prompt
 from services.query_cache import QueryCache
+from src.domain.entities.tenant_context import TenantContext
 try:
     from src.application.services.enterprise_orchestrator import EnterpriseOrchestrator, EnterpriseQuery
     ENTERPRISE_AVAILABLE = True
@@ -33,14 +34,16 @@ logger = logging.getLogger(__name__)
 class RAGEngine:
     """RAG engine for document indexing and retrieval using LlamaIndex and Qdrant."""
 
-    def __init__(self):
-        """Initialize RAG engine with Qdrant and OpenAI."""
+    def __init__(self, tenant_context: Optional[TenantContext] = None):
+        """Initialize RAG engine with Qdrant and OpenAI, optionally with tenant context."""
         self.client = None
         self.vector_store = None
         self.index = None
-        self.collection_name = settings.qdrant_collection_name
-        # Initialize query cache if enabled
-        self.query_cache = QueryCache(ttl_seconds=3600) if settings.rag_enable_caching else None
+        self.tenant_context = tenant_context
+        self.collection_name = self._get_tenant_collection_name()
+        # Initialize query cache if enabled (with tenant namespace if multi-tenant)
+        cache_namespace = f"tenant_{tenant_context.tenant_id}" if tenant_context else None
+        self.query_cache = QueryCache(ttl_seconds=3600, namespace=cache_namespace) if settings.rag_enable_caching else None
         # Initialize enterprise orchestrator
         self.enterprise_orchestrator = None
         self._initialize_components()
@@ -90,11 +93,18 @@ class RAGEngine:
             else:
                 self.enterprise_orchestrator = None
 
-            logger.info("RAG Engine initialized successfully with enterprise orchestrator")
+            tenant_info = f" for tenant {self.tenant_context.tenant_id}" if self.tenant_context else ""
+            logger.info(f"RAG Engine initialized successfully with enterprise orchestrator{tenant_info}")
 
         except Exception as e:
             logger.error(f"Error initializing RAG Engine: {str(e)}")
             raise
+
+    def _get_tenant_collection_name(self) -> str:
+        """Get collection name based on tenant context."""
+        if self.tenant_context:
+            return f"tenant_{self.tenant_context.tenant_id}_docs"
+        return settings.qdrant_collection_name
 
     def _setup_collection(self):
         """Setup Qdrant collection with proper configuration."""

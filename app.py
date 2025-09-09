@@ -25,11 +25,19 @@ st.set_page_config(
 
 # Initialize services
 @st.cache_resource
-def init_services():
-    """Initialize and cache services."""
+def init_services(tenant_id: str = "default"):
+    """Initialize and cache services with optional tenant context."""
+    from src.core.security.multi_tenant_manager import MultiTenantManager
+    
+    # Get tenant context if available
+    tenant_context = None
+    if tenant_id != "default":
+        manager = MultiTenantManager()
+        tenant_context = manager.get_tenant(tenant_id)
+    
     return {
         'csv_analyzer': CSVAnalyzer(),
-        'rag_engine': RAGEngine(),
+        'rag_engine': RAGEngine(tenant_context=tenant_context),
         'llm_service': LLMService()
     }
 
@@ -246,13 +254,29 @@ def show_intelligent_faq():
 def main():
     """Main application function."""
     
-    # Header
-    st.markdown('<h1 class="main-header">📊 Sistema di Business Intelligence RAG</h1>', unsafe_allow_html=True)
+    # Check authentication
+    if 'tenant_context' not in st.session_state:
+        st.warning("🔐 Please login first to access the application")
+        if st.button("Go to Login Page"):
+            st.switch_page("pages/00_🔐_Login.py")
+        return
     
-    # Initialize session state
-    if 'services' not in st.session_state:
-        with st.spinner("Initializing services..."):
-            st.session_state.services = init_services()
+    # Get tenant context
+    tenant = st.session_state.tenant_context
+    
+    # Header with tenant info
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.markdown('<h1 class="main-header">📊 Sistema di Business Intelligence RAG</h1>', unsafe_allow_html=True)
+    with col2:
+        st.caption(f"🏢 {tenant.organization}")
+        st.caption(f"📦 {tenant.tier.value} Plan")
+    
+    # Initialize services with tenant context
+    if 'services' not in st.session_state or st.session_state.get('current_tenant_id') != tenant.tenant_id:
+        with st.spinner("Initializing tenant services..."):
+            st.session_state.services = init_services(tenant.tenant_id)
+            st.session_state.current_tenant_id = tenant.tenant_id
     
     if 'csv_analysis' not in st.session_state:
         st.session_state.csv_analysis = None
@@ -262,6 +286,32 @@ def main():
     
     # Sidebar
     with st.sidebar:
+        # Tenant Info Section
+        st.header(f"🏢 {tenant.organization}")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Tier", tenant.tier.value)
+        with col2:
+            st.metric("Tenant ID", tenant.tenant_id[:10] + "...")
+        
+        # Usage metrics
+        from src.core.security.multi_tenant_manager import MultiTenantManager
+        manager = MultiTenantManager()
+        usage = manager.get_tenant_usage(tenant.tenant_id)
+        
+        with st.expander("📊 Usage Metrics", expanded=False):
+            st.metric("Documents Today", f"{usage.get('documents_today', 0)}/{tenant.resource_limits.max_documents_per_month}")
+            st.metric("Queries Today", f"{usage.get('queries_today', 0)}/{tenant.resource_limits.max_queries_per_day}")
+            st.metric("Storage Used", f"{usage.get('storage_mb', 0):.1f} MB")
+        
+        # Logout button
+        if st.button("🚪 Logout", use_container_width=True):
+            for key in ['tenant_context', 'jwt_token', 'user_email', 'services', 'current_tenant_id']:
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.switch_page("pages/00_🔐_Login.py")
+        
+        st.divider()
         st.header("🔧 Configurazione")
         
         # Navigation

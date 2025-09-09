@@ -11,16 +11,18 @@ logger = logging.getLogger(__name__)
 class QueryCache:
     """In-memory cache for query results with TTL support."""
 
-    def __init__(self, ttl_seconds: int = 3600):
-        """Initialize cache with time-to-live in seconds (default 1 hour)."""
+    def __init__(self, ttl_seconds: int = 3600, namespace: Optional[str] = None):
+        """Initialize cache with time-to-live in seconds (default 1 hour) and optional namespace."""
         self.cache: Dict[str, Dict[str, Any]] = {}
         self.ttl_seconds = ttl_seconds
+        self.namespace = namespace  # For multi-tenant isolation
         self.hits = 0
         self.misses = 0
 
     def _generate_key(self, query: str, top_k: int, analysis_type: Optional[str] = None) -> str:
         """Generate a unique cache key for the query parameters."""
-        cache_string = f"{query.lower().strip()}_{top_k}_{analysis_type or 'standard'}"
+        namespace_prefix = f"{self.namespace}_" if self.namespace else ""
+        cache_string = f"{namespace_prefix}{query.lower().strip()}_{top_k}_{analysis_type or 'standard'}"
         return hashlib.md5(cache_string.encode()).hexdigest()
 
     def get(self, query: str, top_k: int, analysis_type: Optional[str] = None) -> Optional[Dict[str, Any]]:

@@ -11,12 +11,28 @@ from datetime import datetime
 # PDF processing libraries
 import fitz  # PyMuPDF
 import pdfplumber
-import camelot
-import tabula
-import ocrmypdf
-import pytesseract
 from PIL import Image
 import io
+
+# Optional libraries for advanced features
+try:
+    import camelot
+    CAMELOT_AVAILABLE = True
+except ImportError:
+    CAMELOT_AVAILABLE = False
+    
+try:
+    import tabula
+    TABULA_AVAILABLE = True
+except ImportError:
+    TABULA_AVAILABLE = False
+    
+try:
+    import ocrmypdf
+    import pytesseract
+    OCR_AVAILABLE = True
+except ImportError:
+    OCR_AVAILABLE = False
 
 from src.domain.value_objects.source_reference import SourceReference
 
@@ -210,6 +226,10 @@ class PDFProcessor:
                 output_path = tmp.name
             
             # Run OCR
+            if not OCR_AVAILABLE:
+                logger.warning("OCR libraries not available, skipping OCR")
+                return file_path
+                
             ocrmypdf.ocr(
                 file_path,
                 output_path,
@@ -291,16 +311,20 @@ class PDFProcessor:
         
         try:
             # Try lattice method first (for tables with lines)
-            lattice_tables = camelot.read_pdf(
-                file_path,
-                pages='all',
-                flavor='lattice',
-                suppress_stdout=True
-            )
+            if CAMELOT_AVAILABLE:
+                lattice_tables = camelot.read_pdf(
+                    file_path,
+                    pages='all',
+                    flavor='lattice',
+                    suppress_stdout=True
+                )
+            else:
+                lattice_tables = None
             
-            for idx, table in enumerate(lattice_tables):
-                if table.df.empty:
-                    continue
+            if lattice_tables:
+                for idx, table in enumerate(lattice_tables):
+                    if table.df.empty:
+                        continue
                     
                 source_ref = SourceReference(
                     file_path=file_path,
@@ -320,7 +344,7 @@ class PDFProcessor:
                 ))
             
             # Try stream method for tables without lines
-            if not tables:
+            if not tables and CAMELOT_AVAILABLE:
                 stream_tables = camelot.read_pdf(
                     file_path,
                     pages='all',
@@ -359,6 +383,10 @@ class PDFProcessor:
         tables = []
         
         try:
+            if not TABULA_AVAILABLE:
+                logger.warning("Tabula not available, skipping table extraction")
+                return []
+                
             # Read all tables from PDF
             dfs = tabula.read_pdf(
                 file_path,

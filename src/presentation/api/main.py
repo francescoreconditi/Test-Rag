@@ -41,6 +41,14 @@ from .config.scalar_docs import add_scalar_docs
 from pydantic import BaseModel, Field, validator
 import uvicorn
 
+# Multi-tenant authentication
+from .auth import (
+    LoginRequest, LoginResponse, login, 
+    get_current_tenant, get_optional_tenant, check_tenant_limits,
+    multi_tenant_manager
+)
+from src.domain.entities.tenant_context import TenantContext
+
 # Application services
 from services.rag_engine import RAGEngine
 from services.csv_analyzer import CSVAnalyzer
@@ -60,7 +68,36 @@ calculation_engine = None
 pdf_exporter = None
 
 def get_rag_engine() -> RAGEngine:
-    """Dependency injection for RAG Engine."""
+    """Dependency injection for RAG Engine (default, non-tenant)."""
+    global rag_engine
+    if rag_engine is None:
+        rag_engine = RAGEngine()
+    return rag_engine
+
+def get_tenant_rag_engine(tenant: TenantContext = Depends(get_current_tenant)) -> RAGEngine:
+    """Dependency injection for tenant-specific RAG Engine."""
+    # Use a cache for tenant-specific engines
+    if not hasattr(get_tenant_rag_engine, '_tenant_engines'):
+        get_tenant_rag_engine._tenant_engines = {}
+    
+    if tenant.tenant_id not in get_tenant_rag_engine._tenant_engines:
+        get_tenant_rag_engine._tenant_engines[tenant.tenant_id] = RAGEngine(tenant_context=tenant)
+    
+    return get_tenant_rag_engine._tenant_engines[tenant.tenant_id]
+
+def get_optional_rag_engine(tenant: Optional[TenantContext] = Depends(get_optional_tenant)) -> RAGEngine:
+    """Dependency injection for RAG Engine with optional tenant support."""
+    if tenant:
+        # Use a cache for tenant-specific engines
+        if not hasattr(get_optional_rag_engine, '_tenant_engines'):
+            get_optional_rag_engine._tenant_engines = {}
+        
+        if tenant.tenant_id not in get_optional_rag_engine._tenant_engines:
+            get_optional_rag_engine._tenant_engines[tenant.tenant_id] = RAGEngine(tenant_context=tenant)
+        
+        return get_optional_rag_engine._tenant_engines[tenant.tenant_id]
+    
+    # Return default engine for non-tenant requests
     global rag_engine
     if rag_engine is None:
         rag_engine = RAGEngine()
@@ -255,6 +292,56 @@ app.openapi = custom_openapi
 add_scalar_docs(app)
 
 
+# Authentication Endpoints
+@app.post(
+    "/auth/login",
+    response_model=LoginResponse,
+    summary="Login Tenant",
+    description="""
+    Authenticate user and create tenant session.
+    
+    Creates JWT token for multi-tenant access.
+    
+    Example:
+    ```bash
+    curl -X POST "http://localhost:8000/auth/login" \\
+         -H "Content-Type: application/json" \\
+         -d '{"email": "admin@company.com", "password": "password123"}'
+    ```
+    """,
+    tags=["Autenticazione"]
+)
+async def api_login(request: LoginRequest):
+    """Login endpoint for multi-tenant authentication."""
+    return await login(request)
+
+
+@app.get(
+    "/auth/tenant/info",
+    summary="Get Tenant Info",
+    description="Get current tenant information and limits.",
+    tags=["Autenticazione"]
+)
+async def get_tenant_info(tenant: TenantContext = Depends(get_current_tenant)):
+    """Get current tenant information."""
+    usage = multi_tenant_manager.get_tenant_usage(tenant.tenant_id)
+    
+    return {
+        "tenant_id": tenant.tenant_id,
+        "company_name": tenant.organization,
+        "tier": tenant.tier.value,
+        "limits": {
+            "max_documents_per_month": tenant.resource_limits.max_documents_per_month,
+            "max_storage_gb": tenant.resource_limits.max_storage_gb,
+            "max_queries_per_day": tenant.resource_limits.max_queries_per_day,
+            "max_concurrent_users": tenant.resource_limits.max_concurrent_users
+        },
+        "usage": usage,
+        "created_at": tenant.created_at.isoformat(),
+        "status": tenant.status.value
+    }
+
+
 # Health Check Endpoints
 @app.get(
     "/health",
@@ -422,7 +509,8 @@ async def analyze_pdf(
     file: UploadFile = File(..., description="File PDF da analizzare (max 50MB)"),
     output_format: str = Query("json", description="Formato output: json, pdf, text"),
     enterprise_mode: bool = Query(False, description="Abilita funzionalità enterprise"),
-    rag_engine: RAGEngine = Depends(get_rag_engine),
+    tenant: Optional[TenantContext] = Depends(get_optional_tenant),
+    rag_engine: RAGEngine = Depends(get_optional_rag_engine),
     pdf_processor: PDFProcessor = Depends(get_pdf_processor),
     pdf_exporter: PDFExporter = Depends(get_pdf_exporter)
 ):
@@ -448,6 +536,17 @@ async def analyze_pdf(
     
     if file.size and file.size > 50 * 1024 * 1024:  # 50MB limit
         raise HTTPException(status_code=400, detail="File too large (max 50MB)")
+    
+    # Check tenant limits if authenticated
+    if tenant:
+        if not check_tenant_limits(tenant, "documents", 1):
+            raise HTTPException(
+                status_code=403, 
+                detail=f"Document limit exceeded for {tenant.tier.value} tier"
+            )
+        
+        # Track usage
+        multi_tenant_manager.track_usage(tenant.tenant_id, "documents", 1)
     
     try:
         # Save uploaded file temporarily
@@ -789,7 +888,7 @@ async def analyze_csv(
 )
 async def query_knowledge_base(
     request: QueryRequest,
-    rag_engine: RAGEngine = Depends(get_rag_engine)
+    rag_engine: RAGEngine = Depends(get_optional_rag_engine)
 ):
     """
     Query the knowledge base with natural language questions.
@@ -917,7 +1016,7 @@ async def clear_knowledge_base():
 async def index_documents(
     files: List[UploadFile] = File(..., description="Documenti da indicizzare"),
     background_tasks: BackgroundTasks = BackgroundTasks(),
-    rag_engine: RAGEngine = Depends(get_rag_engine)
+    rag_engine: RAGEngine = Depends(get_optional_rag_engine)
 ):
     """
     Index multiple documents into the knowledge base.
