@@ -296,7 +296,7 @@ def render_report_management(report_scheduler: ReportScheduler, tenant_context):
             
             if history_data:
                 df = pd.DataFrame(history_data)
-                st.dataframe(df, use_container_width=True)
+                st.dataframe(df, width='stretch')
             else:
                 st.info("No execution history available")
         else:
@@ -354,7 +354,7 @@ def render_analytics_api(tenant_context):
         ]
         
         df = pd.DataFrame(endpoints)
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df, width='stretch')
     
     # API testing interface
     st.markdown("### 🧪 API Testing")
@@ -537,7 +537,7 @@ def render_system_status(report_scheduler: ReportScheduler, dashboard_embed: Das
         fig_response = px.line(performance_data, x='timestamp', y='response_time', 
                              title='API Response Time (7 days)')
         fig_response.update_layout(height=300)
-        st.plotly_chart(fig_response, use_container_width=True)
+        st.plotly_chart(fig_response, width='stretch')
     
     with col2:
         # Resource usage chart
@@ -545,7 +545,7 @@ def render_system_status(report_scheduler: ReportScheduler, dashboard_embed: Das
                               y=['cpu_usage', 'memory_usage'],
                               title='Resource Usage (7 days)')
         fig_resources.update_layout(height=300)
-        st.plotly_chart(fig_resources, use_container_width=True)
+        st.plotly_chart(fig_resources, width='stretch')
     
     # Service statistics
     st.markdown("### 📊 Service Statistics")
@@ -557,13 +557,13 @@ def render_system_status(report_scheduler: ReportScheduler, dashboard_embed: Das
     stats_data = {
         'Service': ['Report Scheduler', 'Dashboard Embeds', 'Analytics API', 'Export Engine'],
         'Status': ['🟢 Active', '🟢 Active', '🟢 Active', '🟢 Active'],
-        'Items': [len(reports), len(embeds), 'Available', 'Available'],
+        'Items': [str(len(reports)), str(len(embeds)), 'Available', 'Available'],
         'Last Activity': ['5 min ago', '12 min ago', '2 min ago', '8 min ago'],
         'Success Rate': ['98.2%', '99.5%', '97.8%', '99.1%']
     }
     
     df_stats = pd.DataFrame(stats_data)
-    st.dataframe(df_stats, use_container_width=True)
+    st.dataframe(df_stats, width='stretch')
     
     # System logs (mock)
     st.markdown("### 📝 Recent System Logs")
