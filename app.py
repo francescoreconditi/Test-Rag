@@ -502,7 +502,7 @@ def show_document_rag():
         st.subheader("📄 Carica Documenti")
         uploaded_files = st.file_uploader(
             "Scegli documenti per l'analisi",
-            type=['pdf', 'txt', 'docx', 'md'],
+            type=['pdf', 'txt', 'docx', 'md', 'json'],
             accept_multiple_files=True,
             help="Carica report aziendali, contratti, o qualsiasi documento rilevante"
         )

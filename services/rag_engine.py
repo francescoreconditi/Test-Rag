@@ -181,6 +181,9 @@ class RAGEngine:
                     documents = self._load_text(file_path, metadata)
                 elif path.suffix.lower() in ['.docx', '.doc']:
                     documents = self._load_docx(file_path, metadata)
+                elif path.suffix.lower() == '.json':
+                    # JSON files are loaded as text documents
+                    documents = self._load_text(file_path, metadata)
                 else:
                     documents = SimpleDirectoryReader(
                         input_files=[file_path]
