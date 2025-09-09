@@ -552,9 +552,9 @@ def show_document_rag():
         st.subheader("📄 Carica Documenti")
         uploaded_files = st.file_uploader(
             "Scegli documenti per l'analisi",
-            type=['pdf', 'txt', 'docx', 'md', 'json'],
+            type=['pdf', 'txt', 'docx', 'md', 'json', 'csv'],
             accept_multiple_files=True,
-            help="Carica report aziendali, contratti, o qualsiasi documento rilevante"
+            help="Carica report aziendali, contratti, CSV con dati finanziari, o qualsiasi documento rilevante"
         )
         
         # Prompt selection
@@ -562,13 +562,14 @@ def show_document_rag():
         prompt_options = ["Automatico (raccomandato)"] + [
             f"{prompt_type.capitalize()} - {desc}" 
             for prompt_type, desc in zip(
-                ["bilancio", "fatturato", "magazzino", "contratto", "presentazione", "generale"],
+                ["bilancio", "fatturato", "magazzino", "contratto", "presentazione", "csv", "generale"],
                 [
                     "Analisi finanziaria per bilanci e report finanziari",
                     "Analisi vendite e ricavi", 
                     "Analisi logistica e gestione scorte",
                     "Analisi legale e contrattuale",
                     "Analisi di presentazioni e slide deck",
+                    "Analisi dati CSV con insights automatici",
                     "Analisi generica per qualsiasi tipo di documento"
                 ]
             )
@@ -624,11 +625,31 @@ def show_document_rag():
 
                     # Index documents with original names and permanent paths
                     rag_engine = st.session_state.services['rag_engine']
-                    results = rag_engine.index_documents(file_paths, original_names=original_names, permanent_paths=permanent_paths, force_prompt_type=force_prompt_type)
+                    csv_analyzer = st.session_state.services['csv_analyzer']
+                    
+                    # Check if any files are CSV and show special handling
+                    csv_files = [name for name in original_names if name.lower().endswith('.csv')]
+                    if csv_files:
+                        st.info(f"📊 Rilevati {len(csv_files)} file CSV che saranno analizzati con insights automatici")
+                    
+                    results = rag_engine.index_documents(
+                        file_paths, 
+                        original_names=original_names, 
+                        permanent_paths=permanent_paths, 
+                        force_prompt_type=force_prompt_type,
+                        csv_analyzer=csv_analyzer  # Pass CSV analyzer for enhanced processing
+                    )
                     
                     # Display results
                     if results['indexed_files']:
                         st.success(f"✅ Indicizzati con successo {len(results['indexed_files'])} documenti con {results['total_chunks']} blocchi")
+                        
+                        # Show CSV-specific results
+                        if csv_files:
+                            csv_processed = [f for f in results['indexed_files'] if f.lower().endswith('.csv')]
+                            if csv_processed:
+                                st.info(f"📊 File CSV processati con analisi automatica: {', '.join(csv_processed)}")
+                                st.caption("I CSV sono stati convertiti in documenti searchable con insights AI-generated")
                         
                         # Show prompt type used
                         if force_prompt_type:

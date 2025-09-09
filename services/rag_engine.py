@@ -161,7 +161,7 @@ class RAGEngine:
                 storage_context=StorageContext.from_defaults(vector_store=self.vector_store)
             )
 
-    def index_documents(self, file_paths: List[str], metadata: Optional[Dict[str, Any]] = None, original_names: Optional[List[str]] = None, permanent_paths: Optional[List[str]] = None, force_prompt_type: Optional[str] = None) -> Dict[str, Any]:
+    def index_documents(self, file_paths: List[str], metadata: Optional[Dict[str, Any]] = None, original_names: Optional[List[str]] = None, permanent_paths: Optional[List[str]] = None, force_prompt_type: Optional[str] = None, csv_analyzer=None) -> Dict[str, Any]:
         """Index documents from file paths."""
         results = {
             'indexed_files': [],
@@ -194,6 +194,12 @@ class RAGEngine:
                 elif path.suffix.lower() == '.json':
                     # JSON files are loaded as text documents
                     documents = self._load_text(file_path, metadata)
+                elif path.suffix.lower() == '.csv' and csv_analyzer:
+                    # CSV files are analyzed and converted to structured documents
+                    documents = self._load_csv_with_analysis(file_path, csv_analyzer, metadata)
+                elif path.suffix.lower() == '.csv':
+                    # Basic CSV loading without analysis
+                    documents = self._load_csv_basic(file_path, metadata)
                 else:
                     documents = SimpleDirectoryReader(
                         input_files=[file_path]
@@ -1485,3 +1491,125 @@ Genera SOLO le domande, una per riga, numerate da 1 a {num_questions}:
                 'faqs': [],
                 'success': False
             }
+
+    def _load_csv_with_analysis(self, file_path: str, csv_analyzer, metadata: Optional[Dict[str, Any]] = None) -> List[Document]:
+        """Load CSV file with automatic analysis and insights generation."""
+        import pandas as pd
+        from pathlib import Path
+        
+        try:
+            # Read CSV
+            df = pd.read_csv(file_path)
+            file_name = Path(file_path).name
+            
+            # Analyze CSV with csv_analyzer
+            analysis = csv_analyzer.analyze(df)
+            insights = csv_analyzer.generate_insights(df, analysis)
+            
+            documents = []
+            
+            # 1. Create metadata document
+            metadata_text = f"""
+            Dataset: {file_name}
+            Righe: {len(df)}
+            Colonne: {len(df.columns)}
+            Colonne disponibili: {', '.join(df.columns.tolist())}
+            
+            Tipi di Dati:
+            {chr(10).join([f"- {col}: {dtype}" for col, dtype in analysis.get('data_types', {}).items()])}
+            
+            Valori Mancanti:
+            {chr(10).join([f"- {col}: {count}" for col, count in analysis.get('missing_values', {}).items()]) if 'missing_values' in analysis else 'Nessun valore mancante'}
+            
+            Statistiche Principali:
+            {analysis.get('summary_stats', pd.DataFrame()).to_string() if 'summary_stats' in analysis else 'Non disponibili'}
+            """
+            
+            doc_metadata = {'source': file_name, 'type': 'csv_metadata', 'file_type': '.csv'}
+            if metadata:
+                doc_metadata.update(metadata)
+            
+            documents.append(Document(text=metadata_text.strip(), metadata=doc_metadata))
+            
+            # 2. Create documents from insights
+            for i, insight in enumerate(insights[:10], 1):  # Limit to top 10 insights
+                insight_doc = Document(
+                    text=f"Insight #{i}: {insight}",
+                    metadata={
+                        'source': file_name, 
+                        'type': 'csv_insight',
+                        'insight_id': i,
+                        'file_type': '.csv',
+                        **(metadata or {})
+                    }
+                )
+                documents.append(insight_doc)
+            
+            # 3. Create documents from sample data (first 100 rows max)
+            sample_size = min(100, len(df))
+            sample_df = df.head(sample_size)
+            
+            # Convert to readable text chunks (10 rows at a time)
+            for i in range(0, sample_size, 10):
+                chunk = sample_df.iloc[i:i+10]
+                chunk_text = f"Dati dal CSV '{file_name}' (righe {i+1}-{min(i+10, sample_size)}):\n\n{chunk.to_string()}"
+                
+                chunk_doc = Document(
+                    text=chunk_text,
+                    metadata={
+                        'source': file_name,
+                        'type': 'csv_data',
+                        'rows_range': f"{i+1}-{min(i+10, sample_size)}",
+                        'file_type': '.csv',
+                        **(metadata or {})
+                    }
+                )
+                documents.append(chunk_doc)
+            
+            logger.info(f"CSV '{file_name}' processed: {len(insights)} insights, {len(documents)-1-len(insights)} data chunks")
+            return documents
+            
+        except Exception as e:
+            logger.error(f"Error processing CSV {file_path}: {e}")
+            # Fallback to basic CSV loading
+            return self._load_csv_basic(file_path, metadata)
+
+    def _load_csv_basic(self, file_path: str, metadata: Optional[Dict[str, Any]] = None) -> List[Document]:
+        """Basic CSV loading without analysis (fallback method)."""
+        import pandas as pd
+        from pathlib import Path
+        
+        try:
+            # Read CSV
+            df = pd.read_csv(file_path)
+            file_name = Path(file_path).name
+            
+            # Create a single document with CSV overview
+            csv_text = f"""
+            File CSV: {file_name}
+            Righe: {len(df)}
+            Colonne: {len(df.columns)}
+            
+            Colonne disponibili:
+            {', '.join(df.columns.tolist())}
+            
+            Prime 20 righe di dati:
+            {df.head(20).to_string()}
+            
+            Ultime 5 righe di dati:
+            {df.tail(5).to_string()}
+            """
+            
+            doc_metadata = {'source': file_name, 'type': 'csv_basic', 'file_type': '.csv'}
+            if metadata:
+                doc_metadata.update(metadata)
+            
+            document = Document(text=csv_text.strip(), metadata=doc_metadata)
+            
+            logger.info(f"CSV '{file_name}' loaded with basic processing")
+            return [document]
+            
+        except Exception as e:
+            logger.error(f"Error loading CSV {file_path}: {e}")
+            # Ultimate fallback - treat as text file
+            return self._load_text(file_path, metadata)
