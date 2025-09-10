@@ -49,7 +49,10 @@
       "Bash(where:*)",
       "Bash(/dev/null)",
       "Bash(.scriptsdeploy_performance.bat)",
-      "Bash(docker:*)"
+      "Bash(docker:*)",
+      "Bash(pip install:*)",
+      "Bash(.venvScriptsactivate)",
+      "Bash(source:*)"
     ],
     "deny": [],
     "ask": []
