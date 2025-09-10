@@ -1,0 +1,233 @@
+# Docker Compose configuration for horizontal scaling
+version: '3.8'
+
+services:
+  # Nginx Load Balancer
+  nginx:
+    image: nginx:alpine
+    container_name: rag_load_balancer
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - app1
+      - app2
+      - app3
+    networks:
+      - rag_network
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: rag_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru
+    networks:
+      - rag_network
+    restart: unless-stopped
+
+  # Qdrant Vector Database
+  qdrant:
+    image: qdrant/qdrant
+    container_name: rag_qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__HTTP_PORT=6333
+      - QDRANT__SERVICE__GRPC_PORT=6334
+      - QDRANT__LOG_LEVEL=INFO
+    networks:
+      - rag_network
+    restart: unless-stopped
+
+  # Celery Worker 1
+  celery_worker1:
+    build: .
+    container_name: rag_celery_worker1
+    command: celery -A src.infrastructure.performance.celery_tasks worker --loglevel=info --concurrency=4 -Q default,indexing,analysis
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+    volumes:
+      - ./:/app
+    depends_on:
+      - redis
+      - qdrant
+    networks:
+      - rag_network
+    restart: unless-stopped
+
+  # Celery Worker 2
+  celery_worker2:
+    build: .
+    container_name: rag_celery_worker2
+    command: celery -A src.infrastructure.performance.celery_tasks worker --loglevel=info --concurrency=2 -Q training,export
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+    volumes:
+      - ./:/app
+    depends_on:
+      - redis
+      - qdrant
+    networks:
+      - rag_network
+    restart: unless-stopped
+
+  # Celery Beat Scheduler
+  celery_beat:
+    build: .
+    container_name: rag_celery_beat
+    command: celery -A src.infrastructure.performance.celery_tasks beat --loglevel=info
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    volumes:
+      - ./:/app
+    depends_on:
+      - redis
+    networks:
+      - rag_network
+    restart: unless-stopped
+
+  # Flower - Celery Monitoring
+  flower:
+    build: .
+    container_name: rag_flower
+    command: celery -A src.infrastructure.performance.celery_tasks flower --port=5555
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+    networks:
+      - rag_network
+    restart: unless-stopped
+
+  # Application Instance 1
+  app1:
+    build: .
+    container_name: rag_app1
+    command: streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+    environment:
+      - INSTANCE_ID=app1
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    volumes:
+      - ./:/app
+    depends_on:
+      - qdrant
+      - redis
+    networks:
+      - rag_network
+    restart: unless-stopped
+
+  # Application Instance 2
+  app2:
+    build: .
+    container_name: rag_app2
+    command: streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+    environment:
+      - INSTANCE_ID=app2
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    volumes:
+      - ./:/app
+    depends_on:
+      - qdrant
+      - redis
+    networks:
+      - rag_network
+    restart: unless-stopped
+
+  # Application Instance 3
+  app3:
+    build: .
+    container_name: rag_app3
+    command: streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+    environment:
+      - INSTANCE_ID=app3
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    volumes:
+      - ./:/app
+    depends_on:
+      - qdrant
+      - redis
+    networks:
+      - rag_network
+    restart: unless-stopped
+
+  # FastAPI Instance 1
+  api1:
+    build: .
+    container_name: rag_api1
+    command: uvicorn api:app --host 0.0.0.0 --port 8000 --workers 4
+    environment:
+      - INSTANCE_ID=api1
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    volumes:
+      - ./:/app
+    depends_on:
+      - qdrant
+      - redis
+    networks:
+      - rag_network
+    restart: unless-stopped
+
+  # FastAPI Instance 2
+  api2:
+    build: .
+    container_name: rag_api2
+    command: uvicorn api:app --host 0.0.0.0 --port 8000 --workers 4
+    environment:
+      - INSTANCE_ID=api2
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    volumes:
+      - ./:/app
+    depends_on:
+      - qdrant
+      - redis
+    networks:
+      - rag_network
+    restart: unless-stopped
+
+networks:
+  rag_network:
+    driver: bridge
+
+volumes:
+  qdrant_data:
+  redis_data:

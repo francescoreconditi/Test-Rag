@@ -4,8 +4,10 @@ Una **piattaforma di Business Intelligence aziendale di nuova generazione** che 
 
 ## 🎯 Funzionalità Principali
 
-### 🚀 **NOVITÀ: Architettura Enterprise Avanzata (Gennaio 2025)**
+### 🚀 **NOVITÀ: Architettura Enterprise Avanzata + Performance Optimization (2025)**
 - **🔧 Attivazione Enterprise**: Modalità enterprise con un clic nella barra laterale Streamlit
+- **⚡ Performance Ultra-Ottimizzate**: Connection pooling, cache distribuita Redis, background jobs Celery
+- **🔄 Horizontal Scaling**: Load balancing Nginx, auto-scaling Docker, alta disponibilità
 - **📊 Dashboard Analytics Avanzato**: KPI interattivi, trend analysis, waterfall charts, radar efficienza
 - **🔍 Anteprima Documenti**: Thumbnails automatici, estrazione contenuti, statistiche documenti
 - **✏️ Editor Interattivo Metriche**: Editing real-time, validazione automatica, suggerimenti AI
@@ -47,6 +49,16 @@ Una **piattaforma di Business Intelligence aziendale di nuova generazione** che 
 - **Query in Linguaggio Naturale** in italiano e inglese
 - **Raccomandazioni Automatiche** con livelli di priorità
 - **Analisi dei Trend** con significatività statistica
+
+### ⚡ **NOVITÀ: Performance Optimization Enterprise (2025)**
+- **🔗 Connection Pooling**: Gestione ottimizzata connessioni database con pool configurabili
+- **🗄️ Cache Distribuita Redis**: Caching in-memory ultra-veloce per query e sessioni utente
+- **⚙️ Background Job Processing**: Code Celery per elaborazioni pesanti (indicizzazione, analisi)
+- **🔄 Horizontal Scaling**: Load balancer Nginx con auto-scaling e health checks
+- **📊 Monitoring Avanzato**: Dashboard Flower per monitoraggio real-time task e performance
+- **🚀 Auto-Deployment**: Script automatici per setup completo dell'infrastruttura
+- **📈 Performance Analytics**: Metriche dettagliate su hit rate cache, connection pool, response time
+- **🔧 Configurazione Elastica**: Scaling dinamico basato su carico con soglie configurabili
 
 ### 💼 Architettura Enterprise-Ready
 - **Clean Architecture** con separazione dei domini
@@ -100,6 +112,11 @@ graph TD
 | | **Orchestratore Enterprise** | **Pipeline Personalizzata** | **Flusso di lavoro a 6 fasi** |
 | | **Router Documenti** | **Classificazione Contenuti** | **Routing Strutturato/Non Strutturato** |
 | | **Recupero Ibrido** | **BM25 + Embeddings** | **Ricerca avanzata con riclassificazione** |
+| **Performance** | **Connection Pooling** | **Custom Pool Manager** | **Gestione ottimizzata connessioni DB** |
+| | **Cache Distribuita** | **Redis 7+** | **Caching in-memory sessioni/query** |
+| | **Background Jobs** | **Celery 5.5+** | **Task asincroni e scheduled** |
+| | **Load Balancing** | **Nginx** | **Distribuzione carico multi-istanza** |
+| | **Task Monitoring** | **Flower 2.0+** | **Dashboard monitoraggio real-time** |
 | **Dominio** | Modelli Core | Pydantic 2.0+ | Entità e oggetti valore |
 | | **Riferimenti Origine** | **Tracciamento Provenienza** | **Lineage completo dei dati** |
 | | **Controlli Finanziari** | **Regole di Validazione** | **Verifiche coerenza bilancio** |
@@ -117,14 +134,22 @@ graph TD
 | | Linting | Ruff + Black | Qualità del codice |
 | | Controllo Tipi | MyPy | Sicurezza dei tipi |
 | | Testing | Pytest | Garanzia qualità |
+| | **Containerization** | **Docker + Compose** | **Deployment scalabile** |
 
 ## Prerequisiti
 
 - **Python 3.10+**
 - **Chiave API OpenAI** (richiesta per LLM ed embeddings)
-- **Docker + Docker Compose** (opzionale, per deployment containerizzato)
-- **8GB+ RAM** (raccomandato per operazioni vettoriali)
+- **Docker + Docker Compose** (richiesto per Redis, Qdrant e scaling)
+- **8GB+ RAM** (raccomandato per operazioni vettoriali e cache Redis)
 - **Tesseract OCR** (richiesto per estrazione testo PDF e funzionalità OCR)
+
+### 🚀 **NUOVO: Performance Optimization Requirements**
+- **Redis 7+** (per cache distribuita e sessioni)
+- **Nginx** (per load balancing e reverse proxy)
+- **Celery + Flower** (per background jobs e monitoring)
+- **16GB+ RAM** (raccomandato per deployment enterprise con scaling)
+- **Multi-core CPU** (per performance ottimali con connection pooling)
 
 ## Installazione
 
@@ -177,6 +202,46 @@ docker-compose up -d
 
 # Accedi all'app: http://localhost:8501
 # UI Qdrant: http://localhost:6333/dashboard
+```
+
+### 🚀 **NUOVO: Opzione 4: Performance Optimization Setup**
+
+```bash
+# Setup automatico completo performance optimization
+.\scripts\deploy_performance.bat     # Windows
+./scripts/deploy_performance.sh      # Linux/Mac
+
+# Setup alternativo con Python script
+python setup_performance.py
+
+# Verifica deployment
+python test_performance_final.py
+
+# Servizi attivati:
+# - Redis: localhost:6379 (cache distribuita)
+# - Qdrant: localhost:6333 (database vettoriale)
+# - Celery Worker: background jobs
+# - Flower: localhost:5555 (monitoring)
+```
+
+### 🔧 **Performance Optimization Manuale**
+
+```bash
+# 1. Setup Redis + Qdrant
+docker run -d --name rag_redis -p 6379:6379 redis:7-alpine
+docker run -d --name rag_qdrant -p 6333:6333 qdrant/qdrant
+
+# 2. Installa dependencies performance
+pip install redis celery flower
+
+# 3. Avvia Celery worker
+celery -A src.infrastructure.performance.celery_tasks worker --loglevel=info
+
+# 4. Avvia Flower monitoring
+flower -A src.infrastructure.performance.celery_tasks --port=5555
+
+# 5. Deployment scaling (produzione)
+docker-compose -f docker-compose.scaling.yml up -d --scale app=3
 ```
 
 ### Installazione Dipendenze OCR
@@ -255,12 +320,25 @@ MAX_TOKENS=2000
 CHUNK_SIZE=512
 CHUNK_OVERLAP=50
 
-# Performance RAG (NUOVO)
+# Performance RAG
 RAG_RESPONSE_MODE=compact
 RAG_SIMILARITY_TOP_K=3
 RAG_ENABLE_CACHING=True
 
-# Funzionalità Enterprise (NUOVO)
+# Performance Optimization (NUOVO)
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_DB=0
+CELERY_BROKER_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/0
+
+# Connection Pooling
+QDRANT_POOL_MIN_SIZE=2
+QDRANT_POOL_MAX_SIZE=10
+DUCKDB_POOL_MIN_SIZE=1
+DUCKDB_POOL_MAX_SIZE=5
+
+# Funzionalità Enterprise
 HF_HUB_DISABLE_SYMLINKS_WARNING=1
 
 # Applicazione
@@ -295,8 +373,13 @@ src/
 │       ├── interactive_editor.py            # NUOVO: Editor interattivo metriche
 │       └── analytics_dashboard.py           # NUOVO: Dashboard analytics avanzato
 ├── infrastructure/           # Aspetti esterni (database, API)
-│   └── repositories/         # Implementazioni persistenza dati
-│       └── fact_table_repository.py   # NUOVO: Data warehouse dimensionale
+│   ├── repositories/         # Implementazioni persistenza dati
+│   │   └── fact_table_repository.py   # Data warehouse dimensionale
+│   └── performance/          # NUOVO: Moduli ottimizzazione performance
+│       ├── connection_pool.py         # Connection pooling per DB
+│       ├── redis_cache.py             # Cache distribuita Redis
+│       ├── celery_tasks.py            # Background jobs Celery
+│       └── load_balancer.py           # Load balancing e scaling
 ├── core/                     # Aspetti trasversali
 │   ├── config.py            # Gestione configurazione
 │   ├── logging_config.py    # Logging strutturato
@@ -316,10 +399,27 @@ config/
 └── ontology/                 # NUOVO: Ontologia metriche finanziarie
     └── financial_metrics.yaml     # 31 metriche, oltre 219 sinonimi
 
+scripts/                      # NUOVO: Script deployment e automation
+├── deploy_performance.bat           # Script Windows performance setup
+└── deploy_performance.sh            # Script Linux/Mac performance setup
+
+docker-compose.scaling.yml     # NUOVO: Configurazione Docker scaling
+nginx/                        # NUOVO: Configurazione Nginx load balancer
+└── nginx.conf               # Reverse proxy e load balancing
+
+docs/                         # NUOVO: Documentazione avanzata
+└── PERFORMANCE_OPTIMIZATION.md  # Guida completa performance
+
 tests/
 ├── unit/                     # Test unitari per logica dominio
 ├── integration/              # Test integrazione per repository
-└── e2e/                     # Test end-to-end flussi lavoro
+├── e2e/                     # Test end-to-end flussi lavoro
+└── test_performance.py      # NUOVO: Test suite performance optimization
+
+# File setup performance
+setup_performance.py         # NUOVO: Setup automatico performance optimization
+test_performance_final.py    # NUOVO: Test finale verifica deployment
+requirements.performance.txt # NUOVO: Dependencies performance optimization
 ```
 
 ## 🚀 Guida all'Uso
@@ -402,6 +502,33 @@ tests/
 - **Report di Conformità**: Documentazione pronta per audit con tracciamento provenienza
 - **Supporto Multi-Lingua**: Elaborazione query in italiano e inglese
 
+### ⚡ **NUOVO: 4. Performance Monitoring e Optimization**
+
+**Dashboard Performance Enterprise:**
+- **🔧 Connection Pool Status**: Monitoraggio real-time pool connessioni DB
+- **📊 Redis Cache Analytics**: Hit rate, memory usage, key statistics
+- **⚙️ Celery Task Queue**: Background jobs status, workers health, task throughput
+- **🌐 Load Balancer Metrics**: Distribuzione carico, health checks, response times
+- **📈 Performance Dashboard**: Grafici interattivi su latenza, throughput, errori
+
+**Accesso Monitoring:**
+```bash
+# Flower Dashboard (Celery monitoring)
+http://localhost:5555
+
+# Redis CLI per cache inspection
+docker exec -it rag_redis redis-cli
+
+# Qdrant dashboard
+http://localhost:6333/dashboard
+
+# Nginx status (se configurato)
+http://localhost/nginx-status
+
+# Application performance metrics
+http://localhost:8502 → Sidebar "Performance Stats"
+```
+
 ## 🛠️ Sviluppo
 
 ### Garanzia della Qualità
@@ -423,8 +550,12 @@ pytest -v --tb=short            # Output dettagliato
 pytest -m slow                   # Benchmark delle prestazioni
 pytest --cov=src --cov-report=html  # Report di copertura
 
-# Test UI/UX Integration (NUOVO)
+# Test UI/UX Integration
 python test_ui_integration.py    # Test completo funzionalità UI/UX avanzate
+
+# Performance Optimization Testing (NUOVO)
+python test_performance_final.py # Test completo performance optimization
+pytest tests/test_performance.py # Test suite performance components
 ```
 
 ### Gestione Dipendenze
@@ -484,6 +615,55 @@ CHUNK_SIZE=256  # Default: 512
 docker-compose up --memory=4g
 ```
 
+#### 🚀 **NUOVO: Problemi Performance Optimization**
+
+**Redis Connection Issues:**
+```bash
+# Test connessione Redis
+docker exec -it rag_redis redis-cli ping
+
+# Restart Redis container
+docker restart rag_redis
+
+# Check Redis memory usage
+docker exec rag_redis redis-cli info memory
+```
+
+**Celery Worker Issues:**
+```bash
+# Check workers status
+celery -A src.infrastructure.performance.celery_tasks status
+
+# Restart workers
+pkill -f celery
+celery -A src.infrastructure.performance.celery_tasks worker --loglevel=info
+
+# Monitor with Flower
+flower -A src.infrastructure.performance.celery_tasks --port=5555
+```
+
+**Connection Pool Issues:**
+```bash
+# Check pool statistics
+python -c "from src.infrastructure.performance.connection_pool import get_qdrant_pool; print(get_qdrant_pool().get_stats())"
+
+# Reset pools
+docker restart rag_redis rag_qdrant
+python setup_performance.py
+```
+
+**Load Balancer Issues:**
+```bash
+# Test Nginx configuration
+nginx -t
+
+# Restart load balancer
+docker-compose -f docker-compose.scaling.yml restart nginx
+
+# Check service health
+curl http://localhost/health
+```
+
 ## Contribuire
 
 1. **Fork** del repository
@@ -504,4 +684,10 @@ Questo progetto è rilasciato sotto la **Licenza MIT** - vedi [LICENSE](LICENSE)
 
 ---
 
-**Pronto a trasformare i tuoi dati in business intelligence? Inizia ora con un semplice `start.bat`!**
+**Pronto a trasformare i tuoi dati in business intelligence enterprise-grade?**
+
+🚀 **Quick Start**: `start.bat` (standard)
+⚡ **Performance**: `.\scripts\deploy_performance.bat` (ottimizzato)
+🌐 **Enterprise**: `docker-compose -f docker-compose.scaling.yml up -d` (scaling)
+
+**Il futuro dell'AI aziendale è qui - inizia ora!**

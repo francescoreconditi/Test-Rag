@@ -14,6 +14,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 
 from config.settings import settings
+from src.infrastructure.performance.connection_pool import get_qdrant_pool, get_query_optimizer
 from services.format_helper import format_analysis_result
 from services.prompt_router import choose_prompt
 from services.query_cache import QueryCache
@@ -46,6 +47,9 @@ class RAGEngine:
         self.query_cache = QueryCache(ttl_seconds=3600, namespace=cache_namespace) if settings.rag_enable_caching else None
         # Initialize enterprise orchestrator
         self.enterprise_orchestrator = None
+        # Use connection pool for Qdrant
+        self.connection_pool = get_qdrant_pool()
+        self.query_optimizer = get_query_optimizer()
         self._initialize_components()
 
     def _initialize_components(self):
@@ -65,11 +69,9 @@ class RAGEngine:
             Settings.chunk_size = settings.chunk_size
             Settings.chunk_overlap = settings.chunk_overlap
 
-            # Initialize Qdrant client
-            self.client = QdrantClient(
-                host=settings.qdrant_host,
-                port=settings.qdrant_port
-            )
+            # Use connection pool for Qdrant client
+            with self.connection_pool.get_connection() as client:
+                self.client = client
 
             # Create or recreate collection
             self._setup_collection()

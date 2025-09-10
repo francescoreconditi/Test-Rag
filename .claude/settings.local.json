@@ -47,7 +47,9 @@
       "Bash(%PATH%)",
       "Bash(del test_enterprise_integration.py)",
       "Bash(where:*)",
-      "Bash(/dev/null)"
+      "Bash(/dev/null)",
+      "Bash(.scriptsdeploy_performance.bat)",
+      "Bash(docker:*)"
     ],
     "deny": [],
     "ask": []
