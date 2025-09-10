@@ -42,8 +42,9 @@ CELERY_CONFIG = {
     'task_track_started': True,
     'task_time_limit': 3600,  # 1 hour hard limit
     'task_soft_time_limit': 3000,  # 50 minutes soft limit
-    'worker_prefetch_multiplier': 4,
+    'worker_prefetch_multiplier': 1 if os.name == 'nt' else 4,  # Windows needs 1
     'worker_max_tasks_per_child': 1000,  # Restart worker after 1000 tasks
+    'worker_pool': 'solo' if os.name == 'nt' else 'prefork',  # Windows needs solo
     'task_acks_late': True,  # Acknowledge task after completion
     'worker_hijack_root_logger': False,
     'task_compression': 'gzip',

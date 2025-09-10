@@ -181,7 +181,7 @@ start_celery() {
         --logfile=logs/celery_beat.log
     
     # Start Flower monitoring
-    celery -A src.infrastructure.performance.celery_tasks flower \
+    python -m celery -A src.infrastructure.performance.celery_tasks flower \
         --port=5555 \
         --detach \
         --pidfile=celery_flower.pid \
