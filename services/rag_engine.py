@@ -14,19 +14,32 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 
 from config.settings import settings
-from src.infrastructure.performance.connection_pool import get_qdrant_pool, get_query_optimizer
 from services.format_helper import format_analysis_result
 from services.prompt_router import choose_prompt
 from services.query_cache import QueryCache
 from src.domain.entities.tenant_context import TenantContext
+from src.infrastructure.performance.connection_pool import get_qdrant_pool, get_query_optimizer
+
 try:
     from src.application.services.enterprise_orchestrator import EnterpriseOrchestrator, EnterpriseQuery
+
     ENTERPRISE_AVAILABLE = True
 except ImportError:
     logger.warning("Enterprise orchestrator not available")
     ENTERPRISE_AVAILABLE = False
     EnterpriseOrchestrator = None
     EnterpriseQuery = None
+
+try:
+    from src.application.services.hyde_retriever import HyDEConfig, HyDEQueryEngine
+    from src.application.services.streaming_rag import StreamingChunk, StreamingRAGEngine
+
+    ADVANCED_FEATURES_AVAILABLE = True
+except ImportError:
+    logger.warning("Advanced features (Streaming/HyDE) not available")
+    ADVANCED_FEATURES_AVAILABLE = False
+    StreamingRAGEngine = None
+    HyDEQueryEngine = None
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -44,7 +57,9 @@ class RAGEngine:
         self.collection_name = self._get_tenant_collection_name()
         # Initialize query cache if enabled (with tenant namespace if multi-tenant)
         cache_namespace = f"tenant_{tenant_context.tenant_id}" if tenant_context else None
-        self.query_cache = QueryCache(ttl_seconds=3600, namespace=cache_namespace) if settings.rag_enable_caching else None
+        self.query_cache = (
+            QueryCache(ttl_seconds=3600, namespace=cache_namespace) if settings.rag_enable_caching else None
+        )
         # Initialize enterprise orchestrator
         self.enterprise_orchestrator = None
         # Use connection pool for Qdrant
@@ -60,12 +75,9 @@ class RAGEngine:
                 model=settings.llm_model,
                 temperature=settings.temperature,
                 max_tokens=settings.max_tokens,
-                api_key=settings.openai_api_key
+                api_key=settings.openai_api_key,
             )
-            Settings.embed_model = OpenAIEmbedding(
-                model=settings.embedding_model,
-                api_key=settings.openai_api_key
-            )
+            Settings.embed_model = OpenAIEmbedding(model=settings.embedding_model, api_key=settings.openai_api_key)
             Settings.chunk_size = settings.chunk_size
             Settings.chunk_overlap = settings.chunk_overlap
 
@@ -77,20 +89,41 @@ class RAGEngine:
             self._setup_collection()
 
             # Initialize vector store
-            self.vector_store = QdrantVectorStore(
-                client=self.client,
-                collection_name=self.collection_name
-            )
+            self.vector_store = QdrantVectorStore(client=self.client, collection_name=self.collection_name)
 
             # Initialize or load existing index
             self._initialize_index()
-            
+
+            # Initialize advanced features (Streaming and HyDE)
+            self.streaming_engine = None
+            self.hyde_engine = None
+
+            if ADVANCED_FEATURES_AVAILABLE and self.index:
+                try:
+                    # Initialize streaming engine
+                    query_engine = self.index.as_query_engine()
+                    self.streaming_engine = StreamingRAGEngine(
+                        query_engine=query_engine, llm=Settings.llm, chunk_size=10, stream_delay=0.01
+                    )
+
+                    # Initialize HyDE engine
+                    hyde_config = HyDEConfig(num_hypothetical_docs=3, temperature=0.7, include_original_query=True)
+                    self.hyde_engine = HyDEQueryEngine(
+                        index=self.index,
+                        llm=Settings.llm,
+                        hyde_config=hyde_config,
+                        domain="financial",  # Set to financial for business documents
+                    )
+                    logger.info("Advanced features (Streaming/HyDE) initialized")
+                except Exception as e:
+                    logger.warning(f"Could not initialize advanced features: {str(e)}")
+
             # Initialize enterprise orchestrator after RAG components are ready
             if ENTERPRISE_AVAILABLE:
                 self.enterprise_orchestrator = EnterpriseOrchestrator(
                     rag_engine=self,
                     csv_analyzer=None,  # Will be set externally if needed
-                    openai_api_key=settings.openai_api_key  # Pass API key for embeddings
+                    openai_api_key=settings.openai_api_key,  # Pass API key for embeddings
                 )
             else:
                 self.enterprise_orchestrator = None
@@ -122,10 +155,7 @@ class RAGEngine:
                 vector_size = 1536  # OpenAI text-embedding-3-small dimension
                 self.client.create_collection(
                     collection_name=self.collection_name,
-                    vectors_config=VectorParams(
-                        size=vector_size,
-                        distance=Distance.COSINE
-                    )
+                    vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
                 )
                 logger.info(f"Created new collection: {self.collection_name}")
 
@@ -136,49 +166,49 @@ class RAGEngine:
     def _initialize_index(self):
         """Initialize or load existing index."""
         try:
-            storage_context = StorageContext.from_defaults(
-                vector_store=self.vector_store
-            )
+            storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
 
             # Check if index exists in vector store
             collection_info = self.client.get_collection(self.collection_name)
             if collection_info.points_count > 0:
                 # Load existing index
-                self.index = VectorStoreIndex.from_vector_store(
-                    self.vector_store
-                )
+                self.index = VectorStoreIndex.from_vector_store(self.vector_store)
                 logger.info(f"Loaded existing index with {collection_info.points_count} vectors")
             else:
                 # Create new empty index
-                self.index = VectorStoreIndex(
-                    [],
-                    storage_context=storage_context
-                )
+                self.index = VectorStoreIndex([], storage_context=storage_context)
                 logger.info("Created new empty index")
 
         except Exception as e:
             logger.error(f"Error initializing index: {str(e)}")
             self.index = VectorStoreIndex(
-                [],
-                storage_context=StorageContext.from_defaults(vector_store=self.vector_store)
+                [], storage_context=StorageContext.from_defaults(vector_store=self.vector_store)
             )
 
-    def index_documents(self, file_paths: List[str], metadata: Optional[Dict[str, Any]] = None, original_names: Optional[List[str]] = None, permanent_paths: Optional[List[str]] = None, force_prompt_type: Optional[str] = None, csv_analyzer=None) -> Dict[str, Any]:
+    def index_documents(
+        self,
+        file_paths: List[str],
+        metadata: Optional[Dict[str, Any]] = None,
+        original_names: Optional[List[str]] = None,
+        permanent_paths: Optional[List[str]] = None,
+        force_prompt_type: Optional[str] = None,
+        csv_analyzer=None,
+    ) -> Dict[str, Any]:
         """Index documents from file paths."""
         results = {
-            'indexed_files': [],
-            'failed_files': [],
-            'total_chunks': 0,
-            'errors': [],
-            'document_analyses': {}  # Store automatic analyses
+            "indexed_files": [],
+            "failed_files": [],
+            "total_chunks": 0,
+            "errors": [],
+            "document_analyses": {},  # Store automatic analyses
         }
 
         for i, file_path in enumerate(file_paths):
             try:
                 path = Path(file_path)
                 if not path.exists():
-                    results['failed_files'].append(file_path)
-                    results['errors'].append(f"File not found: {file_path}")
+                    results["failed_files"].append(file_path)
+                    results["errors"].append(f"File not found: {file_path}")
                     continue
 
                 # Use original filename if provided, otherwise use current filename
@@ -187,38 +217,36 @@ class RAGEngine:
                 permanent_path = permanent_paths[i] if permanent_paths and i < len(permanent_paths) else None
 
                 # Load document based on file type
-                if path.suffix.lower() == '.pdf':
+                if path.suffix.lower() == ".pdf":
                     documents = self._load_pdf(file_path, metadata)
-                elif path.suffix.lower() in ['.txt', '.md']:
+                elif path.suffix.lower() in [".txt", ".md"]:
                     documents = self._load_text(file_path, metadata)
-                elif path.suffix.lower() in ['.docx', '.doc']:
+                elif path.suffix.lower() in [".docx", ".doc"]:
                     documents = self._load_docx(file_path, metadata)
-                elif path.suffix.lower() == '.json':
+                elif path.suffix.lower() == ".json":
                     # JSON files are loaded as text documents
                     documents = self._load_text(file_path, metadata)
-                elif path.suffix.lower() == '.csv' and csv_analyzer:
+                elif path.suffix.lower() == ".csv" and csv_analyzer:
                     # CSV files are analyzed and converted to structured documents
                     documents = self._load_csv_with_analysis(file_path, csv_analyzer, metadata)
-                elif path.suffix.lower() == '.csv':
+                elif path.suffix.lower() == ".csv":
                     # Basic CSV loading without analysis
                     documents = self._load_csv_basic(file_path, metadata)
                 else:
-                    documents = SimpleDirectoryReader(
-                        input_files=[file_path]
-                    ).load_data()
+                    documents = SimpleDirectoryReader(input_files=[file_path]).load_data()
 
                 # Add metadata to documents
                 for doc in documents:
                     doc.metadata = doc.metadata or {}
                     doc_metadata = {
-                        'source': display_name,  # Nome file leggibile
-                        'indexed_at': datetime.now().isoformat(),
-                        'file_type': path.suffix.lower(),
-                        'document_size': len(doc.text) if hasattr(doc, 'text') else 0
+                        "source": display_name,  # Nome file leggibile
+                        "indexed_at": datetime.now().isoformat(),
+                        "file_type": path.suffix.lower(),
+                        "document_size": len(doc.text) if hasattr(doc, "text") else 0,
                     }
                     # Add permanent path for PDF viewing (only for PDFs)
-                    if permanent_path and path.suffix.lower() == '.pdf':
-                        doc_metadata['pdf_path'] = permanent_path
+                    if permanent_path and path.suffix.lower() == ".pdf":
+                        doc_metadata["pdf_path"] = permanent_path
 
                     doc.metadata.update(doc_metadata)
                     if metadata:
@@ -233,23 +261,23 @@ class RAGEngine:
 
                 # Generate automatic analysis of the document content
                 if documents:
-                    full_text = '\n'.join([doc.text for doc in documents])
+                    full_text = "\n".join([doc.text for doc in documents])
 
                     # Cache the document text for potential re-analysis
-                    if not hasattr(self, '_last_document_texts'):
+                    if not hasattr(self, "_last_document_texts"):
                         self._last_document_texts = {}
                     self._last_document_texts[display_name] = full_text
 
                     analysis = self.analyze_document_content(full_text, display_name, force_prompt_type)
-                    results['document_analyses'][display_name] = analysis
+                    results["document_analyses"][display_name] = analysis
 
-                results['indexed_files'].append(file_path)
-                results['total_chunks'] += len(nodes)
+                results["indexed_files"].append(file_path)
+                results["total_chunks"] += len(nodes)
                 logger.info(f"Indexed {file_path}: {len(nodes)} chunks")
 
             except Exception as e:
-                results['failed_files'].append(file_path)
-                results['errors'].append(f"Error indexing {file_path}: {str(e)}")
+                results["failed_files"].append(file_path)
+                results["errors"].append(f"Error indexing {file_path}: {str(e)}")
                 logger.error(f"Error indexing {file_path}: {str(e)}")
 
         return results
@@ -264,10 +292,13 @@ class RAGEngine:
             logger.error(f"Error cleaning metadata: {str(e)}")
             return False
 
-    def analyze_document_content(self, document_text: str, file_name: str, force_prompt_type: Optional[str] = None) -> str:
+    def analyze_document_content(
+        self, document_text: str, file_name: str, force_prompt_type: Optional[str] = None
+    ) -> str:
         """Generate automatic analysis of document content using specialized prompts."""
         try:
             from openai import OpenAI
+
             client = OpenAI(api_key=settings.openai_api_key)
 
             # Truncate text if too long (keep first 8000 chars for analysis)
@@ -298,7 +329,9 @@ class RAGEngine:
                     prompt_name = "generale"
                     prompt_text = PROMPT_GENERAL(file_name, analysis_text)
                     debug_info = {"forced": True, "type": "generale", "fallback": True}
-                    logger.warning(f"Unknown prompt type '{force_prompt_type}', using general prompt for document '{file_name}'")
+                    logger.warning(
+                        f"Unknown prompt type '{force_prompt_type}', using general prompt for document '{file_name}'"
+                    )
             else:
                 # Use automatic selection
                 prompt_name, prompt_text, debug_info = choose_prompt(file_name, analysis_text)
@@ -310,15 +343,12 @@ class RAGEngine:
                 messages=[
                     {
                         "role": "system",
-                        "content": "Sei un analista aziendale esperto che crea analisi professionali di documenti. Rispondi sempre in italiano perfetto e in modo strutturato e chiaro. Segui esattamente il formato richiesto nel prompt."
+                        "content": "Sei un analista aziendale esperto che crea analisi professionali di documenti. Rispondi sempre in italiano perfetto e in modo strutturato e chiaro. Segui esattamente il formato richiesto nel prompt.",
                     },
-                    {
-                        "role": "user",
-                        "content": prompt_text
-                    }
+                    {"role": "user", "content": prompt_text},
                 ],
                 temperature=0.2,  # Lower temperature for more structured output
-                max_tokens=1500  # Increased for JSON + summary format
+                max_tokens=1500,  # Increased for JSON + summary format
             )
 
             analysis_result = response.choices[0].message.content
@@ -339,7 +369,7 @@ class RAGEngine:
         """Re-analyze existing documents with a specific prompt type."""
         try:
             # Check if we have existing analyses in memory that can be re-processed
-            if hasattr(self, '_last_document_texts') and self._last_document_texts:
+            if hasattr(self, "_last_document_texts") and self._last_document_texts:
                 logger.info("Using cached document texts for re-analysis")
                 results = {}
                 for source, text in self._last_document_texts.items():
@@ -348,7 +378,9 @@ class RAGEngine:
                         analysis = self.analyze_document_content(text, source, force_prompt_type)
                         results[source] = analysis
                     else:
-                        results[source] = f"## Errore di Ri-analisi\n\nNessun contenuto disponibile per il documento '{source}'."
+                        results[source] = (
+                            f"## Errore di Ri-analisi\n\nNessun contenuto disponibile per il documento '{source}'."
+                        )
                 return results
 
             # Fallback: try to get content from vector store (less reliable)
@@ -370,11 +402,11 @@ class RAGEngine:
             try:
                 response = query_engine.query("contenuto documento analisi")
 
-                if hasattr(response, 'source_nodes') and response.source_nodes:
+                if hasattr(response, "source_nodes") and response.source_nodes:
                     documents_content = {}
 
                     for node in response.source_nodes:
-                        source = node.node.metadata.get('source', 'Unknown')
+                        source = node.node.metadata.get("source", "Unknown")
                         text = node.node.text or node.node.get_content()
 
                         if source not in documents_content:
@@ -387,9 +419,11 @@ class RAGEngine:
                     for source, text_chunks in documents_content.items():
                         try:
                             # Combine all chunks for this document
-                            full_text = '\n\n'.join(text_chunks)
+                            full_text = "\n\n".join(text_chunks)
 
-                            logger.info(f"Re-analyzing document '{source}': {len(text_chunks)} chunks, {len(full_text)} total characters")
+                            logger.info(
+                                f"Re-analyzing document '{source}': {len(text_chunks)} chunks, {len(full_text)} total characters"
+                            )
 
                             # Check if we have actual content
                             if not full_text.strip() or len(full_text.strip()) < 50:
@@ -446,49 +480,53 @@ class RAGEngine:
                     page_text_length = len(text.strip())
                     total_extracted_text += text
 
-                    logger.debug(f"Page {i+1}: extracted {page_text_length} characters")
+                    logger.debug(f"Page {i + 1}: extracted {page_text_length} characters")
 
                     if text.strip():
                         doc = Document(
                             text=text,
                             metadata={
-                                'page': i + 1,
-                                'total_pages': len(reader.pages),
-                                'source': file_path,
-                                'page_text_length': page_text_length
-                            }
+                                "page": i + 1,
+                                "total_pages": len(reader.pages),
+                                "source": file_path,
+                                "page_text_length": page_text_length,
+                            },
                         )
                         if metadata:
                             doc.metadata.update(metadata)
                         documents.append(doc)
                     else:
-                        logger.warning(f"Page {i+1} in {file_path} has no extractable text")
+                        logger.warning(f"Page {i + 1} in {file_path} has no extractable text")
 
                 except Exception as page_error:
-                    logger.error(f"Error extracting text from page {i+1} in {file_path}: {str(page_error)}")
+                    logger.error(f"Error extracting text from page {i + 1} in {file_path}: {str(page_error)}")
                     continue
 
             total_text_length = len(total_extracted_text.strip())
-            logger.info(f"PDF processing complete: {len(documents)} pages with text, {total_text_length} total characters")
+            logger.info(
+                f"PDF processing complete: {len(documents)} pages with text, {total_text_length} total characters"
+            )
 
             # If we extracted very little text, try alternative approach
             if total_text_length < 100:
-                logger.warning(f"Very little text extracted ({total_text_length} chars). PDF might be image-based or have extraction issues.")
+                logger.warning(
+                    f"Very little text extracted ({total_text_length} chars). PDF might be image-based or have extraction issues."
+                )
 
                 # Create a placeholder document with a warning
                 if not documents:
                     warning_doc = Document(
                         text=f"[ATTENZIONE] Il documento PDF '{file_path}' potrebbe contenere principalmente immagini o avere problemi di estrazione testo. "
-                              f"Sono stati estratti solo {total_text_length} caratteri da {len(reader.pages)} pagine. "
-                              f"Per un'analisi completa, si consiglia di utilizzare un documento con testo selezionabile o di convertire "
-                              f"le immagini in testo utilizzando OCR.",
+                        f"Sono stati estratti solo {total_text_length} caratteri da {len(reader.pages)} pagine. "
+                        f"Per un'analisi completa, si consiglia di utilizzare un documento con testo selezionabile o di convertire "
+                        f"le immagini in testo utilizzando OCR.",
                         metadata={
-                            'page': 1,
-                            'total_pages': len(reader.pages),
-                            'source': file_path,
-                            'extraction_warning': True,
-                            'total_text_length': total_text_length
-                        }
+                            "page": 1,
+                            "total_pages": len(reader.pages),
+                            "source": file_path,
+                            "extraction_warning": True,
+                            "total_text_length": total_text_length,
+                        },
                     )
                     if metadata:
                         warning_doc.metadata.update(metadata)
@@ -503,13 +541,10 @@ class RAGEngine:
     def _load_text(self, file_path: str, metadata: Optional[Dict[str, Any]] = None) -> List[Document]:
         """Load text or markdown files."""
         try:
-            with open(file_path, encoding='utf-8') as f:
+            with open(file_path, encoding="utf-8") as f:
                 content = f.read()
 
-            doc = Document(
-                text=content,
-                metadata={'source': file_path}
-            )
+            doc = Document(text=content, metadata={"source": file_path})
             if metadata:
                 doc.metadata.update(metadata)
 
@@ -538,10 +573,7 @@ class RAGEngine:
                         if cell.text.strip():
                             full_text.append(cell.text)
 
-            document = Document(
-                text='\n'.join(full_text),
-                metadata={'source': file_path}
-            )
+            document = Document(text="\n".join(full_text), metadata={"source": file_path})
             if metadata:
                 document.metadata.update(metadata)
 
@@ -551,15 +583,17 @@ class RAGEngine:
             logger.error(f"Error loading DOCX {file_path}: {str(e)}")
             raise
 
-    def query(self, query_text: str, top_k: int = 3, filters: Optional[Dict[str, Any]] = None, analysis_type: Optional[str] = None) -> Dict[str, Any]:
+    def query(
+        self,
+        query_text: str,
+        top_k: int = 3,
+        filters: Optional[Dict[str, Any]] = None,
+        analysis_type: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """Query the indexed documents with optional specialized analysis."""
         try:
             if not self.index:
-                return {
-                    'answer': "Nessun documento è stato ancora indicizzato.",
-                    'sources': [],
-                    'confidence': 0
-                }
+                return {"answer": "Nessun documento è stato ancora indicizzato.", "sources": [], "confidence": 0}
 
             # Check cache first if enabled
             if self.query_cache:
@@ -574,7 +608,7 @@ class RAGEngine:
                 similarity_top_k=top_k or settings.rag_similarity_top_k,
                 response_mode=settings.rag_response_mode,  # Configurable: compact, tree_summarize, simple
                 verbose=settings.debug_mode,
-                streaming=False
+                streaming=False,
             )
 
             # If analysis_type is specified, enhance the query with specialized context
@@ -589,13 +623,11 @@ class RAGEngine:
 
             # Extract source information
             sources = []
-            if hasattr(response, 'source_nodes'):
+            if hasattr(response, "source_nodes"):
                 for node in response.source_nodes:
-                    sources.append({
-                        'text': node.node.text[:200] + "...",
-                        'score': node.score,
-                        'metadata': node.node.metadata
-                    })
+                    sources.append(
+                        {"text": node.node.text[:200] + "...", "score": node.score, "metadata": node.node.metadata}
+                    )
 
             # If specialized analysis is requested, post-process the response
             if analysis_type and analysis_type != "standard":
@@ -604,10 +636,10 @@ class RAGEngine:
                 response_text = str(response)
 
             result = {
-                'answer': response_text,
-                'sources': sources,
-                'confidence': sources[0]['score'] if sources else 0,
-                'analysis_type': analysis_type or 'standard'
+                "answer": response_text,
+                "sources": sources,
+                "confidence": sources[0]["score"] if sources else 0,
+                "analysis_type": analysis_type or "standard",
             }
 
             # Cache the result if caching is enabled
@@ -618,19 +650,14 @@ class RAGEngine:
 
         except Exception as e:
             logger.error(f"Error querying index: {str(e)}")
-            return {
-                'answer': f"Error processing query: {str(e)}",
-                'sources': [],
-                'confidence': 0
-            }
+            return {"answer": f"Error processing query: {str(e)}", "sources": [], "confidence": 0}
 
-    async def enterprise_query(self, 
-                             query_text: str, 
-                             enable_enterprise_features: bool = True,
-                             **kwargs) -> Dict[str, Any]:
+    async def enterprise_query(
+        self, query_text: str, enable_enterprise_features: bool = True, **kwargs
+    ) -> Dict[str, Any]:
         """
         Enterprise query with full validation, normalization, and fact table integration.
-        
+
         Args:
             query_text: The query to process
             enable_enterprise_features: Whether to use enterprise processing pipeline
@@ -639,98 +666,92 @@ class RAGEngine:
         if not enable_enterprise_features or not self.enterprise_orchestrator or not ENTERPRISE_AVAILABLE:
             # Fallback to standard query
             return self.query(query_text, **kwargs)
-        
+
         try:
             # Create enterprise query - filter known parameters
             valid_params = {
-                'query_text': query_text,
-                'top_k': kwargs.get('top_k'),
-                'use_context': kwargs.get('use_context'),
-                'csv_analysis': kwargs.get('csv_analysis'),
-                'confidence_threshold': kwargs.get('confidence_threshold', 70.0)
+                "query_text": query_text,
+                "top_k": kwargs.get("top_k"),
+                "use_context": kwargs.get("use_context"),
+                "csv_analysis": kwargs.get("csv_analysis"),
+                "confidence_threshold": kwargs.get("confidence_threshold", 70.0),
             }
-            
+
             # Remove None values
             valid_params = {k: v for k, v in valid_params.items() if v is not None}
-            
+
             enterprise_query = EnterpriseQuery(**valid_params)
-            
+
             # Get current documents for processing
             documents = []
-            if hasattr(self, '_last_document_texts'):
+            if hasattr(self, "_last_document_texts"):
                 for filename, content in self._last_document_texts.items():
-                    documents.append({
-                        'filename': filename,
-                        'content': content,
-                        'hash': str(hash(content))
-                    })
-            
+                    documents.append({"filename": filename, "content": content, "hash": str(hash(content))})
+
             # Process through enterprise pipeline
-            processing_result = await self.enterprise_orchestrator.process_enterprise_query(
-                enterprise_query, 
-                documents
-            )
-            
+            processing_result = await self.enterprise_orchestrator.process_enterprise_query(enterprise_query, documents)
+
             # Generate AI response and get sources
             ai_response = self._generate_ai_response_with_sources(processing_result)
-            
+
             # Convert processing result to standard query response format
             enterprise_response = {
-                'answer': ai_response['answer'],
-                'sources': ai_response['sources'],
-                'confidence': processing_result.confidence_score,
-                'analysis_type': 'enterprise',
-                'enterprise_data': {
-                    'source_references': [ref.to_dict() for ref in processing_result.source_refs],
-                    'validation_results': [val.to_dict() for val in processing_result.validation_results],
-                    'normalized_metrics': {
+                "answer": ai_response["answer"],
+                "sources": ai_response["sources"],
+                "confidence": processing_result.confidence_score,
+                "analysis_type": "enterprise",
+                "enterprise_data": {
+                    "source_references": [ref.to_dict() for ref in processing_result.source_refs],
+                    "validation_results": [val.to_dict() for val in processing_result.validation_results],
+                    "normalized_metrics": {
                         k: {
-                            'value': v.to_float(),
-                            'original': v.original_value,
-                            'scale': v.scale_applied.unit_name,
-                            'confidence': v.confidence
-                        } for k, v in processing_result.normalized_data.items()
+                            "value": v.to_float(),
+                            "original": v.original_value,
+                            "scale": v.scale_applied.unit_name,
+                            "confidence": v.confidence,
+                        }
+                        for k, v in processing_result.normalized_data.items()
                     },
-                    'mapped_metrics': processing_result.mapped_metrics,
-                    'fact_table_records': processing_result.fact_table_records,
-                    'processing_time_ms': processing_result.processing_time_ms,
-                    'warnings': processing_result.warnings,
-                    'errors': processing_result.errors
-                }
+                    "mapped_metrics": processing_result.mapped_metrics,
+                    "fact_table_records": processing_result.fact_table_records,
+                    "processing_time_ms": processing_result.processing_time_ms,
+                    "warnings": processing_result.warnings,
+                    "errors": processing_result.errors,
+                },
             }
-            
+
             logger.info(f"Enterprise query processed with confidence {processing_result.confidence_score:.1%}")
             return enterprise_response
-            
+
         except Exception as e:
             logger.error(f"Enterprise query failed, falling back to standard: {e}")
             # Fallback to standard query on error
             return self.query(query_text, **kwargs)
-    
+
     def _generate_ai_response_with_sources(self, processing_result) -> Dict[str, Any]:
         """Generate AI response with sources from processing result."""
         try:
             # Use standard query method to get AI response and sources
-            if hasattr(processing_result, 'query_text') and self.index:
+            if hasattr(processing_result, "query_text") and self.index:
                 standard_response = self.query(processing_result.query_text, top_k=3)
-                
+
                 # Format enterprise response with AI answer + enterprise metadata
-                enhanced_answer = standard_response['answer']
-                
+                enhanced_answer = standard_response["answer"]
+
                 # Add enterprise metadata to the response
                 metadata_parts = []
-                
+
                 # Add normalized metrics if found
                 if processing_result.normalized_data:
                     metadata_parts.append("\n\n## 📊 Metriche Finanziarie Rilevate")
                     for metric_name, normalized in processing_result.normalized_data.items():
                         mapped = processing_result.mapped_metrics.get(metric_name)
-                        canonical_name = mapped.get('canonical_name', metric_name) if mapped else metric_name
+                        canonical_name = mapped.get("canonical_name", metric_name) if mapped else metric_name
                         metadata_parts.append(
                             f"- **{canonical_name}**: {normalized.to_base_units():,.0f}"
                             f" (scala: {normalized.scale_applied.unit_name})"
                         )
-                
+
                 # Add validation warnings if any
                 if processing_result.validation_results:
                     failed_validations = [v for v in processing_result.validation_results if not v.passed]
@@ -738,63 +759,58 @@ class RAGEngine:
                         metadata_parts.append("\n\n## ⚠️ Avvisi di Validazione")
                         for validation in failed_validations:
                             metadata_parts.append(f"- {validation.message}")
-                
+
                 # Add processing metadata at the end
                 processing_metadata = []
                 if processing_result.fact_table_records > 0:
                     processing_metadata.append(f"{processing_result.fact_table_records} record salvati nel fact table")
-                processing_metadata.append(f"Elaborato in {processing_result.processing_time_ms:.0f}ms con confidenza {processing_result.confidence_score:.1%}")
-                
+                processing_metadata.append(
+                    f"Elaborato in {processing_result.processing_time_ms:.0f}ms con confidenza {processing_result.confidence_score:.1%}"
+                )
+
                 if processing_metadata:
                     metadata_parts.append(f"\n\n*{' • '.join(processing_metadata)}*")
-                
+
                 # Combine AI answer with enterprise metadata
                 if metadata_parts:
                     enhanced_answer = enhanced_answer + "\n".join(metadata_parts)
-                
-                return {
-                    'answer': enhanced_answer,
-                    'sources': standard_response['sources']
-                }
-            
+
+                return {"answer": enhanced_answer, "sources": standard_response["sources"]}
+
             # Fallback if no query_text or index
             return {
-                'answer': f"Elaborato in {processing_result.processing_time_ms:.0f}ms con confidenza {processing_result.confidence_score:.1%}",
-                'sources': []
+                "answer": f"Elaborato in {processing_result.processing_time_ms:.0f}ms con confidenza {processing_result.confidence_score:.1%}",
+                "sources": [],
             }
-            
+
         except Exception as e:
             logger.error(f"Error generating AI response with sources: {e}")
-            return {
-                'answer': f"Errore nella generazione della risposta: {str(e)}",
-                'sources': []
-            }
-    
+            return {"answer": f"Errore nella generazione della risposta: {str(e)}", "sources": []}
 
     def _enhance_query_with_analysis_type(self, query_text: str, analysis_type: str) -> str:
         """Enhance query based on analysis type."""
         enhancements = {
-            'bilancio': """Analizza questa domanda dal punto di vista finanziario e di bilancio. 
+            "bilancio": """Analizza questa domanda dal punto di vista finanziario e di bilancio. 
                          Considera metriche come ricavi, EBITDA, margini, cash flow, PFN e covenant.
                          Fornisci numeri specifici e confronti YoY quando disponibili.
                          """,
-            'fatturato': """Analizza questa domanda focalizzandoti su vendite e fatturato.
+            "fatturato": """Analizza questa domanda focalizzandoti su vendite e fatturato.
                           Considera ASP, volumi, mix prodotto/cliente, pipeline e forecast.
                           Evidenzia trend di crescita e driver principali.
                           """,
-            'magazzino': """Analizza questa domanda dal punto di vista logistico e di gestione scorte.
+            "magazzino": """Analizza questa domanda dal punto di vista logistico e di gestione scorte.
                           Considera rotazione, OTIF, lead time, obsoleti e livelli di servizio.
                           """,
-            'contratto': """Analizza questa domanda dal punto di vista legale e contrattuale.
+            "contratto": """Analizza questa domanda dal punto di vista legale e contrattuale.
                           Considera obblighi, SLA, penali, responsabilità e clausole rilevanti.
                           """,
-            'presentazione': """Analizza questa domanda estraendo i messaggi chiave e le raccomandazioni strategiche.
+            "presentazione": """Analizza questa domanda estraendo i messaggi chiave e le raccomandazioni strategiche.
                              Identifica obiettivi, milestone e next steps.
                              """,
-            'report_dettagliato': """Fornisci un'analisi approfondita in stile investment memorandum.
+            "report_dettagliato": """Fornisci un'analisi approfondita in stile investment memorandum.
                                    Include executive summary, analisi per sezione, KPI, rischi e raccomandazioni.
                                    Quantifica sempre le variazioni e usa confronti YoY/Budget.
-                                   """
+                                   """,
         }
 
         enhancement = enhancements.get(analysis_type, "")
@@ -806,17 +822,20 @@ class RAGEngine:
         """Apply specialized post-processing based on analysis type."""
         try:
             from openai import OpenAI
+
             client = OpenAI(api_key=settings.openai_api_key)
 
             # Prepare source context
-            source_context = "\n\n".join([
-                f"Fonte {i+1} (rilevanza: {s['score']:.2f}):\n{s['text']}"
-                for i, s in enumerate(sources[:3])  # Use top 3 sources
-            ])
+            source_context = "\n\n".join(
+                [
+                    f"Fonte {i + 1} (rilevanza: {s['score']:.2f}):\n{s['text']}"
+                    for i, s in enumerate(sources[:3])  # Use top 3 sources
+                ]
+            )
 
             # Create specialized prompt based on analysis type
             specialized_prompts = {
-                'bilancio': f"""Riformula questa risposta con focus finanziario professionale:
+                "bilancio": f"""Riformula questa risposta con focus finanziario professionale:
                             
                             Risposta originale: {response}
                             
@@ -830,8 +849,7 @@ class RAGEngine:
                             - Implicazioni finanziarie
                             
                             Usa un tono da equity analyst professionale.""",
-
-                'report_dettagliato': f"""Trasforma questa risposta in un briefing professionale dettagliato:
+                "report_dettagliato": f"""Trasforma questa risposta in un briefing professionale dettagliato:
                             
                             Risposta originale: {response}
                             
@@ -849,13 +867,12 @@ class RAGEngine:
                             [Azioni suggerite basate sui dati]
                             
                             Mantieni un tono professionale da investment analyst.""",
-
-                'fatturato': f"""Riformula con focus su vendite e revenue:
+                "fatturato": f"""Riformula con focus su vendite e revenue:
                             
                             Risposta: {response}
                             Fonti: {source_context}
                             
-                            Evidenzia: driver di crescita, mix prodotto, trend vendite, forecast."""
+                            Evidenzia: driver di crescita, mix prodotto, trend vendite, forecast.""",
             }
 
             prompt = specialized_prompts.get(analysis_type)
@@ -866,11 +883,14 @@ class RAGEngine:
             completion = client.chat.completions.create(
                 model=settings.llm_model,
                 messages=[
-                    {"role": "system", "content": "Sei un analista esperto che fornisce analisi specializzate basate sul tipo di documento."},
-                    {"role": "user", "content": prompt}
+                    {
+                        "role": "system",
+                        "content": "Sei un analista esperto che fornisce analisi specializzate basate sul tipo di documento.",
+                    },
+                    {"role": "user", "content": prompt},
                 ],
                 temperature=0.3,
-                max_tokens=1000
+                max_tokens=1000,
             )
 
             specialized_response = completion.choices[0].message.content
@@ -882,7 +902,9 @@ class RAGEngine:
             logger.error(f"Error applying specialized analysis: {str(e)}")
             return response  # Return original response on error
 
-    def query_with_context(self, query_text: str, context_data: Dict[str, Any], top_k: int = 2, analysis_type: Optional[str] = None) -> Dict[str, Any]:
+    def query_with_context(
+        self, query_text: str, context_data: Dict[str, Any], top_k: int = 2, analysis_type: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Query with additional context from CSV analysis."""
         try:
             # Enhance query with context
@@ -899,33 +921,127 @@ class RAGEngine:
 
         except Exception as e:
             logger.error(f"Error in query with context: {str(e)}")
-            return {
-                'answer': f"Error processing query: {str(e)}",
-                'sources': [],
-                'confidence': 0
-            }
+            return {"answer": f"Error processing query: {str(e)}", "sources": [], "confidence": 0}
 
     def _format_context(self, context_data: Dict[str, Any]) -> str:
         """Format context data for query enhancement."""
         formatted_parts = []
 
-        if 'summary' in context_data:
+        if "summary" in context_data:
             formatted_parts.append("Metriche di riepilogo:")
-            for key, value in context_data['summary'].items():
+            for key, value in context_data["summary"].items():
                 formatted_parts.append(f"- {key}: {value}")
 
-        if 'trends' in context_data:
+        if "trends" in context_data:
             formatted_parts.append("\nTendenze:")
-            if 'yoy_growth' in context_data['trends']:
-                for growth in context_data['trends']['yoy_growth'][-2:]:  # Last 2 years
+            if "yoy_growth" in context_data["trends"]:
+                for growth in context_data["trends"]["yoy_growth"][-2:]:  # Last 2 years
                     formatted_parts.append(f"- Anno {growth['year']}: {growth['growth_percentage']}% crescita")
 
-        if 'insights' in context_data:
+        if "insights" in context_data:
             formatted_parts.append("\nApprofondimenti chiave:")
-            for insight in context_data['insights'][:3]:  # Top 3 insights
+            for insight in context_data["insights"][:3]:  # Top 3 insights
                 formatted_parts.append(f"- {insight}")
 
-        return '\n'.join(formatted_parts)
+        return "\n".join(formatted_parts)
+
+    async def query_stream(self, query_text: str, top_k: int = 3, **kwargs):
+        """
+        Stream query response in real-time.
+
+        Args:
+            query_text: User query
+            top_k: Number of documents to retrieve
+            **kwargs: Additional arguments
+
+        Yields:
+            StreamingChunk objects with tokens and metadata
+        """
+        if not self.streaming_engine:
+            logger.warning("Streaming not available, falling back to standard query")
+            result = self.query(query_text, top_k=top_k)
+            # Convert standard response to single chunk
+            if ADVANCED_FEATURES_AVAILABLE:
+                yield StreamingChunk(
+                    token=result.get("answer", ""), metadata={"sources": result.get("sources", [])}, is_final=True
+                )
+            else:
+                yield {"answer": result.get("answer", ""), "sources": result.get("sources", [])}
+            return
+
+        # Stream the response
+        async for chunk in self.streaming_engine.stream_query(query_text, **kwargs):
+            yield chunk
+
+    def query_with_hyde(self, query_text: str, top_k: int = 3, **kwargs) -> Dict[str, Any]:
+        """
+        Query using HyDE for improved retrieval.
+
+        Args:
+            query_text: User query
+            top_k: Number of documents to retrieve
+            **kwargs: Additional arguments
+
+        Returns:
+            Query response with improved retrieval
+        """
+        if not self.hyde_engine:
+            logger.warning("HyDE not available, falling back to standard query")
+            return self.query(query_text, top_k=top_k)
+
+        try:
+            # Use HyDE engine for query
+            response = self.hyde_engine.query(query_text, **kwargs)
+
+            # Format response
+            sources = []
+            if hasattr(response, "source_nodes"):
+                for node in response.source_nodes[:top_k]:
+                    sources.append(
+                        {
+                            "content": node.node.text[:500],
+                            "metadata": node.node.metadata,
+                            "score": float(node.score) if node.score else 0.0,
+                        }
+                    )
+
+            result = {
+                "answer": str(response),
+                "sources": sources,
+                "confidence": sum(s["score"] for s in sources) / len(sources) if sources else 0.0,
+                "method": "hyde",
+            }
+
+            logger.info(f"HyDE query completed with {len(sources)} sources")
+            return result
+
+        except Exception as e:
+            logger.error(f"Error in HyDE query: {str(e)}")
+            return self.query(query_text, top_k=top_k)
+
+    def benchmark_hyde(self, test_queries: List[str]) -> Dict[str, float]:
+        """
+        Benchmark HyDE improvement over standard retrieval.
+
+        Args:
+            test_queries: List of test queries
+
+        Returns:
+            Benchmark results
+        """
+        if not self.hyde_engine or not self.index:
+            return {"error": "HyDE or index not available"}
+
+        try:
+            base_retriever = self.index.as_retriever()
+            results = self.hyde_engine.benchmark_improvement(test_queries=test_queries, base_retriever=base_retriever)
+
+            logger.info(f"HyDE Benchmark Results: {results}")
+            return results
+
+        except Exception as e:
+            logger.error(f"Error benchmarking HyDE: {str(e)}")
+            return {"error": str(e)}
 
     def delete_documents(self, source_filter: str) -> bool:
         """Delete documents by source filter."""
@@ -949,10 +1065,7 @@ class RAGEngine:
             vector_size = 1536  # OpenAI text-embedding-3-small dimension
             self.client.create_collection(
                 collection_name=self.collection_name,
-                vectors_config=VectorParams(
-                    size=vector_size,
-                    distance=Distance.COSINE
-                )
+                vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
             )
             logger.info(f"Created fresh collection: {self.collection_name}")
 
@@ -971,34 +1084,25 @@ class RAGEngine:
             collection_info = self.client.get_collection(self.collection_name)
 
             return {
-                'total_vectors': collection_info.points_count,
-                'collection_name': self.collection_name,
-                'vector_dimension': collection_info.config.params.vectors.size,
-                'distance_metric': str(collection_info.config.params.vectors.distance)
+                "total_vectors": collection_info.points_count,
+                "collection_name": self.collection_name,
+                "vector_dimension": collection_info.config.params.vectors.size,
+                "distance_metric": str(collection_info.config.params.vectors.distance),
             }
 
         except Exception as e:
             logger.error(f"Error getting index stats: {str(e)}")
-            return {
-                'total_vectors': 0,
-                'error': str(e)
-            }
+            return {"total_vectors": 0, "error": str(e)}
 
     def explore_database(self, limit: int = 100, offset: int = 0, search_text: Optional[str] = None) -> Dict[str, Any]:
         """Explore documents in the vector database with pagination and search."""
         try:
-
             # Get collection info
             collection_info = self.client.get_collection(self.collection_name)
             total_points = collection_info.points_count
 
             if total_points == 0:
-                return {
-                    'documents': [],
-                    'total_count': 0,
-                    'unique_sources': [],
-                    'stats': {}
-                }
+                return {"documents": [], "total_count": 0, "unique_sources": [], "stats": {}}
 
             # Retrieve points with pagination
             # Note: Qdrant doesn't support traditional pagination, so we use scroll
@@ -1007,7 +1111,7 @@ class RAGEngine:
                 limit=limit,
                 offset=offset,
                 with_payload=True,
-                with_vectors=False  # Don't need vectors for exploration
+                with_vectors=False,  # Don't need vectors for exploration
             )
 
             # Process points to extract document information
@@ -1020,56 +1124,52 @@ class RAGEngine:
                 payload = point.payload if point.payload else {}
 
                 # Extract metadata
-                source = payload.get('source', 'Unknown')
+                source = payload.get("source", "Unknown")
                 source_set.add(source)
 
                 doc_info = {
-                    'id': str(point.id),
-                    'source': source,
-                    'indexed_at': payload.get('indexed_at', 'Unknown'),
-                    'file_type': payload.get('file_type', 'Unknown'),
-                    'document_size': payload.get('document_size', 0),
-                    'page': payload.get('page', None),
-                    'total_pages': payload.get('total_pages', None),
-                    'pdf_path': payload.get('pdf_path', None),
-                    'text_preview': payload.get('_node_content', '')[:200] + '...' if payload.get('_node_content') else 'No content',
-                    'metadata': payload
+                    "id": str(point.id),
+                    "source": source,
+                    "indexed_at": payload.get("indexed_at", "Unknown"),
+                    "file_type": payload.get("file_type", "Unknown"),
+                    "document_size": payload.get("document_size", 0),
+                    "page": payload.get("page", None),
+                    "total_pages": payload.get("total_pages", None),
+                    "pdf_path": payload.get("pdf_path", None),
+                    "text_preview": payload.get("_node_content", "")[:200] + "..."
+                    if payload.get("_node_content")
+                    else "No content",
+                    "metadata": payload,
                 }
 
                 documents.append(doc_info)
 
                 # Collect stats
-                file_type = doc_info['file_type']
+                file_type = doc_info["file_type"]
                 file_types[file_type] = file_types.get(file_type, 0) + 1
-                total_size += doc_info['document_size']
+                total_size += doc_info["document_size"]
 
             # Get unique sources with more details
             unique_sources = self._get_unique_sources_details()
 
             return {
-                'documents': documents,
-                'total_count': total_points,
-                'current_page': offset // limit + 1,
-                'total_pages': (total_points + limit - 1) // limit,
-                'unique_sources': unique_sources,
-                'stats': {
-                    'total_documents': len(unique_sources),
-                    'total_chunks': total_points,
-                    'file_types': file_types,
-                    'total_size_bytes': total_size,
-                    'avg_chunk_size': total_size // total_points if total_points > 0 else 0
-                }
+                "documents": documents,
+                "total_count": total_points,
+                "current_page": offset // limit + 1,
+                "total_pages": (total_points + limit - 1) // limit,
+                "unique_sources": unique_sources,
+                "stats": {
+                    "total_documents": len(unique_sources),
+                    "total_chunks": total_points,
+                    "file_types": file_types,
+                    "total_size_bytes": total_size,
+                    "avg_chunk_size": total_size // total_points if total_points > 0 else 0,
+                },
             }
 
         except Exception as e:
             logger.error(f"Error exploring database: {str(e)}")
-            return {
-                'documents': [],
-                'total_count': 0,
-                'unique_sources': [],
-                'stats': {},
-                'error': str(e)
-            }
+            return {"documents": [], "total_count": 0, "unique_sources": [], "stats": {}, "error": str(e)}
 
     def _get_unique_sources_details(self) -> List[Dict[str, Any]]:
         """Get detailed information about unique document sources."""
@@ -1084,7 +1184,7 @@ class RAGEngine:
                     limit=100,
                     offset=offset,
                     with_payload=True,
-                    with_vectors=False
+                    with_vectors=False,
                 )
 
                 if not points:
@@ -1100,40 +1200,40 @@ class RAGEngine:
             sources_map = {}
             for point in all_points:
                 payload = point.payload if point.payload else {}
-                source = payload.get('source', 'Unknown')
+                source = payload.get("source", "Unknown")
 
                 if source not in sources_map:
                     sources_map[source] = {
-                        'name': source,
-                        'file_type': payload.get('file_type', 'Unknown'),
-                        'indexed_at': payload.get('indexed_at', 'Unknown'),
-                        'chunk_count': 0,
-                        'total_size': 0,
-                        'pages': set(),
-                        'pdf_path': payload.get('pdf_path'),
-                        'has_analysis': False
+                        "name": source,
+                        "file_type": payload.get("file_type", "Unknown"),
+                        "indexed_at": payload.get("indexed_at", "Unknown"),
+                        "chunk_count": 0,
+                        "total_size": 0,
+                        "pages": set(),
+                        "pdf_path": payload.get("pdf_path"),
+                        "has_analysis": False,
                     }
 
-                sources_map[source]['chunk_count'] += 1
-                sources_map[source]['total_size'] += payload.get('document_size', 0)
+                sources_map[source]["chunk_count"] += 1
+                sources_map[source]["total_size"] += payload.get("document_size", 0)
 
-                if payload.get('page'):
-                    sources_map[source]['pages'].add(payload.get('page'))
+                if payload.get("page"):
+                    sources_map[source]["pages"].add(payload.get("page"))
 
             # Convert to list and process
             unique_sources = []
             for source_info in sources_map.values():
-                source_info['page_count'] = len(source_info['pages']) if source_info['pages'] else None
-                source_info['pages'] = sorted(list(source_info['pages'])) if source_info['pages'] else []
+                source_info["page_count"] = len(source_info["pages"]) if source_info["pages"] else None
+                source_info["pages"] = sorted(list(source_info["pages"])) if source_info["pages"] else []
 
                 # Check if we have cached analysis for this document
-                if hasattr(self, '_last_document_texts') and source_info['name'] in self._last_document_texts:
-                    source_info['has_analysis'] = True
+                if hasattr(self, "_last_document_texts") and source_info["name"] in self._last_document_texts:
+                    source_info["has_analysis"] = True
 
                 unique_sources.append(source_info)
 
             # Sort by indexed date (most recent first)
-            unique_sources.sort(key=lambda x: x['indexed_at'], reverse=True)
+            unique_sources.sort(key=lambda x: x["indexed_at"], reverse=True)
 
             return unique_sources
 
@@ -1147,14 +1247,7 @@ class RAGEngine:
             from qdrant_client.models import FieldCondition, Filter, MatchValue
 
             # Create filter for specific source
-            filter_condition = Filter(
-                must=[
-                    FieldCondition(
-                        key="source",
-                        match=MatchValue(value=source_name)
-                    )
-                ]
-            )
+            filter_condition = Filter(must=[FieldCondition(key="source", match=MatchValue(value=source_name))])
 
             # Retrieve all chunks for this source
             chunks = []
@@ -1167,7 +1260,7 @@ class RAGEngine:
                     limit=100,
                     offset=offset,
                     with_payload=True,
-                    with_vectors=False
+                    with_vectors=False,
                 )
 
                 if not points:
@@ -1176,11 +1269,13 @@ class RAGEngine:
                 for point in points:
                     payload = point.payload if point.payload else {}
                     chunk_info = {
-                        'id': str(point.id),
-                        'page': payload.get('page'),
-                        'text': payload.get('_node_content', '')[:500] if payload.get('_node_content') else 'No content',
-                        'size': payload.get('document_size', 0),
-                        'metadata': payload
+                        "id": str(point.id),
+                        "page": payload.get("page"),
+                        "text": payload.get("_node_content", "")[:500]
+                        if payload.get("_node_content")
+                        else "No content",
+                        "size": payload.get("document_size", 0),
+                        "metadata": payload,
                     }
                     chunks.append(chunk_info)
 
@@ -1189,7 +1284,7 @@ class RAGEngine:
                     break
 
             # Sort by page number if available
-            chunks.sort(key=lambda x: x['page'] if x['page'] else 0)
+            chunks.sort(key=lambda x: x["page"] if x["page"] else 0)
 
             return chunks
 
@@ -1203,14 +1298,7 @@ class RAGEngine:
             from qdrant_client.models import FieldCondition, Filter, MatchValue
 
             # Create filter for specific source
-            filter_condition = Filter(
-                must=[
-                    FieldCondition(
-                        key="source",
-                        match=MatchValue(value=source_name)
-                    )
-                ]
-            )
+            filter_condition = Filter(must=[FieldCondition(key="source", match=MatchValue(value=source_name))])
 
             # Get all point IDs for this source
             points_to_delete = []
@@ -1223,7 +1311,7 @@ class RAGEngine:
                     limit=100,
                     offset=offset,
                     with_payload=False,
-                    with_vectors=False
+                    with_vectors=False,
                 )
 
                 if not points:
@@ -1237,14 +1325,11 @@ class RAGEngine:
 
             # Delete points
             if points_to_delete:
-                self.client.delete(
-                    collection_name=self.collection_name,
-                    points_selector=points_to_delete
-                )
+                self.client.delete(collection_name=self.collection_name, points_selector=points_to_delete)
                 logger.info(f"Deleted {len(points_to_delete)} chunks for document '{source_name}'")
 
                 # Clear from cache if present
-                if hasattr(self, '_last_document_texts') and source_name in self._last_document_texts:
+                if hasattr(self, "_last_document_texts") and source_name in self._last_document_texts:
                     del self._last_document_texts[source_name]
 
                 # Clear query cache as document changed
@@ -1267,21 +1352,23 @@ class RAGEngine:
             # Use the existing query infrastructure for semantic search
             query_engine = self.index.as_query_engine(
                 similarity_top_k=limit,
-                response_mode="no_text"  # Just get the nodes, no synthesis
+                response_mode="no_text",  # Just get the nodes, no synthesis
             )
 
             response = query_engine.query(search_query)
 
             results = []
-            if hasattr(response, 'source_nodes'):
+            if hasattr(response, "source_nodes"):
                 for node in response.source_nodes:
-                    results.append({
-                        'source': node.node.metadata.get('source', 'Unknown'),
-                        'page': node.node.metadata.get('page'),
-                        'score': node.score,
-                        'text': node.node.text[:300] + '...' if len(node.node.text) > 300 else node.node.text,
-                        'metadata': node.node.metadata
-                    })
+                    results.append(
+                        {
+                            "source": node.node.metadata.get("source", "Unknown"),
+                            "page": node.node.metadata.get("page"),
+                            "score": node.score,
+                            "text": node.node.text[:300] + "..." if len(node.node.text) > 300 else node.node.text,
+                            "metadata": node.node.metadata,
+                        }
+                    )
 
             return results
 
@@ -1291,27 +1378,21 @@ class RAGEngine:
 
     def generate_faq(self, num_questions: int = 10) -> Dict[str, Any]:
         """Generate FAQ based on vector database content.
-        
+
         Args:
             num_questions: Number of FAQ questions to generate
-            
+
         Returns:
             Dictionary containing generated FAQ with questions and answers
         """
         try:
             if not self.index:
-                return {
-                    'error': 'Nessun documento indicizzato. Carica documenti prima di generare FAQ.',
-                    'faqs': []
-                }
+                return {"error": "Nessun documento indicizzato. Carica documenti prima di generare FAQ.", "faqs": []}
 
             # Get database statistics to understand content
             stats = self.get_index_stats()
-            if stats.get('total_vectors', 0) == 0:
-                return {
-                    'error': 'Database vettoriale vuoto. Carica documenti prima di generare FAQ.',
-                    'faqs': []
-                }
+            if stats.get("total_vectors", 0) == 0:
+                return {"error": "Database vettoriale vuoto. Carica documenti prima di generare FAQ.", "faqs": []}
 
             logger.info(f"Generating FAQ with {num_questions} questions from {stats.get('total_vectors')} vectors")
 
@@ -1321,47 +1402,58 @@ class RAGEngine:
             sample_texts = []
             document_types = set()
 
-            if exploration_data.get('documents'):
-                for doc in exploration_data['documents']:
+            if exploration_data.get("documents"):
+                for doc in exploration_data["documents"]:
                     # Get actual content, NOT metadata!
                     text_preview = ""
-                    
+
                     # Try to get actual node content first
-                    if 'metadata' in doc and '_node_content' in doc['metadata']:
-                        text_preview = doc['metadata']['_node_content'][:1000]
-                    elif 'text_preview' in doc:
-                        text_preview = doc['text_preview']
-                    
+                    if "metadata" in doc and "_node_content" in doc["metadata"]:
+                        text_preview = doc["metadata"]["_node_content"][:1000]
+                    elif "text_preview" in doc:
+                        text_preview = doc["text_preview"]
+
                     # Filter out metadata strings and technical info
-                    if text_preview and not any(skip in text_preview.lower() for skip in 
-                        ['metadata', 'indexed_at', 'source:', 'page:', 'document_size', 
-                         'file_type', 'pdf_path', 'chunk_count', 'total_pages']):
+                    if text_preview and not any(
+                        skip in text_preview.lower()
+                        for skip in [
+                            "metadata",
+                            "indexed_at",
+                            "source:",
+                            "page:",
+                            "document_size",
+                            "file_type",
+                            "pdf_path",
+                            "chunk_count",
+                            "total_pages",
+                        ]
+                    ):
                         sample_texts.append(text_preview)
-                    if 'metadata' in doc and 'source' in doc['metadata']:
-                        source = doc['metadata']['source'].lower()
-                        if 'bilancio' in source or 'balance' in source:
-                            document_types.add('bilancio')
-                        elif 'fatturato' in source or 'revenue' in source or 'vendite' in source:
-                            document_types.add('fatturato')
-                        elif 'contratto' in source or 'contract' in source:
-                            document_types.add('contratto')
-                        elif 'report' in source:
-                            document_types.add('report')
+                    if "metadata" in doc and "source" in doc["metadata"]:
+                        source = doc["metadata"]["source"].lower()
+                        if "bilancio" in source or "balance" in source:
+                            document_types.add("bilancio")
+                        elif "fatturato" in source or "revenue" in source or "vendite" in source:
+                            document_types.add("fatturato")
+                        elif "contratto" in source or "contract" in source:
+                            document_types.add("contratto")
+                        elif "report" in source:
+                            document_types.add("report")
                         else:
-                            document_types.add('generale')
+                            document_types.add("generale")
 
             # Create context for FAQ generation
             # Use MORE samples (30 instead of 10) for better context
-            content_sample = '\n\n---\n\n'.join(sample_texts[:30]) if sample_texts else ""
-            document_types_str = ', '.join(document_types) if document_types else 'documenti aziendali'
-            
+            content_sample = "\n\n---\n\n".join(sample_texts[:30]) if sample_texts else ""
+            document_types_str = ", ".join(document_types) if document_types else "documenti aziendali"
+
             # PRIORITIZE: If we have cached full text, use it INSTEAD of chunks
-            if hasattr(self, '_last_document_texts') and self._last_document_texts:
+            if hasattr(self, "_last_document_texts") and self._last_document_texts:
                 # Use actual full document text for better FAQ generation
                 full_texts = list(self._last_document_texts.values())
                 if full_texts and any(text.strip() for text in full_texts):
                     # Take substantial portion of actual document content
-                    content_sample = '\n\n'.join([text[:20000] for text in full_texts])[:30000]
+                    content_sample = "\n\n".join([text[:20000] for text in full_texts])[:30000]
                     logger.info(f"Using FULL document text for FAQ generation: {len(content_sample)} chars")
             elif not sample_texts:
                 # If we have no good samples, try a different approach
@@ -1369,11 +1461,11 @@ class RAGEngine:
                 # Try to retrieve actual content through a query
                 try:
                     test_response = self.query("riassumi il contenuto principale del documento", top_k=10)
-                    if test_response and 'sources' in test_response:
-                        for source in test_response['sources']:
-                            if 'text' in source:
-                                sample_texts.append(source['text'])
-                        content_sample = '\n\n'.join(sample_texts[:20])
+                    if test_response and "sources" in test_response:
+                        for source in test_response["sources"]:
+                            if "text" in source:
+                                sample_texts.append(source["text"])
+                        content_sample = "\n\n".join(sample_texts[:20])
                 except:
                     pass
 
@@ -1381,17 +1473,17 @@ class RAGEngine:
             if not content_sample or len(content_sample) < 100:
                 logger.error("Insufficient real content for FAQ generation")
                 return {
-                    'error': 'Contenuto insufficiente per generare FAQ. Assicurati che i documenti siano stati indicizzati correttamente.',
-                    'faqs': [],
-                    'success': False
+                    "error": "Contenuto insufficiente per generare FAQ. Assicurati che i documenti siano stati indicizzati correttamente.",
+                    "faqs": [],
+                    "success": False,
                 }
-            
+
             # Check if content is mostly metadata (bad sign)
-            metadata_keywords = ['source:', 'indexed_at:', 'file_type:', 'page:', 'metadata', 'document_size']
+            metadata_keywords = ["source:", "indexed_at:", "file_type:", "page:", "metadata", "document_size"]
             metadata_count = sum(1 for keyword in metadata_keywords if keyword in content_sample.lower())
             if metadata_count > 5:
                 logger.warning(f"Content seems to contain too much metadata ({metadata_count} occurrences)")
-            
+
             # Generate FAQ using LLM
             faq_prompt = f"""
 Sei un esperto di business intelligence e analisi aziendale. Analizza ATTENTAMENTE il contenuto fornito e genera {num_questions} domande frequenti (FAQ) che siano STRETTAMENTE PERTINENTI al contenuto effettivo del documento.
@@ -1434,13 +1526,13 @@ Genera SOLO le domande, una per riga, numerate da 1 a {num_questions}:
 
             # Parse questions from response
             questions = []
-            for line in faq_questions_text.split('\n'):
+            for line in faq_questions_text.split("\n"):
                 line = line.strip()
-                if line and (line[0].isdigit() or line.startswith('-') or line.startswith('•')):
+                if line and (line[0].isdigit() or line.startswith("-") or line.startswith("•")):
                     # Clean up the question
                     question = line
                     # Remove numbering (1., 2., -, •, etc.)
-                    question = question.lstrip('0123456789.-• \t')
+                    question = question.lstrip("0123456789.-• \t")
                     if question:
                         questions.append(question)
 
@@ -1451,36 +1543,43 @@ Genera SOLO le domande, una per riga, numerate da 1 a {num_questions}:
                     # Query the database for answer
                     rag_response = self.query(question, top_k=2)
 
-                    answer = rag_response.get('answer', 'Non sono riuscito a trovare informazioni specifiche su questo argomento nei documenti caricati.')
-                    sources = rag_response.get('sources', [])
+                    answer = rag_response.get(
+                        "answer",
+                        "Non sono riuscito a trovare informazioni specifiche su questo argomento nei documenti caricati.",
+                    )
+                    sources = rag_response.get("sources", [])
 
-                    faqs.append({
-                        'id': i,
-                        'question': question,
-                        'answer': answer,
-                        'sources': sources,
-                        'generated_at': datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                    })
+                    faqs.append(
+                        {
+                            "id": i,
+                            "question": question,
+                            "answer": answer,
+                            "sources": sources,
+                            "generated_at": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                        }
+                    )
 
                 except Exception as e:
                     logger.warning(f"Error generating answer for question {i}: {e}")
-                    faqs.append({
-                        'id': i,
-                        'question': question,
-                        'answer': 'Errore nella generazione della risposta. Riprova più tardi.',
-                        'sources': [],
-                        'generated_at': datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                    })
+                    faqs.append(
+                        {
+                            "id": i,
+                            "question": question,
+                            "answer": "Errore nella generazione della risposta. Riprova più tardi.",
+                            "sources": [],
+                            "generated_at": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                        }
+                    )
 
             result = {
-                'faqs': faqs,
-                'metadata': {
-                    'total_questions': len(faqs),
-                    'generated_at': datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
-                    'document_types': list(document_types),
-                    'total_documents': stats.get('total_vectors', 0)
+                "faqs": faqs,
+                "metadata": {
+                    "total_questions": len(faqs),
+                    "generated_at": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                    "document_types": list(document_types),
+                    "total_documents": stats.get("total_vectors", 0),
                 },
-                'success': True
+                "success": True,
             }
 
             logger.info(f"Successfully generated {len(faqs)} FAQ questions")
@@ -1488,89 +1587,92 @@ Genera SOLO le domande, una per riga, numerate da 1 a {num_questions}:
 
         except Exception as e:
             logger.error(f"Error generating FAQ: {str(e)}")
-            return {
-                'error': f'Errore nella generazione delle FAQ: {str(e)}',
-                'faqs': [],
-                'success': False
-            }
+            return {"error": f"Errore nella generazione delle FAQ: {str(e)}", "faqs": [], "success": False}
 
-    def _load_csv_with_analysis(self, file_path: str, csv_analyzer, metadata: Optional[Dict[str, Any]] = None) -> List[Document]:
+    def _load_csv_with_analysis(
+        self, file_path: str, csv_analyzer, metadata: Optional[Dict[str, Any]] = None
+    ) -> List[Document]:
         """Load CSV file with automatic analysis and insights generation."""
-        import pandas as pd
         from pathlib import Path
-        
+
+        import pandas as pd
+
         try:
             # Read CSV
             df = pd.read_csv(file_path)
             file_name = Path(file_path).name
-            
+
             # Analyze CSV with csv_analyzer
             analysis = csv_analyzer.analyze(df)
             insights = csv_analyzer.generate_insights(df, analysis)
-            
+
             documents = []
-            
+
             # 1. Create metadata document
             metadata_text = f"""
             Dataset: {file_name}
             Righe: {len(df)}
             Colonne: {len(df.columns)}
-            Colonne disponibili: {', '.join(df.columns.tolist())}
+            Colonne disponibili: {", ".join(df.columns.tolist())}
             
             Tipi di Dati:
-            {chr(10).join([f"- {col}: {dtype}" for col, dtype in analysis.get('data_types', {}).items()])}
+            {chr(10).join([f"- {col}: {dtype}" for col, dtype in analysis.get("data_types", {}).items()])}
             
             Valori Mancanti:
-            {chr(10).join([f"- {col}: {count}" for col, count in analysis.get('missing_values', {}).items()]) if 'missing_values' in analysis else 'Nessun valore mancante'}
+            {chr(10).join([f"- {col}: {count}" for col, count in analysis.get("missing_values", {}).items()]) if "missing_values" in analysis else "Nessun valore mancante"}
             
             Statistiche Principali:
-            {analysis.get('summary_stats', pd.DataFrame()).to_string() if 'summary_stats' in analysis else 'Non disponibili'}
+            {analysis.get("summary_stats", pd.DataFrame()).to_string() if "summary_stats" in analysis else "Non disponibili"}
             """
-            
-            doc_metadata = {'source': file_name, 'type': 'csv_metadata', 'file_type': '.csv'}
+
+            doc_metadata = {"source": file_name, "type": "csv_metadata", "file_type": ".csv"}
             if metadata:
                 doc_metadata.update(metadata)
-            
+
             documents.append(Document(text=metadata_text.strip(), metadata=doc_metadata))
-            
+
             # 2. Create documents from insights
             for i, insight in enumerate(insights[:10], 1):  # Limit to top 10 insights
                 insight_doc = Document(
                     text=f"Insight #{i}: {insight}",
                     metadata={
-                        'source': file_name, 
-                        'type': 'csv_insight',
-                        'insight_id': i,
-                        'file_type': '.csv',
-                        **(metadata or {})
-                    }
+                        "source": file_name,
+                        "type": "csv_insight",
+                        "insight_id": i,
+                        "file_type": ".csv",
+                        **(metadata or {}),
+                    },
                 )
                 documents.append(insight_doc)
-            
+
             # 3. Create documents from sample data (first 100 rows max)
             sample_size = min(100, len(df))
             sample_df = df.head(sample_size)
-            
+
             # Convert to readable text chunks (10 rows at a time)
             for i in range(0, sample_size, 10):
-                chunk = sample_df.iloc[i:i+10]
-                chunk_text = f"Dati dal CSV '{file_name}' (righe {i+1}-{min(i+10, sample_size)}):\n\n{chunk.to_string()}"
-                
+                chunk = sample_df.iloc[i : i + 10]
+                chunk_text = (
+                    f"Dati dal CSV '{file_name}' (righe {i + 1}-{min(i + 10, sample_size)}):\n\n{chunk.to_string()}"
+                )
+
                 chunk_doc = Document(
                     text=chunk_text,
                     metadata={
-                        'source': file_name,
-                        'type': 'csv_data',
-                        'rows_range': f"{i+1}-{min(i+10, sample_size)}",
-                        'file_type': '.csv',
-                        **(metadata or {})
-                    }
+                        "source": file_name,
+                        "type": "csv_data",
+                        "rows_range": f"{i + 1}-{min(i + 10, sample_size)}",
+                        "file_type": ".csv",
+                        **(metadata or {}),
+                    },
                 )
                 documents.append(chunk_doc)
-            
-            logger.info(f"CSV '{file_name}' processed: {len(insights)} insights, {len(documents)-1-len(insights)} data chunks")
+
+            logger.info(
+                f"CSV '{file_name}' processed: {len(insights)} insights, {len(documents) - 1 - len(insights)} data chunks"
+            )
             return documents
-            
+
         except Exception as e:
             logger.error(f"Error processing CSV {file_path}: {e}")
             # Fallback to basic CSV loading
@@ -1578,14 +1680,15 @@ Genera SOLO le domande, una per riga, numerate da 1 a {num_questions}:
 
     def _load_csv_basic(self, file_path: str, metadata: Optional[Dict[str, Any]] = None) -> List[Document]:
         """Basic CSV loading without analysis (fallback method)."""
-        import pandas as pd
         from pathlib import Path
-        
+
+        import pandas as pd
+
         try:
             # Read CSV
             df = pd.read_csv(file_path)
             file_name = Path(file_path).name
-            
+
             # Create a single document with CSV overview
             csv_text = f"""
             File CSV: {file_name}
@@ -1593,7 +1696,7 @@ Genera SOLO le domande, una per riga, numerate da 1 a {num_questions}:
             Colonne: {len(df.columns)}
             
             Colonne disponibili:
-            {', '.join(df.columns.tolist())}
+            {", ".join(df.columns.tolist())}
             
             Prime 20 righe di dati:
             {df.head(20).to_string()}
@@ -1601,16 +1704,16 @@ Genera SOLO le domande, una per riga, numerate da 1 a {num_questions}:
             Ultime 5 righe di dati:
             {df.tail(5).to_string()}
             """
-            
-            doc_metadata = {'source': file_name, 'type': 'csv_basic', 'file_type': '.csv'}
+
+            doc_metadata = {"source": file_name, "type": "csv_basic", "file_type": ".csv"}
             if metadata:
                 doc_metadata.update(metadata)
-            
+
             document = Document(text=csv_text.strip(), metadata=doc_metadata)
-            
+
             logger.info(f"CSV '{file_name}' loaded with basic processing")
             return [document]
-            
+
         except Exception as e:
             logger.error(f"Error loading CSV {file_path}: {e}")
             # Ultimate fallback - treat as text file
