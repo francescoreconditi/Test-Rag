@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pydantic import Field, validator
 from pydantic_settings import BaseSettings as PydanticBaseSettings
@@ -65,13 +65,13 @@ class ProcessingSettings(PydanticBaseSettings):
     chunk_size: int = Field(default=512, description="Document chunk size", gt=0)
     chunk_overlap: int = Field(default=50, description="Chunk overlap size", ge=0)
     max_file_size_mb: int = Field(default=50, description="Maximum file size in MB", gt=0)
-    supported_formats: List[str] = Field(
+    supported_formats: list[str] = Field(
         default=["pdf", "docx", "txt", "md", "csv"],
         description="Supported file formats"
     )
 
     # CSV processing
-    csv_encoding_fallbacks: List[str] = Field(
+    csv_encoding_fallbacks: list[str] = Field(
         default=["utf-8", "latin-1", "cp1252", "iso-8859-1"],
         description="CSV encoding fallback order"
     )
@@ -93,7 +93,7 @@ class SecuritySettings(PydanticBaseSettings):
     session_timeout_minutes: int = Field(default=60, description="Session timeout in minutes", gt=0)
 
     # File security
-    allowed_upload_paths: List[str] = Field(
+    allowed_upload_paths: list[str] = Field(
         default=["data/uploads"],
         description="Allowed upload directories"
     )
@@ -176,7 +176,7 @@ class Settings(PydanticBaseSettings):
         """Get the log file path."""
         return self.logs_dir / f"{self.app_name.lower().replace(' ', '_')}.log"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert settings to dictionary."""
         return self.dict()
 

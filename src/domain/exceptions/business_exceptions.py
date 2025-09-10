@@ -1,18 +1,18 @@
 """Business domain exceptions."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 
 class DomainException(Exception):
     """Base exception for domain layer."""
 
-    def __init__(self, message: str, code: Optional[str] = None, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, code: Optional[str] = None, details: Optional[dict[str, Any]] = None):
         super().__init__(message)
         self.message = message
         self.code = code or self.__class__.__name__
         self.details = details or {}
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert exception to dictionary for API responses."""
         return {
             'error': self.code,
@@ -76,7 +76,7 @@ class InvalidFinancialDataError(DomainException):
 class DocumentProcessingError(DomainException):
     """Raised when document processing fails."""
 
-    def __init__(self, document_path: str, operation: str, reason: str, supported_formats: Optional[List[str]] = None):
+    def __init__(self, document_path: str, operation: str, reason: str, supported_formats: Optional[list[str]] = None):
         details = {
             'document': document_path,
             'operation': operation,
@@ -114,7 +114,7 @@ class AnalysisError(DomainException):
 class DataValidationError(DomainException):
     """Raised when data validation fails."""
 
-    def __init__(self, errors: List[str], data_type: str):
+    def __init__(self, errors: list[str], data_type: str):
         super().__init__(
             message=f"Validation failed for {data_type}",
             code="DATA_VALIDATION_ERROR",

@@ -5,9 +5,9 @@ Generates hypothetical documents to improve semantic search quality.
 
 from dataclasses import dataclass
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
-from llama_index.core import Document, ServiceContext, VectorStoreIndex
+from llama_index.core import VectorStoreIndex
 from llama_index.core.prompts import PromptTemplate
 from llama_index.core.retrievers import BaseRetriever
 from llama_index.core.schema import NodeWithScore, QueryBundle
@@ -38,7 +38,7 @@ class HyDERetriever(BaseRetriever):
 
     # Prompt templates for different domains
     HYPOTHESIS_PROMPTS = {
-        "default": """Given the following question, write a detailed, informative answer that would be found in a high-quality document. 
+        "default": """Given the following question, write a detailed, informative answer that would be found in a high-quality document.
 Be specific and include relevant details.
 
 Question: {query}
@@ -87,7 +87,7 @@ Business Analysis:""",
         self.domain = domain
         self._prompt_template = PromptTemplate(self.HYPOTHESIS_PROMPTS.get(domain, self.HYPOTHESIS_PROMPTS["default"]))
 
-    def _generate_hypothetical_documents(self, query: str) -> List[str]:
+    def _generate_hypothetical_documents(self, query: str) -> list[str]:
         """
         Generate hypothetical documents that answer the query.
 
@@ -130,7 +130,7 @@ Business Analysis:""",
 
         return hypothetical_docs
 
-    def _retrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
+    def _retrieve(self, query_bundle: QueryBundle) -> list[NodeWithScore]:
         """
         Retrieve nodes using HyDE.
 
@@ -151,7 +151,6 @@ Business Analysis:""",
             return self.base_retriever.retrieve(query_bundle)
 
         # Retrieve using each hypothetical document
-        all_nodes = []
         node_scores = {}  # Track best score for each node
 
         # Retrieve with hypothetical documents
@@ -192,7 +191,7 @@ Business Analysis:""",
         logger.info(f"HyDE retrieved {len(result_nodes)} unique nodes")
         return result_nodes
 
-    async def _aretrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
+    async def _aretrieve(self, query_bundle: QueryBundle) -> list[NodeWithScore]:
         """Async retrieve - delegates to sync for now."""
         return self._retrieve(query_bundle)
 
@@ -206,7 +205,7 @@ class AdaptiveHyDERetriever(HyDERetriever):
         super().__init__(*args, **kwargs)
         self.query_classifier = QueryClassifier()
 
-    def _retrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
+    def _retrieve(self, query_bundle: QueryBundle) -> list[NodeWithScore]:
         """
         Retrieve with adaptive HyDE strategy.
 
@@ -321,7 +320,7 @@ class HyDEQueryEngine:
         """Async query."""
         return await self.query_engine.aquery(query, **kwargs)
 
-    def benchmark_improvement(self, test_queries: List[str], base_retriever: BaseRetriever) -> Dict[str, float]:
+    def benchmark_improvement(self, test_queries: list[str], base_retriever: BaseRetriever) -> dict[str, float]:
         """
         Benchmark HyDE improvement over base retriever.
 

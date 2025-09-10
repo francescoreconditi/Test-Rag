@@ -3,7 +3,7 @@
 import hashlib
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,7 @@ class QueryCache:
 
     def __init__(self, ttl_seconds: int = 3600, namespace: Optional[str] = None):
         """Initialize cache with time-to-live in seconds (default 1 hour) and optional namespace."""
-        self.cache: Dict[str, Dict[str, Any]] = {}
+        self.cache: dict[str, dict[str, Any]] = {}
         self.ttl_seconds = ttl_seconds
         self.namespace = namespace  # For multi-tenant isolation
         self.hits = 0
@@ -25,7 +25,7 @@ class QueryCache:
         cache_string = f"{namespace_prefix}{query.lower().strip()}_{top_k}_{analysis_type or 'standard'}"
         return hashlib.md5(cache_string.encode()).hexdigest()
 
-    def get(self, query: str, top_k: int, analysis_type: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def get(self, query: str, top_k: int, analysis_type: Optional[str] = None) -> Optional[dict[str, Any]]:
         """Retrieve cached result if exists and not expired."""
         key = self._generate_key(query, top_k, analysis_type)
 
@@ -45,7 +45,7 @@ class QueryCache:
         logger.debug(f"Cache miss for query: {query[:50]}... (hits: {self.hits}, misses: {self.misses})")
         return None
 
-    def set(self, query: str, top_k: int, result: Dict[str, Any], analysis_type: Optional[str] = None):
+    def set(self, query: str, top_k: int, result: dict[str, Any], analysis_type: Optional[str] = None):
         """Store query result in cache."""
         key = self._generate_key(query, top_k, analysis_type)
         self.cache[key] = {
@@ -77,7 +77,7 @@ class QueryCache:
         if expired_keys:
             logger.debug(f"Cleaned up {len(expired_keys)} expired cache entries")
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         total_requests = self.hits + self.misses
         hit_rate = (self.hits / total_requests * 100) if total_requests > 0 else 0

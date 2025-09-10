@@ -3,14 +3,13 @@
 from datetime import datetime
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from llama_index.core import Document, Settings, SimpleDirectoryReader, StorageContext, VectorStoreIndex
 from llama_index.core.node_parser import SimpleNodeParser
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
 from llama_index.vector_stores.qdrant import QdrantVectorStore
-from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 
 from config.settings import settings
@@ -187,13 +186,13 @@ class RAGEngine:
 
     def index_documents(
         self,
-        file_paths: List[str],
-        metadata: Optional[Dict[str, Any]] = None,
-        original_names: Optional[List[str]] = None,
-        permanent_paths: Optional[List[str]] = None,
+        file_paths: list[str],
+        metadata: Optional[dict[str, Any]] = None,
+        original_names: Optional[list[str]] = None,
+        permanent_paths: Optional[list[str]] = None,
         force_prompt_type: Optional[str] = None,
         csv_analyzer=None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Index documents from file paths."""
         results = {
             "indexed_files": [],
@@ -365,7 +364,7 @@ class RAGEngine:
             logger.error(f"Error analyzing document content: {str(e)}")
             return "Analisi automatica non disponibile per questo documento. Contenuto indicizzato correttamente per le ricerche."
 
-    def reanalyze_documents_with_prompt(self, force_prompt_type: str) -> Dict[str, str]:
+    def reanalyze_documents_with_prompt(self, force_prompt_type: str) -> dict[str, str]:
         """Re-analyze existing documents with a specific prompt type."""
         try:
             # Check if we have existing analyses in memory that can be re-processed
@@ -463,7 +462,7 @@ class RAGEngine:
             logger.error(f"Error in reanalyze_documents_with_prompt: {str(e)}")
             return {"error": f"Errore nella ri-analisi: {str(e)}"}
 
-    def _load_pdf(self, file_path: str, metadata: Optional[Dict[str, Any]] = None) -> List[Document]:
+    def _load_pdf(self, file_path: str, metadata: Optional[dict[str, Any]] = None) -> list[Document]:
         """Load and parse PDF documents with enhanced text extraction."""
         try:
             from pypdf import PdfReader
@@ -538,7 +537,7 @@ class RAGEngine:
             logger.error(f"Error loading PDF {file_path}: {str(e)}")
             raise
 
-    def _load_text(self, file_path: str, metadata: Optional[Dict[str, Any]] = None) -> List[Document]:
+    def _load_text(self, file_path: str, metadata: Optional[dict[str, Any]] = None) -> list[Document]:
         """Load text or markdown files."""
         try:
             with open(file_path, encoding="utf-8") as f:
@@ -554,7 +553,7 @@ class RAGEngine:
             logger.error(f"Error loading text file {file_path}: {str(e)}")
             raise
 
-    def _load_docx(self, file_path: str, metadata: Optional[Dict[str, Any]] = None) -> List[Document]:
+    def _load_docx(self, file_path: str, metadata: Optional[dict[str, Any]] = None) -> list[Document]:
         """Load Word documents."""
         try:
             from docx import Document as DocxDocument
@@ -587,9 +586,9 @@ class RAGEngine:
         self,
         query_text: str,
         top_k: int = 3,
-        filters: Optional[Dict[str, Any]] = None,
+        filters: Optional[dict[str, Any]] = None,
         analysis_type: Optional[str] = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Query the indexed documents with optional specialized analysis."""
         try:
             if not self.index:
@@ -654,7 +653,7 @@ class RAGEngine:
 
     async def enterprise_query(
         self, query_text: str, enable_enterprise_features: bool = True, **kwargs
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enterprise query with full validation, normalization, and fact table integration.
 
@@ -728,7 +727,7 @@ class RAGEngine:
             # Fallback to standard query on error
             return self.query(query_text, **kwargs)
 
-    def _generate_ai_response_with_sources(self, processing_result) -> Dict[str, Any]:
+    def _generate_ai_response_with_sources(self, processing_result) -> dict[str, Any]:
         """Generate AI response with sources from processing result."""
         try:
             # Use standard query method to get AI response and sources
@@ -790,7 +789,7 @@ class RAGEngine:
     def _enhance_query_with_analysis_type(self, query_text: str, analysis_type: str) -> str:
         """Enhance query based on analysis type."""
         enhancements = {
-            "bilancio": """Analizza questa domanda dal punto di vista finanziario e di bilancio. 
+            "bilancio": """Analizza questa domanda dal punto di vista finanziario e di bilancio.
                          Considera metriche come ricavi, EBITDA, margini, cash flow, PFN e covenant.
                          Fornisci numeri specifici e confronti YoY quando disponibili.
                          """,
@@ -818,7 +817,7 @@ class RAGEngine:
             return f"{enhancement}\n\nDomanda: {query_text}"
         return query_text
 
-    def _apply_specialized_analysis(self, response: str, sources: List[Dict], query: str, analysis_type: str) -> str:
+    def _apply_specialized_analysis(self, response: str, sources: list[dict], query: str, analysis_type: str) -> str:
         """Apply specialized post-processing based on analysis type."""
         try:
             from openai import OpenAI
@@ -836,42 +835,42 @@ class RAGEngine:
             # Create specialized prompt based on analysis type
             specialized_prompts = {
                 "bilancio": f"""Riformula questa risposta con focus finanziario professionale:
-                            
+
                             Risposta originale: {response}
-                            
+
                             Fonti rilevanti:
                             {source_context}
-                            
+
                             Produci un'analisi finanziaria strutturata che include:
                             - Metriche chiave con valori specifici
                             - Trend e variazioni percentuali
                             - Confronti con periodi precedenti
                             - Implicazioni finanziarie
-                            
+
                             Usa un tono da equity analyst professionale.""",
                 "report_dettagliato": f"""Trasforma questa risposta in un briefing professionale dettagliato:
-                            
+
                             Risposta originale: {response}
-                            
+
                             Fonti rilevanti:
                             {source_context}
-                            
+
                             Struttura l'analisi come:
                             ## Executive Summary
                             [Sintesi in 2-3 righe]
-                            
+
                             ## Analisi Dettagliata
                             [Punti chiave con quantificazione]
-                            
+
                             ## Implicazioni e Raccomandazioni
                             [Azioni suggerite basate sui dati]
-                            
+
                             Mantieni un tono professionale da investment analyst.""",
                 "fatturato": f"""Riformula con focus su vendite e revenue:
-                            
+
                             Risposta: {response}
                             Fonti: {source_context}
-                            
+
                             Evidenzia: driver di crescita, mix prodotto, trend vendite, forecast.""",
             }
 
@@ -903,17 +902,17 @@ class RAGEngine:
             return response  # Return original response on error
 
     def query_with_context(
-        self, query_text: str, context_data: Dict[str, Any], top_k: int = 2, analysis_type: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, query_text: str, context_data: dict[str, Any], top_k: int = 2, analysis_type: Optional[str] = None
+    ) -> dict[str, Any]:
         """Query with additional context from CSV analysis."""
         try:
             # Enhance query with context
             enhanced_query = f"""
             Basandoti sul seguente contesto di dati aziendali:
             {self._format_context(context_data)}
-            
+
             Domanda: {query_text}
-            
+
             Per favore fornisci una risposta dettagliata considerando sia i documenti che i dati aziendali forniti. Rispondi in italiano.
             """
 
@@ -923,7 +922,7 @@ class RAGEngine:
             logger.error(f"Error in query with context: {str(e)}")
             return {"answer": f"Error processing query: {str(e)}", "sources": [], "confidence": 0}
 
-    def _format_context(self, context_data: Dict[str, Any]) -> str:
+    def _format_context(self, context_data: dict[str, Any]) -> str:
         """Format context data for query enhancement."""
         formatted_parts = []
 
@@ -973,7 +972,7 @@ class RAGEngine:
         async for chunk in self.streaming_engine.stream_query(query_text, **kwargs):
             yield chunk
 
-    def query_with_hyde(self, query_text: str, top_k: int = 3, **kwargs) -> Dict[str, Any]:
+    def query_with_hyde(self, query_text: str, top_k: int = 3, **kwargs) -> dict[str, Any]:
         """
         Query using HyDE for improved retrieval.
 
@@ -1019,7 +1018,7 @@ class RAGEngine:
             logger.error(f"Error in HyDE query: {str(e)}")
             return self.query(query_text, top_k=top_k)
 
-    def benchmark_hyde(self, test_queries: List[str]) -> Dict[str, float]:
+    def benchmark_hyde(self, test_queries: list[str]) -> dict[str, float]:
         """
         Benchmark HyDE improvement over standard retrieval.
 
@@ -1078,7 +1077,7 @@ class RAGEngine:
             logger.error(f"Error deleting documents: {str(e)}")
             return False
 
-    def get_index_stats(self) -> Dict[str, Any]:
+    def get_index_stats(self) -> dict[str, Any]:
         """Get statistics about the indexed documents."""
         try:
             collection_info = self.client.get_collection(self.collection_name)
@@ -1094,7 +1093,7 @@ class RAGEngine:
             logger.error(f"Error getting index stats: {str(e)}")
             return {"total_vectors": 0, "error": str(e)}
 
-    def explore_database(self, limit: int = 100, offset: int = 0, search_text: Optional[str] = None) -> Dict[str, Any]:
+    def explore_database(self, limit: int = 100, offset: int = 0, search_text: Optional[str] = None) -> dict[str, Any]:
         """Explore documents in the vector database with pagination and search."""
         try:
             # Get collection info
@@ -1171,7 +1170,7 @@ class RAGEngine:
             logger.error(f"Error exploring database: {str(e)}")
             return {"documents": [], "total_count": 0, "unique_sources": [], "stats": {}, "error": str(e)}
 
-    def _get_unique_sources_details(self) -> List[Dict[str, Any]]:
+    def _get_unique_sources_details(self) -> list[dict[str, Any]]:
         """Get detailed information about unique document sources."""
         try:
             # Use scroll to get all points and extract unique sources
@@ -1224,7 +1223,7 @@ class RAGEngine:
             unique_sources = []
             for source_info in sources_map.values():
                 source_info["page_count"] = len(source_info["pages"]) if source_info["pages"] else None
-                source_info["pages"] = sorted(list(source_info["pages"])) if source_info["pages"] else []
+                source_info["pages"] = sorted(source_info["pages"]) if source_info["pages"] else []
 
                 # Check if we have cached analysis for this document
                 if hasattr(self, "_last_document_texts") and source_info["name"] in self._last_document_texts:
@@ -1241,7 +1240,7 @@ class RAGEngine:
             logger.error(f"Error getting unique sources: {str(e)}")
             return []
 
-    def get_document_chunks(self, source_name: str) -> List[Dict[str, Any]]:
+    def get_document_chunks(self, source_name: str) -> list[dict[str, Any]]:
         """Get all chunks for a specific document source."""
         try:
             from qdrant_client.models import FieldCondition, Filter, MatchValue
@@ -1346,7 +1345,7 @@ class RAGEngine:
             logger.error(f"Error deleting document: {str(e)}")
             return False
 
-    def search_in_database(self, search_query: str, limit: int = 20) -> List[Dict[str, Any]]:
+    def search_in_database(self, search_query: str, limit: int = 20) -> list[dict[str, Any]]:
         """Search for specific content in the database using semantic search."""
         try:
             # Use the existing query infrastructure for semantic search
@@ -1376,7 +1375,7 @@ class RAGEngine:
             logger.error(f"Error searching in database: {str(e)}")
             return []
 
-    def generate_faq(self, num_questions: int = 10) -> Dict[str, Any]:
+    def generate_faq(self, num_questions: int = 10) -> dict[str, Any]:
         """Generate FAQ based on vector database content.
 
         Args:
@@ -1590,8 +1589,8 @@ Genera SOLO le domande, una per riga, numerate da 1 a {num_questions}:
             return {"error": f"Errore nella generazione delle FAQ: {str(e)}", "faqs": [], "success": False}
 
     def _load_csv_with_analysis(
-        self, file_path: str, csv_analyzer, metadata: Optional[Dict[str, Any]] = None
-    ) -> List[Document]:
+        self, file_path: str, csv_analyzer, metadata: Optional[dict[str, Any]] = None
+    ) -> list[Document]:
         """Load CSV file with automatic analysis and insights generation."""
         from pathlib import Path
 
@@ -1614,13 +1613,13 @@ Genera SOLO le domande, una per riga, numerate da 1 a {num_questions}:
             Righe: {len(df)}
             Colonne: {len(df.columns)}
             Colonne disponibili: {", ".join(df.columns.tolist())}
-            
+
             Tipi di Dati:
             {chr(10).join([f"- {col}: {dtype}" for col, dtype in analysis.get("data_types", {}).items()])}
-            
+
             Valori Mancanti:
             {chr(10).join([f"- {col}: {count}" for col, count in analysis.get("missing_values", {}).items()]) if "missing_values" in analysis else "Nessun valore mancante"}
-            
+
             Statistiche Principali:
             {analysis.get("summary_stats", pd.DataFrame()).to_string() if "summary_stats" in analysis else "Non disponibili"}
             """
@@ -1678,7 +1677,7 @@ Genera SOLO le domande, una per riga, numerate da 1 a {num_questions}:
             # Fallback to basic CSV loading
             return self._load_csv_basic(file_path, metadata)
 
-    def _load_csv_basic(self, file_path: str, metadata: Optional[Dict[str, Any]] = None) -> List[Document]:
+    def _load_csv_basic(self, file_path: str, metadata: Optional[dict[str, Any]] = None) -> list[Document]:
         """Basic CSV loading without analysis (fallback method)."""
         from pathlib import Path
 
@@ -1694,13 +1693,13 @@ Genera SOLO le domande, una per riga, numerate da 1 a {num_questions}:
             File CSV: {file_name}
             Righe: {len(df)}
             Colonne: {len(df.columns)}
-            
+
             Colonne disponibili:
             {", ".join(df.columns.tolist())}
-            
+
             Prime 20 righe di dati:
             {df.head(20).to_string()}
-            
+
             Ultime 5 righe di dati:
             {df.tail(5).to_string()}
             """

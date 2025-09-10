@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from src.application.interfaces.repository_interfaces import IAnalysisResultRepository
 from src.domain.entities import AnalysisResult, AnalysisType
@@ -29,7 +29,7 @@ class AnalysisResultRepository(BaseRepository, IAnalysisResultRepository):
             """)
             conn.commit()
 
-    def find_by_type(self, analysis_type: str) -> List[AnalysisResult]:
+    def find_by_type(self, analysis_type: str) -> list[AnalysisResult]:
         """Find analysis results by type."""
         all_results = self.find_all(limit=10000)
 
@@ -44,7 +44,7 @@ class AnalysisResultRepository(BaseRepository, IAnalysisResultRepository):
             if result.analysis_type == type_enum
         ]
 
-    def find_by_source(self, source_data_id: str) -> List[AnalysisResult]:
+    def find_by_source(self, source_data_id: str) -> list[AnalysisResult]:
         """Find analysis results by source data ID."""
         all_results = self.find_all(limit=10000)
 
@@ -53,7 +53,7 @@ class AnalysisResultRepository(BaseRepository, IAnalysisResultRepository):
             if result.source_data_id == source_data_id
         ]
 
-    def find_recent(self, hours: int = 24) -> List[AnalysisResult]:
+    def find_recent(self, hours: int = 24) -> list[AnalysisResult]:
         """Find recent analysis results."""
         cutoff_time = datetime.now() - timedelta(hours=hours)
         all_results = self.find_all(limit=10000)
@@ -63,7 +63,7 @@ class AnalysisResultRepository(BaseRepository, IAnalysisResultRepository):
             if result.created_at >= cutoff_time
         ]
 
-    def find_high_confidence(self, min_confidence: float = 0.8) -> List[AnalysisResult]:
+    def find_high_confidence(self, min_confidence: float = 0.8) -> list[AnalysisResult]:
         """Find high confidence analysis results."""
         all_results = self.find_all(limit=10000)
 
@@ -72,7 +72,7 @@ class AnalysisResultRepository(BaseRepository, IAnalysisResultRepository):
             if result.confidence_score >= min_confidence
         ]
 
-    def find_with_anomalies(self) -> List[AnalysisResult]:
+    def find_with_anomalies(self) -> list[AnalysisResult]:
         """Find analysis results containing anomalies."""
         all_results = self.find_all(limit=10000)
 
@@ -101,7 +101,7 @@ class AnalysisResultRepository(BaseRepository, IAnalysisResultRepository):
 
         return sorted_results[0] if sorted_results else None
 
-    def find_by_date_range(self, start_date: datetime, end_date: datetime) -> List[AnalysisResult]:
+    def find_by_date_range(self, start_date: datetime, end_date: datetime) -> list[AnalysisResult]:
         """Find analysis results within date range."""
         all_results = self.find_all(limit=10000)
 
@@ -110,7 +110,7 @@ class AnalysisResultRepository(BaseRepository, IAnalysisResultRepository):
             if start_date <= result.created_at <= end_date
         ]
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get repository statistics."""
         all_results = self.find_all(limit=10000)
 

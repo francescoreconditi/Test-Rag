@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from src.domain.entities import Document
 
@@ -11,22 +11,22 @@ class IRAGEngine(ABC):
     """Interface for RAG (Retrieval-Augmented Generation) engine."""
 
     @abstractmethod
-    def index_document(self, file_path: Path, metadata: Optional[Dict[str, Any]] = None) -> Document:
+    def index_document(self, file_path: Path, metadata: Optional[dict[str, Any]] = None) -> Document:
         """Index a document for retrieval."""
         pass
 
     @abstractmethod
-    def index_documents(self, file_paths: List[Path], metadata: Optional[Dict[str, Any]] = None) -> List[Document]:
+    def index_documents(self, file_paths: list[Path], metadata: Optional[dict[str, Any]] = None) -> list[Document]:
         """Index multiple documents."""
         pass
 
     @abstractmethod
-    def query(self, query_text: str, top_k: int = 5, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    def query(self, query_text: str, top_k: int = 5, filters: Optional[dict[str, Any]] = None) -> list[dict[str, Any]]:
         """Query indexed documents."""
         pass
 
     @abstractmethod
-    def query_with_context(self, query_text: str, context: Dict[str, Any], top_k: int = 5) -> List[Dict[str, Any]]:
+    def query_with_context(self, query_text: str, context: dict[str, Any], top_k: int = 5) -> list[dict[str, Any]]:
         """Query with additional context."""
         pass
 
@@ -36,7 +36,7 @@ class IRAGEngine(ABC):
         pass
 
     @abstractmethod
-    def update_document(self, document_id: str, new_content: str, metadata: Optional[Dict[str, Any]] = None) -> bool:
+    def update_document(self, document_id: str, new_content: str, metadata: Optional[dict[str, Any]] = None) -> bool:
         """Update an existing document."""
         pass
 
@@ -46,7 +46,7 @@ class IRAGEngine(ABC):
         pass
 
     @abstractmethod
-    def get_index_stats(self) -> Dict[str, Any]:
+    def get_index_stats(self) -> dict[str, Any]:
         """Get statistics about the index."""
         pass
 
@@ -56,17 +56,17 @@ class IRAGEngine(ABC):
         pass
 
     @abstractmethod
-    def list_documents(self, limit: int = 100, offset: int = 0) -> List[Document]:
+    def list_documents(self, limit: int = 100, offset: int = 0) -> list[Document]:
         """List all indexed documents."""
         pass
 
     @abstractmethod
-    def search_similar(self, document_id: str, top_k: int = 5) -> List[Dict[str, Any]]:
+    def search_similar(self, document_id: str, top_k: int = 5) -> list[dict[str, Any]]:
         """Find similar documents to a given document."""
         pass
 
     @abstractmethod
-    def extract_entities(self, text: str) -> Dict[str, List[str]]:
+    def extract_entities(self, text: str) -> dict[str, list[str]]:
         """Extract named entities from text."""
         pass
 
@@ -76,7 +76,7 @@ class IRAGEngine(ABC):
         pass
 
     @abstractmethod
-    def get_document_chunks(self, document_id: str) -> List[str]:
+    def get_document_chunks(self, document_id: str) -> list[str]:
         """Get all chunks of a document."""
         pass
 

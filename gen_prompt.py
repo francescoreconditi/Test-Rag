@@ -7,9 +7,9 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Tuple
+import re
+from typing import Callable
 
 # ---------------------------------------------------------------------------
 # Utility: normalizzazione testo e tokenizzazione semplice
@@ -27,7 +27,7 @@ def _findall(pattern: str, text: str) -> int:
         return 0
 
 
-def _contains_any(text: str, keywords: List[str]) -> int:
+def _contains_any(text: str, keywords: list[str]) -> int:
     score = 0
     for kw in keywords:
         # parole intere o bigrammi; tolleranza accenti
@@ -43,7 +43,7 @@ def _contains_any(text: str, keywords: List[str]) -> int:
 
 
 def PROMPT_GENERAL(file_name: str, analysis_text: str) -> str:
-    return """
+    return f"""
 Sei un analista aziendale. Analizza esclusivamente il documento "{file_name}" incluso di seguito, senza usare fonti esterne né inferenze oltre il testo.
 
 === DOCUMENTO (testo estratto) ===
@@ -92,11 +92,11 @@ REGOLE
 <SINTESI>
 Scrivi 120–200 parole, tono da analista, richiamando "p. X" dopo i numeri chiave.
 </SINTESI>
-""".format(file_name=file_name, analysis_text=analysis_text)
+"""
 
 
 def PROMPT_BILANCIO(file_name: str, analysis_text: str) -> str:
-    return """
+    return f"""
 Sei un equity/credit analyst. Analizza il documento "{file_name}" qui sotto, senza usare fonti esterne.
 Riporta valori solo se presenti e indica sempre la pagina di provenienza.
 
@@ -147,11 +147,11 @@ In 150–250 parole, evidenzia crescita/contrazione, driver, rischi, outlook, co
 REGOLE
 - Compila solo ciò che è presente. Lascialo vuoto se manca.
 - Non calcolare ratios se non sono nel testo, a meno che tutte le grandezze per un calcolo semplice siano presenti (in tal caso mostra il calcolo nella SINTESI con p. X).
-""".format(file_name=file_name, analysis_text=analysis_text)
+"""
 
 
 def PROMPT_FATTURATO(file_name: str, analysis_text: str) -> str:
-    return """
+    return f"""
 Agisci come sales/revenue analyst. Analizza il documento "{file_name}" qui sotto (no fonti esterne).
 
 === DOCUMENTO ===
@@ -184,11 +184,11 @@ OUTPUT:
 <SINTESI>
 120–180 parole con trend, scostamenti, mix, rischi/opportunità. Cita “p. X” dopo i numeri.
 </SINTESI>
-""".format(file_name=file_name, analysis_text=analysis_text)
+"""
 
 
 def PROMPT_MAGAZZINO(file_name: str, analysis_text: str) -> str:
-    return """
+    return f"""
 Agisci come operations/inventory analyst. Analizza il documento "{file_name}" (solo contenuto incluso).
 
 === DOCUMENTO ===
@@ -216,11 +216,11 @@ OUTPUT:
 <SINTESI>
 120–180 parole focalizzate su rotazione, OTIF, obsoleti, rischi operativi e prossimi passi, con citazioni “p. X”.
 </SINTESI>
-""".format(file_name=file_name, analysis_text=analysis_text)
+"""
 
 
 def PROMPT_CONTRATTO(file_name: str, analysis_text: str) -> str:
-    return """
+    return f"""
 Agisci come legal/ops analyst. Analizza il contratto "{file_name}" basandoti solo sul testo.
 
 === DOCUMENTO ===
@@ -251,7 +251,7 @@ Executive summary (120–180 parole) con clausole critiche e red flag. Cita pagi
 </SINTESI>
 
 REGOLE: non inferire; se mancano dettagli, lascia campi vuoti e segnala in "note".
-""".format(file_name=file_name, analysis_text=analysis_text)
+"""
 
 
 # ---------------------------------------------------------------------------
@@ -263,15 +263,15 @@ REGOLE: non inferire; se mancano dettagli, lascia campi vuoti e segnala in "note
 class CaseRule:
     name: str
     builder: Callable[[str, str], str]
-    keywords: List[str] = field(default_factory=list)
-    patterns: List[str] = field(default_factory=list)  # regex avanzate
+    keywords: list[str] = field(default_factory=list)
+    patterns: list[str] = field(default_factory=list)  # regex avanzate
     weight_keywords: float = 1.0
     weight_patterns: float = 2.0
     boost_if_filename: float = 1.5  # moltiplicatore se il nome file contiene keyword
     min_score_to_win: float = 1.0  # soglia minima per preferirlo al general
 
 
-ROUTER: Dict[str, CaseRule] = {
+ROUTER: dict[str, CaseRule] = {
     "bilancio": CaseRule(
         name="bilancio",
         builder=PROMPT_BILANCIO,
@@ -406,7 +406,7 @@ def _score_case(rule: CaseRule, file_name: str, analysis_text: str) -> float:
 # ---------------------------------------------------------------------------
 
 
-def choose_prompt(file_name: str, analysis_text: str) -> Tuple[str, str, dict]:
+def choose_prompt(file_name: str, analysis_text: str) -> tuple[str, str, dict]:
     """
     Ritorna (prompt_name, prompt_text, debug_info)
     - prompt_name: 'bilancio' | 'fatturato' | 'magazzino' | 'contratto' | 'generale'

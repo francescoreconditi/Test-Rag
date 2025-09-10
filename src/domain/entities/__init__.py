@@ -1,9 +1,9 @@
 """Domain entities representing core business concepts."""
 
-from .analysis_result import AnalysisResult, MetricResult, AnalysisType
-from .document import Document, DocumentMetadata, DocumentType, DocumentStatus
+from .analysis_result import AnalysisResult, AnalysisType, MetricResult
+from .document import Document, DocumentMetadata, DocumentStatus, DocumentType
 from .financial_data import FinancialData, FinancialPeriod
-from .tenant_context import TenantContext, TenantTier, TenantStatus
+from .tenant_context import TenantContext, TenantStatus, TenantTier
 
 __all__ = [
     'FinancialData',
@@ -16,6 +16,6 @@ __all__ = [
     'MetricResult',
     'AnalysisType',
     'TenantContext',
-    'TenantTier', 
+    'TenantTier',
     'TenantStatus'
 ]

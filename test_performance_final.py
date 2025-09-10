@@ -6,8 +6,8 @@
 # ============================================
 
 import subprocess
-import sys
 import time
+
 
 def run_test(description, command):
     """Run a test command and print results."""
@@ -31,7 +31,7 @@ def main():
     print("=" * 60)
     print("RAG Performance Optimization - Final Test")
     print("=" * 60)
-    
+
     tests = [
         ("Docker is running", "docker --version"),
         ("Python is available", "python --version"),
@@ -42,17 +42,17 @@ def main():
         ("Flower is installed", "python -c \"import flower; print('Flower OK')\""),
         ("Requests is installed", "python -c \"import requests; r=requests.get('http://localhost:6333/'); print('Qdrant accessible via requests:', r.status_code == 200)\""),
     ]
-    
+
     passed = 0
     total = len(tests)
-    
+
     for description, command in tests:
         if run_test(description, command):
             passed += 1
-    
+
     print("\n" + "=" * 60)
     print(f"TEST RESULTS: {passed}/{total} tests passed")
-    
+
     if passed == total:
         print("ALL TESTS PASSED! Performance optimization is working correctly.")
         print("\nWhat's now available:")
@@ -65,7 +65,7 @@ def main():
         print("   1. Start Celery worker: celery -A src.infrastructure.performance.celery_tasks worker --loglevel=info")
         print("   2. Start Flower monitoring: flower -A src.infrastructure.performance.celery_tasks --port=5555")
         print("   3. Test the RAG system with enhanced performance features")
-        
+
         # Create quick reference
         with open("performance_status.txt", "w") as f:
             f.write("RAG Performance Optimization Status: ACTIVE\n")
@@ -76,14 +76,14 @@ def main():
             f.write("- Qdrant: localhost:6333 (RUNNING)\n")
             f.write("- Celery: Ready to start\n")
             f.write("- Flower: Ready to start\n")
-        
+
     else:
         print("Some tests failed. Check the errors above and fix any issues.")
         print("   Common fixes:")
         print("   - Make sure Docker is running")
         print("   - Check if containers are started: docker ps")
         print("   - Restart containers: docker restart rag_redis rag_qdrant")
-    
+
     print("=" * 60)
 
 if __name__ == "__main__":

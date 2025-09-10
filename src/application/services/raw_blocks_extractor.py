@@ -18,18 +18,16 @@ Supporta:
 - Word: blocchi per paragrafo/sezione
 """
 
+from dataclasses import asdict, dataclass
+from datetime import datetime
+from enum import Enum
 import hashlib
 import json
 import logging
-from dataclasses import dataclass, asdict
-from datetime import datetime
-from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import fitz  # PyMuPDF
-import pandas as pd
-from PIL import Image
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +67,8 @@ class BoundingBox:
     y0: float
     x1: float
     y1: float
-    
-    def to_dict(self) -> Dict:
+
+    def to_dict(self) -> dict:
         return asdict(self)
 
 
@@ -78,40 +76,40 @@ class BoundingBox:
 class RawBlock:
     """
     Rappresentazione di un blocco raw estratto.
-    
+
     Un blocco è un'unità atomica di contenuto (testo, tabella, immagine, etc.)
     con la sua posizione esatta nel documento originale.
     """
-    
+
     # Identificazione
     block_id: str  # ID univoco del blocco
     document_id: str  # Hash del documento
     document_path: str
-    
+
     # Posizione
     page_number: Optional[int]  # Per PDF/Word
     sheet_name: Optional[str]  # Per Excel
     section: Optional[str]  # Sezione logica
-    
+
     # Tipo e contenuto
     block_type: BlockType
     content: Any  # Contenuto raw del blocco
     text_content: Optional[str]  # Versione testuale se disponibile
-    
+
     # Posizione fisica
     bounding_box: Optional[BoundingBox]  # Coordinate nel documento
     order_index: int  # Ordine di apparizione nella pagina/sezione
-    
+
     # Metadati
     confidence: float = 1.0  # Confidenza nell'estrazione (0-1)
     extraction_method: str = ""  # Metodo usato per l'estrazione
     timestamp: datetime = None
-    metadata: Dict[str, Any] = None
-    
+    metadata: dict[str, Any] = None
+
     # Relazioni
     parent_block_id: Optional[str] = None  # Per blocchi annidati
-    child_block_ids: List[str] = None
-    
+    child_block_ids: list[str] = None
+
     def __post_init__(self):
         if self.timestamp is None:
             self.timestamp = datetime.now()
@@ -119,8 +117,8 @@ class RawBlock:
             self.metadata = {}
         if self.child_block_ids is None:
             self.child_block_ids = []
-            
-    def to_dict(self) -> Dict:
+
+    def to_dict(self) -> dict:
         """Serializza il blocco in dizionario."""
         return {
             'block_id': self.block_id,
@@ -141,7 +139,7 @@ class RawBlock:
             'parent_block_id': self.parent_block_id,
             'child_block_ids': self.child_block_ids
         }
-    
+
     def to_source_ref(self) -> str:
         """Genera source reference per questo blocco."""
         if self.page_number is not None:
@@ -155,26 +153,26 @@ class RawBlock:
 @dataclass
 class PageBlocks:
     """Blocchi estratti da una singola pagina/sezione."""
-    
+
     page_number: Optional[int]
     sheet_name: Optional[str]
     section_name: Optional[str]
-    blocks: List[RawBlock]
-    page_metadata: Dict[str, Any]
-    
-    def get_blocks_by_type(self, block_type: BlockType) -> List[RawBlock]:
+    blocks: list[RawBlock]
+    page_metadata: dict[str, Any]
+
+    def get_blocks_by_type(self, block_type: BlockType) -> list[RawBlock]:
         """Ottieni tutti i blocchi di un certo tipo."""
         return [b for b in self.blocks if b.block_type == block_type]
-    
-    def get_text_blocks(self) -> List[RawBlock]:
+
+    def get_text_blocks(self) -> list[RawBlock]:
         """Ottieni tutti i blocchi di testo."""
         return self.get_blocks_by_type(BlockType.TEXT)
-    
-    def get_table_blocks(self) -> List[RawBlock]:
+
+    def get_table_blocks(self) -> list[RawBlock]:
         """Ottieni tutti i blocchi tabella."""
         return self.get_blocks_by_type(BlockType.TABLE)
-    
-    def to_dict(self) -> Dict:
+
+    def to_dict(self) -> dict:
         """Serializza in dizionario."""
         return {
             'page_number': self.page_number,
@@ -188,36 +186,36 @@ class PageBlocks:
 @dataclass
 class DocumentBlocks:
     """Collezione completa di blocchi estratti da un documento."""
-    
+
     document_id: str
     document_path: str
     document_type: DocumentType
     extraction_timestamp: datetime
-    pages: List[PageBlocks]
-    document_metadata: Dict[str, Any]
-    
-    def get_all_blocks(self) -> List[RawBlock]:
+    pages: list[PageBlocks]
+    document_metadata: dict[str, Any]
+
+    def get_all_blocks(self) -> list[RawBlock]:
         """Ottieni tutti i blocchi del documento."""
         blocks = []
         for page in self.pages:
             blocks.extend(page.blocks)
         return blocks
-    
+
     def get_blocks_by_page(self, page_number: int) -> Optional[PageBlocks]:
         """Ottieni blocchi di una specifica pagina."""
         for page in self.pages:
             if page.page_number == page_number:
                 return page
         return None
-    
-    def get_blocks_by_type(self, block_type: BlockType) -> List[RawBlock]:
+
+    def get_blocks_by_type(self, block_type: BlockType) -> list[RawBlock]:
         """Ottieni tutti i blocchi di un certo tipo nel documento."""
         blocks = []
         for page in self.pages:
             blocks.extend(page.get_blocks_by_type(block_type))
         return blocks
-    
-    def to_dict(self) -> Dict:
+
+    def to_dict(self) -> dict:
         """Serializza in dizionario."""
         return {
             'document_id': self.document_id,
@@ -227,21 +225,21 @@ class DocumentBlocks:
             'pages': [p.to_dict() for p in self.pages],
             'document_metadata': self.document_metadata
         }
-    
+
     def save_to_json(self, output_path: Union[str, Path]):
         """Salva i blocchi in formato JSON."""
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(self.to_dict(), f, ensure_ascii=False, indent=2)
-    
+
     @classmethod
     def load_from_json(cls, json_path: Union[str, Path]) -> 'DocumentBlocks':
         """Carica blocchi da file JSON."""
-        with open(json_path, 'r', encoding='utf-8') as f:
+        with open(json_path, encoding='utf-8') as f:
             data = json.load(f)
-            
+
         # Ricostruisci oggetti
         pages = []
         for page_data in data['pages']:
@@ -251,7 +249,7 @@ class DocumentBlocks:
                 bbox = None
                 if block_data.get('bounding_box'):
                     bbox = BoundingBox(**block_data['bounding_box'])
-                
+
                 block = RawBlock(
                     block_id=block_data['block_id'],
                     document_id=block_data['document_id'],
@@ -272,7 +270,7 @@ class DocumentBlocks:
                     child_block_ids=block_data.get('child_block_ids', [])
                 )
                 blocks.append(block)
-            
+
             page = PageBlocks(
                 page_number=page_data.get('page_number'),
                 sheet_name=page_data.get('sheet_name'),
@@ -281,7 +279,7 @@ class DocumentBlocks:
                 page_metadata=page_data.get('page_metadata', {})
             )
             pages.append(page)
-        
+
         return cls(
             document_id=data['document_id'],
             document_path=data['document_path'],
@@ -294,7 +292,7 @@ class DocumentBlocks:
 
 class RawBlocksExtractor:
     """Estrattore principale per raw blocks da documenti."""
-    
+
     def __init__(self):
         self.supported_types = {
             '.pdf': DocumentType.PDF,
@@ -308,30 +306,30 @@ class RawBlocksExtractor:
             '.csv': DocumentType.CSV,
             '.txt': DocumentType.TEXT
         }
-    
+
     def extract(self, file_path: Union[str, Path]) -> DocumentBlocks:
         """
         Estrae raw blocks dal documento.
-        
+
         Args:
             file_path: Percorso del documento
-            
+
         Returns:
             DocumentBlocks con tutti i blocchi estratti
         """
         file_path = Path(file_path)
-        
+
         if not file_path.exists():
             raise FileNotFoundError(f"File non trovato: {file_path}")
-        
+
         # Determina tipo documento
         doc_type = self._detect_document_type(file_path)
-        
+
         # Calcola hash documento
         doc_id = self._calculate_document_hash(file_path)
-        
+
         logger.info(f"Extracting raw blocks from {doc_type.value} document: {file_path}")
-        
+
         # Estrai blocchi basandosi sul tipo
         if doc_type == DocumentType.PDF:
             pages = self._extract_pdf_blocks(file_path, doc_id)
@@ -342,7 +340,7 @@ class RawBlocksExtractor:
         else:
             # Fallback per documenti testuali semplici
             pages = self._extract_text_blocks(file_path, doc_id)
-        
+
         # Crea documento blocks
         return DocumentBlocks(
             document_id=doc_id,
@@ -356,37 +354,37 @@ class RawBlocksExtractor:
                 'extraction_version': '1.0'
             }
         )
-    
+
     def _detect_document_type(self, file_path: Path) -> DocumentType:
         """Rileva il tipo di documento dall'estensione."""
         suffix = file_path.suffix.lower()
         return self.supported_types.get(suffix, DocumentType.TEXT)
-    
+
     def _calculate_document_hash(self, file_path: Path) -> str:
         """Calcola hash SHA256 del documento."""
         with open(file_path, 'rb') as f:
             return hashlib.sha256(f.read()).hexdigest()[:16]  # Primi 16 caratteri
-    
-    def _extract_pdf_blocks(self, file_path: Path, doc_id: str) -> List[PageBlocks]:
+
+    def _extract_pdf_blocks(self, file_path: Path, doc_id: str) -> list[PageBlocks]:
         """Estrae blocchi da PDF usando PyMuPDF."""
         pages = []
-        
+
         try:
             pdf = fitz.open(str(file_path))
-            
+
             for page_num, page in enumerate(pdf):
                 blocks = []
                 order_index = 0
-                
+
                 # Estrai blocchi di testo
                 text_blocks = page.get_text("blocks")
-                for idx, block in enumerate(text_blocks):
+                for _idx, block in enumerate(text_blocks):
                     x0, y0, x1, y1, text, block_no, block_type = block
-                    
+
                     # Skip blocchi vuoti
                     if not text or not text.strip():
                         continue
-                    
+
                     raw_block = RawBlock(
                         block_id=f"{doc_id}_p{page_num}_b{order_index}",
                         document_id=doc_id,
@@ -408,16 +406,16 @@ class RawBlocksExtractor:
                     )
                     blocks.append(raw_block)
                     order_index += 1
-                
+
                 # Estrai tabelle (se presenti)
                 tables = self._extract_pdf_tables(page, page_num, doc_id, order_index)
                 blocks.extend(tables)
                 order_index += len(tables)
-                
+
                 # Estrai immagini
                 images = self._extract_pdf_images(page, page_num, doc_id, order_index)
                 blocks.extend(images)
-                
+
                 # Crea PageBlocks
                 page_blocks = PageBlocks(
                     page_number=page_num + 1,
@@ -431,31 +429,31 @@ class RawBlocksExtractor:
                     }
                 )
                 pages.append(page_blocks)
-            
+
             pdf.close()
-            
+
         except Exception as e:
             logger.error(f"Error extracting PDF blocks: {e}")
             raise
-        
+
         return pages
-    
-    def _extract_pdf_tables(self, page, page_num: int, doc_id: str, start_index: int) -> List[RawBlock]:
+
+    def _extract_pdf_tables(self, page, page_num: int, doc_id: str, start_index: int) -> list[RawBlock]:
         """Estrae tabelle da una pagina PDF."""
         tables = []
-        
+
         try:
             # Usa il metodo di PyMuPDF per trovare tabelle
             # Nota: questo è un approccio semplificato
             # Per tabelle complesse, usare camelot-py o tabula-py
-            
+
             # Cerca pattern che sembrano tabelle (righe con | o colonne allineate)
             text = page.get_text()
             lines = text.split('\n')
-            
+
             table_lines = []
             in_table = False
-            
+
             for line in lines:
                 # Semplice euristica: linee con multiple "|" potrebbero essere tabelle
                 if line.count('|') >= 2 or line.count('\t') >= 2:
@@ -466,7 +464,7 @@ class RawBlocksExtractor:
                 elif in_table and table_lines:
                     # Fine della tabella
                     table_content = '\n'.join(table_lines)
-                    
+
                     table_block = RawBlock(
                         block_id=f"{doc_id}_p{page_num}_t{start_index + len(tables)}",
                         document_id=doc_id,
@@ -484,28 +482,28 @@ class RawBlocksExtractor:
                         metadata={'rows': len(table_lines)}
                     )
                     tables.append(table_block)
-                    
+
                     in_table = False
                     table_lines = []
-                    
+
         except Exception as e:
             logger.warning(f"Error extracting tables from page {page_num}: {e}")
-        
+
         return tables
-    
-    def _extract_pdf_images(self, page, page_num: int, doc_id: str, start_index: int) -> List[RawBlock]:
+
+    def _extract_pdf_images(self, page, page_num: int, doc_id: str, start_index: int) -> list[RawBlock]:
         """Estrae immagini da una pagina PDF."""
         images = []
-        
+
         try:
             image_list = page.get_images()
-            
+
             for idx, img in enumerate(image_list):
                 xref = img[0]
-                
+
                 # Ottieni metadati immagine
                 img_dict = page.parent.extract_image(xref)
-                
+
                 if img_dict:
                     image_block = RawBlock(
                         block_id=f"{doc_id}_p{page_num}_i{start_index + idx}",
@@ -530,29 +528,29 @@ class RawBlocksExtractor:
                         }
                     )
                     images.append(image_block)
-                    
+
         except Exception as e:
             logger.warning(f"Error extracting images from page {page_num}: {e}")
-        
+
         return images
-    
-    def _extract_excel_blocks(self, file_path: Path, doc_id: str) -> List[PageBlocks]:
+
+    def _extract_excel_blocks(self, file_path: Path, doc_id: str) -> list[PageBlocks]:
         """Estrae blocchi da file Excel."""
         from src.application.parsers.excel_parser import ExcelParser
-        
+
         pages = []
         parser = ExcelParser()
-        
+
         try:
             extracted_data = parser.parse(file_path)
-            
+
             for sheet_idx, sheet_name in enumerate(extracted_data.data_frames.keys()):
                 blocks = []
                 order_index = 0
-                
+
                 # Estrai blocchi dalle tabelle rilevate
                 sheet_tables = [t for t in extracted_data.tables if t.sheet_name == sheet_name]
-                
+
                 for table in sheet_tables:
                     # Crea blocco per la tabella
                     table_block = RawBlock(
@@ -581,7 +579,7 @@ class RawBlocksExtractor:
                     )
                     blocks.append(table_block)
                     order_index += 1
-                
+
                 # Estrai blocchi per formule
                 if sheet_name in extracted_data.formulas:
                     for cell_ref, formula in extracted_data.formulas[sheet_name]:
@@ -603,7 +601,7 @@ class RawBlocksExtractor:
                         )
                         blocks.append(formula_block)
                         order_index += 1
-                
+
                 # Crea PageBlocks per lo sheet
                 page_blocks = PageBlocks(
                     page_number=None,
@@ -617,29 +615,29 @@ class RawBlocksExtractor:
                     }
                 )
                 pages.append(page_blocks)
-                
+
         except Exception as e:
             logger.error(f"Error extracting Excel blocks: {e}")
             raise
-        
+
         return pages
-    
-    def _extract_markup_blocks(self, file_path: Path, doc_id: str, doc_type: DocumentType) -> List[PageBlocks]:
+
+    def _extract_markup_blocks(self, file_path: Path, doc_id: str, doc_type: DocumentType) -> list[PageBlocks]:
         """Estrae blocchi da HTML/XML."""
         from bs4 import BeautifulSoup
-        
+
         pages = []
-        
+
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, encoding='utf-8') as f:
                 content = f.read()
-            
+
             soup = BeautifulSoup(content, 'html.parser' if doc_type == DocumentType.HTML else 'xml')
-            
+
             # Estrai blocchi per sezione/tag principale
             blocks = []
             order_index = 0
-            
+
             # Headers
             for header in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
                 header_block = RawBlock(
@@ -660,7 +658,7 @@ class RawBlocksExtractor:
                 )
                 blocks.append(header_block)
                 order_index += 1
-            
+
             # Paragraphs
             for p in soup.find_all('p'):
                 if p.get_text(strip=True):
@@ -682,7 +680,7 @@ class RawBlocksExtractor:
                     )
                     blocks.append(p_block)
                     order_index += 1
-            
+
             # Tables
             for table in soup.find_all('table'):
                 table_block = RawBlock(
@@ -703,7 +701,7 @@ class RawBlocksExtractor:
                 )
                 blocks.append(table_block)
                 order_index += 1
-            
+
             # Crea una singola "pagina" per il documento markup
             page_blocks = PageBlocks(
                 page_number=None,
@@ -713,24 +711,24 @@ class RawBlocksExtractor:
                 page_metadata={'total_blocks': len(blocks)}
             )
             pages.append(page_blocks)
-            
+
         except Exception as e:
             logger.error(f"Error extracting markup blocks: {e}")
             raise
-        
+
         return pages
-    
-    def _extract_text_blocks(self, file_path: Path, doc_id: str) -> List[PageBlocks]:
+
+    def _extract_text_blocks(self, file_path: Path, doc_id: str) -> list[PageBlocks]:
         """Estrae blocchi da file di testo semplice."""
         pages = []
-        
+
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, encoding='utf-8') as f:
                 content = f.read()
-            
+
             # Dividi in paragrafi
             paragraphs = content.split('\n\n')
-            
+
             blocks = []
             for idx, para in enumerate(paragraphs):
                 if para.strip():
@@ -751,7 +749,7 @@ class RawBlocksExtractor:
                         metadata={'paragraph_index': idx}
                     )
                     blocks.append(text_block)
-            
+
             # Crea una singola "pagina"
             page_blocks = PageBlocks(
                 page_number=None,
@@ -761,9 +759,9 @@ class RawBlocksExtractor:
                 page_metadata={'total_paragraphs': len(blocks)}
             )
             pages.append(page_blocks)
-            
+
         except Exception as e:
             logger.error(f"Error extracting text blocks: {e}")
             raise
-        
+
         return pages

@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 
 class Currency(Enum):
@@ -53,8 +53,8 @@ class FinancialData:
     company_name: str = ""
     period: Optional[FinancialPeriod] = None
     currency: Currency = Currency.EUR
-    metrics: Dict[str, Decimal] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metrics: dict[str, Decimal] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
 
@@ -86,7 +86,7 @@ class FinancialData:
             return ((current_value - previous_value) / previous_value) * 100
         return None
 
-    def validate(self) -> List[str]:
+    def validate(self) -> list[str]:
         """Validate financial data integrity."""
         errors = []
 
@@ -105,7 +105,7 @@ class FinancialData:
 
         return errors
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
         return {
             'id': self.id,

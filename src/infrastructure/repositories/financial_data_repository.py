@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 from src.application.interfaces.repository_interfaces import IFinancialDataRepository
 from src.domain.entities import FinancialData, FinancialPeriod
@@ -30,11 +30,11 @@ class FinancialDataRepository(BaseRepository, IFinancialDataRepository):
             """)
             conn.commit()
 
-    def find_by_company(self, company_name: str) -> List[FinancialData]:
+    def find_by_company(self, company_name: str) -> list[FinancialData]:
         """Find financial data by company name."""
         return self.find_by_criteria({'company_name': company_name})
 
-    def find_by_period(self, date_range: DateRange) -> List[FinancialData]:
+    def find_by_period(self, date_range: DateRange) -> list[FinancialData]:
         """Find financial data within a date range."""
         all_data = self.find_all(limit=10000)  # Get all data
 
@@ -57,7 +57,7 @@ class FinancialDataRepository(BaseRepository, IFinancialDataRepository):
         self,
         company_name: str,
         date_range: DateRange
-    ) -> List[FinancialData]:
+    ) -> list[FinancialData]:
         """Find financial data by company and period."""
         company_data = self.find_by_company(company_name)
 
@@ -88,18 +88,18 @@ class FinancialDataRepository(BaseRepository, IFinancialDataRepository):
 
         return sorted_data[0] if sorted_data else None
 
-    def get_companies(self) -> List[str]:
+    def get_companies(self) -> list[str]:
         """Get list of all companies."""
         all_data = self.find_all(limit=10000)
-        companies = set(data.company_name for data in all_data if data.company_name)
-        return sorted(list(companies))
+        companies = {data.company_name for data in all_data if data.company_name}
+        return sorted(companies)
 
     def find_by_metric_threshold(
         self,
         metric_name: str,
         threshold: float,
         operator: str = "gte"
-    ) -> List[FinancialData]:
+    ) -> list[FinancialData]:
         """Find financial data by metric threshold."""
         from decimal import Decimal
 
@@ -121,7 +121,7 @@ class FinancialDataRepository(BaseRepository, IFinancialDataRepository):
         self,
         company_name: str,
         aggregation_period: str
-    ) -> List[FinancialData]:
+    ) -> list[FinancialData]:
         """Aggregate financial data by period."""
         from collections import defaultdict
 
