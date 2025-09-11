@@ -18,43 +18,46 @@ Autore: ZCS Company
 Versione: 1.0.0
 """
 
-import os
-import tempfile
-import asyncio
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Dict, List, Optional, Union, Any
-import json
 import logging
+import os
+from pathlib import Path
+import tempfile
+from typing import Any, Optional
 
 # FastAPI imports
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, BackgroundTasks, Query
-from fastapi.responses import JSONResponse, FileResponse, Response
+from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.openapi.utils import get_openapi
-
-# Scalar documentation
-from .config.scalar_docs import add_scalar_docs
+from fastapi.responses import JSONResponse, Response
 
 # Pydantic models
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field
 import uvicorn
 
-# Multi-tenant authentication
-from .auth import (
-    LoginRequest, LoginResponse, login, 
-    get_current_tenant, get_optional_tenant, check_tenant_limits,
-    multi_tenant_manager
-)
-from src.domain.entities.tenant_context import TenantContext
+from services.csv_analyzer import CSVAnalyzer
 
 # Application services
 from services.rag_engine import RAGEngine
-from services.csv_analyzer import CSVAnalyzer
-from src.presentation.streamlit.pdf_exporter import PDFExporter
-from src.application.services.pdf_processor import PDFProcessor
 from src.application.services.calculation_engine import CalculationEngine
+from src.application.services.pdf_processor import PDFProcessor
+from src.domain.entities.tenant_context import TenantContext
+from src.presentation.streamlit.pdf_exporter import PDFExporter
+
+# Multi-tenant authentication
+from .auth import (
+    LoginRequest,
+    LoginResponse,
+    check_tenant_limits,
+    get_current_tenant,
+    get_optional_tenant,
+    login,
+    multi_tenant_manager,
+)
+
+# Scalar documentation
+from .config.scalar_docs import add_scalar_docs
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -79,10 +82,10 @@ def get_tenant_rag_engine(tenant: TenantContext = Depends(get_current_tenant)) -
     # Use a cache for tenant-specific engines
     if not hasattr(get_tenant_rag_engine, '_tenant_engines'):
         get_tenant_rag_engine._tenant_engines = {}
-    
+
     if tenant.tenant_id not in get_tenant_rag_engine._tenant_engines:
         get_tenant_rag_engine._tenant_engines[tenant.tenant_id] = RAGEngine(tenant_context=tenant)
-    
+
     return get_tenant_rag_engine._tenant_engines[tenant.tenant_id]
 
 def get_optional_rag_engine(tenant: Optional[TenantContext] = Depends(get_optional_tenant)) -> RAGEngine:
@@ -91,12 +94,12 @@ def get_optional_rag_engine(tenant: Optional[TenantContext] = Depends(get_option
         # Use a cache for tenant-specific engines
         if not hasattr(get_optional_rag_engine, '_tenant_engines'):
             get_optional_rag_engine._tenant_engines = {}
-        
+
         if tenant.tenant_id not in get_optional_rag_engine._tenant_engines:
             get_optional_rag_engine._tenant_engines[tenant.tenant_id] = RAGEngine(tenant_context=tenant)
-        
+
         return get_optional_rag_engine._tenant_engines[tenant.tenant_id]
-    
+
     # Return default engine for non-tenant requests
     global rag_engine
     if rag_engine is None:
@@ -138,9 +141,9 @@ class HealthCheckResponse(BaseModel):
     status: str = Field(..., description="Stato del servizio", example="healthy")
     timestamp: str = Field(..., description="Timestamp del controllo", example="2024-12-07T10:30:00Z")
     version: str = Field(..., description="Versione API", example="1.0.0")
-    services: Dict[str, str] = Field(..., description="Stati dei servizi", example={
+    services: dict[str, str] = Field(..., description="Stati dei servizi", example={
         "rag_engine": "healthy",
-        "csv_analyzer": "healthy", 
+        "csv_analyzer": "healthy",
         "qdrant": "healthy",
         "openai": "healthy"
     })
@@ -155,10 +158,10 @@ class AnalysisResult(BaseModel):
     """Modello risultato analisi."""
     analysis: str = Field(..., description="Testo analisi principale", example="L'azienda mostra performance finanziarie solide...")
     confidence: float = Field(..., description="Punteggio confidenza analisi", example=0.85)
-    sources: List[Dict[str, Any]] = Field(..., description="Documenti sorgente utilizzati", example=[
+    sources: list[dict[str, Any]] = Field(..., description="Documenti sorgente utilizzati", example=[
         {"source": "report_finanziario.pdf", "page": 1, "confidence": 0.9}
     ])
-    metadata: Dict[str, Any] = Field(..., description="Metadati aggiuntivi", example={
+    metadata: dict[str, Any] = Field(..., description="Metadati aggiuntivi", example={
         "processing_time": 2.5,
         "document_pages": 15,
         "tables_found": 3
@@ -173,9 +176,9 @@ class FAQItem(BaseModel):
 class PDFAnalysisResponse(BaseModel):
     """Modello risposta analisi PDF."""
     analysis: AnalysisResult = Field(..., description="Risultati analisi documento")
-    faqs: List[FAQItem] = Field(..., description="FAQ generate", min_items=10, max_items=10)
+    faqs: list[FAQItem] = Field(..., description="FAQ generate", min_items=10, max_items=10)
     processing_time: float = Field(..., description="Tempo elaborazione in secondi", example=15.2)
-    file_info: Dict[str, Any] = Field(..., description="Informazioni file", example={
+    file_info: dict[str, Any] = Field(..., description="Informazioni file", example={
         "filename": "report.pdf",
         "size_bytes": 1048576,
         "pages": 15,
@@ -194,8 +197,8 @@ class ActionItem(BaseModel):
 class CSVAnalysisResponse(BaseModel):
     """CSV analysis response model."""
     summary: str = Field(..., description="Analysis summary", example="The dataset shows concerning trends...")
-    actions: List[ActionItem] = Field(..., description="Recommended actions")
-    metrics: Dict[str, float] = Field(..., description="Key metrics", example={
+    actions: list[ActionItem] = Field(..., description="Recommended actions")
+    metrics: dict[str, float] = Field(..., description="Key metrics", example={
         "total_revenue": 1000000,
         "growth_rate": 15.5,
         "risk_score": 0.25
@@ -212,7 +215,7 @@ class QueryResponse(BaseModel):
     """Query response model."""
     answer: str = Field(..., description="Generated answer", example="The total revenue is 5.2 million EUR")
     confidence: float = Field(..., description="Answer confidence", example=0.87)
-    sources: List[Dict[str, Any]] = Field(..., description="Source information")
+    sources: list[dict[str, Any]] = Field(..., description="Source information")
     analysis_type: str = Field(..., description="Type of analysis performed", example="standard")
 
 # FastAPI Application
@@ -220,20 +223,20 @@ app = FastAPI(
     title="API RAG Business Intelligence",
     description="""
     ## API Sistema RAG Business Intelligence
-    
-    Un'API completa per analizzare documenti aziendali, estrarre insight 
+
+    Un'API completa per analizzare documenti aziendali, estrarre insight
     e fornire raccomandazioni operative attraverso elaborazione AI avanzata.
-    
+
     ### Funzionalità Principali:
     - **Analisi PDF**: Estrae insight da report finanziari, presentazioni e documenti
     - **Elaborazione CSV**: Analizza dataset e fornisce raccomandazioni operative
     - **Output Multi-formato**: Risultati in JSON, testo o PDF formattato professionalmente
     - **Funzioni Enterprise**: Calcoli avanzati, tracciamento lineage e validazione dati
     - **Monitoraggio Stato**: Controlli stato completi e monitoraggio sistema
-    
+
     ### Autenticazione
     Attualmente utilizza autenticazione API key (se configurata nell'ambiente).
-    
+
     ### Limiti Velocità
     - Endpoint standard: 100 richieste/minuto
     - Endpoint analisi: 10 richieste/minuto
@@ -269,20 +272,20 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
-    
+
     openapi_schema = get_openapi(
         title="Business Intelligence RAG API",
         version="1.0.0",
         description=app.description,
         routes=app.routes,
     )
-    
+
     # Add custom schemas and examples
     openapi_schema["info"]["x-logo"] = {
         "url": "https://www.zcscompany.com/logo.png",
         "altText": "ZCS Company Logo"
     }
-    
+
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
@@ -299,9 +302,9 @@ add_scalar_docs(app)
     summary="Login Tenant",
     description="""
     Authenticate user and create tenant session.
-    
+
     Creates JWT token for multi-tenant access.
-    
+
     Example:
     ```bash
     curl -X POST "http://localhost:8000/auth/login" \\
@@ -325,7 +328,7 @@ async def api_login(request: LoginRequest):
 async def get_tenant_info(tenant: TenantContext = Depends(get_current_tenant)):
     """Get current tenant information."""
     usage = multi_tenant_manager.get_tenant_usage(tenant.tenant_id)
-    
+
     return {
         "tenant_id": tenant.tenant_id,
         "company_name": tenant.organization,
@@ -349,25 +352,25 @@ async def get_tenant_info(tenant: TenantContext = Depends(get_current_tenant)):
     summary="Controllo Stato Sistema",
     description="""
     Controllo stato completo del sistema e di tutti i componenti.
-    
+
     Casi d'uso:
     - Health check Docker per container
     - Monitoraggio load balancer
     - Dashboard stato sistema
     - Service discovery health checks
-    
+
     Restituisce:
     - Stato servizio (healthy/degraded/unhealthy)
     - Stati componenti individuali
     - Timestamp del controllo
     - Informazioni versione API
-    
+
     Esempio risposta:
     ```json
     {
       "status": "healthy",
       "timestamp": "2024-12-07T10:30:00Z",
-      "version": "1.0.0", 
+      "version": "1.0.0",
       "services": {
         "rag_engine": "healthy",
         "csv_analyzer": "healthy",
@@ -381,36 +384,36 @@ async def get_tenant_info(tenant: TenantContext = Depends(get_current_tenant)):
 async def health_check():
     """
     Perform comprehensive health check of all system components.
-    
+
     Checks:
     - RAG Engine initialization
     - CSV Analyzer status
     - Qdrant vector database connection
     - OpenAI API connectivity
     - File system access
-    
+
     Returns:
         HealthCheckResponse: Detailed health status
     """
     services = {}
     overall_status = "healthy"
-    
+
     try:
         # Check RAG Engine
-        rag = get_rag_engine()
+        get_rag_engine()
         services["rag_engine"] = "healthy"
     except Exception as e:
         services["rag_engine"] = f"unhealthy: {str(e)[:50]}"
         overall_status = "degraded"
-    
+
     try:
         # Check CSV Analyzer
-        csv = get_csv_analyzer()
+        get_csv_analyzer()
         services["csv_analyzer"] = "healthy"
     except Exception as e:
         services["csv_analyzer"] = f"unhealthy: {str(e)[:50]}"
         overall_status = "degraded"
-    
+
     try:
         # Check Qdrant
         import requests
@@ -419,7 +422,7 @@ async def health_check():
     except Exception as e:
         services["qdrant"] = f"unhealthy: {str(e)[:50]}"
         overall_status = "degraded"
-    
+
     try:
         # Check OpenAI (if configured)
         if os.getenv("OPENAI_API_KEY"):
@@ -428,7 +431,7 @@ async def health_check():
             services["openai"] = "not_configured"
     except Exception as e:
         services["openai"] = f"error: {str(e)[:50]}"
-    
+
     return HealthCheckResponse(
         status=overall_status,
         timestamp=datetime.now(timezone.utc).isoformat(),
@@ -440,7 +443,7 @@ async def health_check():
 async def readiness_check():
     """
     Probe di disponibilità stile Kubernetes.
-    
+
     Restituisce 200 se il servizio è pronto ad accettare richieste, altrimenti 503.
     """
     try:
@@ -456,7 +459,7 @@ async def readiness_check():
 async def liveness_check():
     """
     Probe di vitalità stile Kubernetes.
-    
+
     Restituisce 200 se il servizio è attivo, 503 se dovrebbe essere riavviato.
     """
     return {"status": "alive", "timestamp": datetime.now(timezone.utc).isoformat()}
@@ -468,21 +471,21 @@ async def liveness_check():
     response_model=PDFAnalysisResponse,
     summary="Analizza Documento PDF",
     description="""
-    Analisi completa documenti PDF con elaborazione OCR, estrazione tabelle, 
+    Analisi completa documenti PDF con elaborazione OCR, estrazione tabelle,
     identificazione metriche finanziarie e generazione automatica FAQ.
-    
+
     Funzionalità:
     - Elaborazione OCR per documenti scansionati
     - Estrazione tabelle e analisi dati strutturati
-    - Identificazione metriche finanziarie automatiche  
+    - Identificazione metriche finanziarie automatiche
     - Generazione FAQ automatica (10 domande pertinenti)
     - Output multi-formato (JSON, PDF, testo)
-    
+
     Formati supportati:
     - PDF nativi e scansionati
     - Dimensione massima: 50MB
     - Pagine massime: 100
-    
+
     Passi di elaborazione:
     1. Caricamento e validazione file
     2. Elaborazione OCR (se necessario)
@@ -490,12 +493,12 @@ async def liveness_check():
     4. Analisi AI-powered con insights
     5. Generazione FAQ automatica
     6. Formattazione risposta finale
-    
+
     Formati output:
     - json: Risposta JSON strutturata (default)
     - pdf: Report professionale PDF
     - text: Formato testo semplice
-    
+
     Esempio utilizzo:
     ```bash
     curl -X POST "http://localhost:8000/analyze/pdf?output_format=json" \\
@@ -516,54 +519,54 @@ async def analyze_pdf(
 ):
     """
     Analyze PDF document and return comprehensive insights with FAQ generation.
-    
+
     Args:
         file: PDF file to analyze
         output_format: Response format (json, pdf, text)
         enterprise_mode: Enable advanced enterprise features
-        
+
     Returns:
         PDFAnalysisResponse or FileResponse: Analysis results in requested format
-        
+
     Raises:
         HTTPException: If file processing fails or unsupported format
     """
     start_time = datetime.now()
-    
+
     # Validate file
     print (file.filename)
     if not file.filename.lower().endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
-    
+
     if file.size and file.size > 50 * 1024 * 1024:  # 50MB limit
         raise HTTPException(status_code=400, detail="File too large (max 50MB)")
-    
+
     # Check tenant limits if authenticated
     if tenant:
         if not check_tenant_limits(tenant, "documents", 1):
             raise HTTPException(
-                status_code=403, 
+                status_code=403,
                 detail=f"Document limit exceeded for {tenant.tier.value} tier"
             )
-        
+
         # Track usage
         multi_tenant_manager.track_usage(tenant.tenant_id, "documents", 1)
-    
+
     try:
         # Save uploaded file temporarily
         with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
             content = await file.read()
             tmp_file.write(content)
             tmp_file_path = tmp_file.name
-        
+
         try:
             # Process PDF
             logger.info(f"Processing PDF: {file.filename}")
             pdf_result = pdf_processor.process_pdf(tmp_file_path)
-            
+
             # Index document for RAG
             rag_engine.index_documents([tmp_file_path])
-            
+
             # Get main analysis using best prompt
             if enterprise_mode:
                 analysis_response = rag_engine.enterprise_query(
@@ -573,7 +576,7 @@ async def analyze_pdf(
                 analysis_response = rag_engine.query(
                     "Fornisci un'analisi completa e dettagliata del documento, includendo tutti i dati finanziari chiave, tendenze, rischi e opportunità identificate."
                 )
-            
+
             # Generate 10 FAQs
             faq_questions = [
                 "Qual è il fatturato dell'azienda?",
@@ -587,7 +590,7 @@ async def analyze_pdf(
                 "Quali sono gli investimenti pianificati?",
                 "Qual è l'outlook per il futuro?"
             ]
-            
+
             faqs = []
             for question in faq_questions:
                 try:
@@ -604,7 +607,7 @@ async def analyze_pdf(
                         answer="Informazione non disponibile nel documento.",
                         confidence=0.0
                     ))
-            
+
             # Create analysis result
             analysis_result = AnalysisResult(
                 analysis=analysis_response['answer'],
@@ -617,9 +620,9 @@ async def analyze_pdf(
                     'extraction_method': 'pdf_processor_with_ocr' if any(t.is_ocr for t in pdf_result.texts) else 'pdf_processor'
                 }
             )
-            
+
             processing_time = (datetime.now() - start_time).total_seconds()
-            
+
             # Create response
             response_data = PDFAnalysisResponse(
                 analysis=analysis_result,
@@ -633,7 +636,7 @@ async def analyze_pdf(
                     'has_ocr': any(t.is_ocr for t in pdf_result.texts)
                 }
             )
-            
+
             # Handle different output formats
             if output_format.lower() == 'json':
                 return response_data
@@ -650,9 +653,9 @@ DOMANDE FREQUENTI:
 """
                 for i, faq in enumerate(response_data.faqs, 1):
                     text_output += f"\n{i}. {faq.question}\n   {faq.answer}\n"
-                
+
                 return Response(content=text_output, media_type="text/plain")
-            
+
             elif output_format.lower() == 'pdf':
                 # Generate PDF report
                 pdf_data = {
@@ -660,9 +663,9 @@ DOMANDE FREQUENTI:
                     'faqs': [{'question': faq.question, 'answer': faq.answer} for faq in response_data.faqs],
                     'metadata': response_data.file_info
                 }
-                
+
                 pdf_bytes = pdf_exporter.create_analysis_report(pdf_data)
-                
+
                 return Response(
                     content=pdf_bytes,
                     media_type="application/pdf",
@@ -670,12 +673,12 @@ DOMANDE FREQUENTI:
                 )
             else:
                 raise HTTPException(status_code=400, detail="Unsupported output format")
-        
+
         finally:
             # Clean up temporary file
             if os.path.exists(tmp_file_path):
                 os.unlink(tmp_file_path)
-    
+
     except HTTPException:
         raise
     except Exception as e:
@@ -689,7 +692,7 @@ DOMANDE FREQUENTI:
     summary="Analizza Dati CSV",
     description="""
     Analisi completa dataset CSV con raccomandazioni operative e business intelligence.
-    
+
     Funzionalità:
     - Rilevamento automatico tipi di dato
     - Analisi statistiche avanzate
@@ -697,20 +700,20 @@ DOMANDE FREQUENTI:
     - Valutazione rischi operativi
     - Raccomandazioni operative specifiche
     - Calcolo metriche di performance
-    
+
     Formati supportati:
     - File CSV con vari separatori
-    - File Excel (.xlsx, .xls) 
+    - File Excel (.xlsx, .xls)
     - File TSV (Tab-separated values)
     - Dimensione massima: 10MB
     - Righe massime: 100,000
-    
+
     Tipi di analisi:
     - Analisi dati finanziari e KPI
     - Review performance vendite
     - Valutazione metriche operative
     - Identificazione rischi e opportunità
-    
+
     Esempio utilizzo:
     ```bash
     curl -X POST "http://localhost:8000/analyze/csv" \\
@@ -727,27 +730,27 @@ async def analyze_csv(
 ):
     """
     Analyze CSV data and provide actionable business recommendations.
-    
+
     Args:
         file: CSV file to analyze
         analysis_type: Type of analysis to perform
-        
+
     Returns:
         CSVAnalysisResponse: Analysis results with recommended actions
-        
+
     Raises:
         HTTPException: If file processing fails or unsupported format
     """
     start_time = datetime.now()
-    
+
     # Validate file
     valid_extensions = ['.csv', '.xlsx', '.xls', '.tsv']
     if not any(file.filename.lower().endswith(ext) for ext in valid_extensions):
         raise HTTPException(status_code=400, detail="Unsupported file format")
-    
+
     if file.size and file.size > 10 * 1024 * 1024:  # 10MB limit
         raise HTTPException(status_code=400, detail="File too large (max 10MB)")
-    
+
     try:
         # Save uploaded file temporarily
         suffix = Path(file.filename).suffix
@@ -755,18 +758,18 @@ async def analyze_csv(
             content = await file.read()
             tmp_file.write(content)
             tmp_file_path = tmp_file.name
-        
+
         try:
             # Analyze CSV
             logger.info(f"Analyzing CSV: {file.filename}")
             analysis_result = csv_analyzer.analyze_comprehensive(tmp_file_path)
-            
+
             # Generate actionable recommendations based on analysis
             actions = []
-            
+
             # Example action generation based on analysis results
             summary = analysis_result.get('summary', {})
-            
+
             # Financial health actions
             if 'negative_trend' in str(summary).lower():
                 actions.append(ActionItem(
@@ -777,7 +780,7 @@ async def analyze_csv(
                     impact="Potential 10-15% improvement in profitability",
                     timeline="Within 30 days"
                 ))
-            
+
             # Cash flow actions
             if 'cash flow' in str(summary).lower() and 'negative' in str(summary).lower():
                 actions.append(ActionItem(
@@ -788,7 +791,7 @@ async def analyze_csv(
                     impact="Improve cash position by 20-25%",
                     timeline="Within 15 days"
                 ))
-            
+
             # Growth opportunities
             actions.append(ActionItem(
                 priority="MEDIUM",
@@ -798,7 +801,7 @@ async def analyze_csv(
                 impact="Potential 12-18% revenue increase",
                 timeline="Within 90 days"
             ))
-            
+
             # Operational efficiency
             actions.append(ActionItem(
                 priority="MEDIUM",
@@ -808,7 +811,7 @@ async def analyze_csv(
                 impact="5-10% reduction in operational costs",
                 timeline="Within 60 days"
             ))
-            
+
             # Risk management
             actions.append(ActionItem(
                 priority="LOW",
@@ -818,7 +821,7 @@ async def analyze_csv(
                 impact="Reduce business risk exposure by 15%",
                 timeline="Within 120 days"
             ))
-            
+
             # Calculate key metrics
             metrics = {
                 "total_records": analysis_result.get('record_count', 0),
@@ -826,7 +829,7 @@ async def analyze_csv(
                 "risk_score": 0.3,  # Calculated based on analysis
                 "processing_accuracy": 0.95
             }
-            
+
             # Add financial metrics if available
             if 'financial_summary' in analysis_result:
                 fin_summary = analysis_result['financial_summary']
@@ -835,21 +838,21 @@ async def analyze_csv(
                     "growth_rate": fin_summary.get('growth_rate', 0),
                     "profit_margin": fin_summary.get('profit_margin', 0)
                 })
-            
+
             processing_time = (datetime.now() - start_time).total_seconds()
-            
+
             return CSVAnalysisResponse(
                 summary=f"Analysis of {file.filename} completed. {analysis_result.get('insights', 'Data processed successfully with comprehensive insights generated.')}",
                 actions=actions,
                 metrics=metrics,
                 processing_time=processing_time
             )
-        
+
         finally:
             # Clean up temporary file
             if os.path.exists(tmp_file_path):
                 os.unlink(tmp_file_path)
-    
+
     except HTTPException:
         raise
     except Exception as e:
@@ -864,20 +867,20 @@ async def analyze_csv(
     summary="Interroga Knowledge Base",
     description="""
     Interrogazione knowledge base con domande in linguaggio naturale.
-    
+
     Funzionalità:
     - Elaborazione linguaggio naturale avanzata
     - Risposte context-aware intelligenti
     - Citazione fonti automatica
     - Scoring confidenza risultati
     - Supporto modalità enterprise avanzata
-    
+
     Casi d'uso:
     - Integrazione ChatBot aziendali
     - Query business intelligence avanzate
     - Ricerca documenti semantica
     - Reporting automatizzato intelligente
-    
+
     Esempio utilizzo:
     ```bash
     curl -X POST "http://localhost:8000/query" \\
@@ -893,10 +896,10 @@ async def query_knowledge_base(
 ):
     """
     Query the knowledge base with natural language questions.
-    
+
     Args:
         request: Query request with question and options
-        
+
     Returns:
         QueryResponse: Answer with sources and confidence
     """
@@ -905,14 +908,14 @@ async def query_knowledge_base(
             response = rag_engine.enterprise_query(request.question)
         else:
             response = rag_engine.query(request.question)
-        
+
         return QueryResponse(
             answer=response['answer'],
             confidence=response.get('confidence', 0.8),
             sources=response.get('sources', []),
             analysis_type=response.get('analysis_type', 'standard')
         )
-    
+
     except Exception as e:
         logger.error(f"Query failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
@@ -923,7 +926,7 @@ async def query_knowledge_base(
     summary="Lista Documenti Indicizzati",
     description="""
     Lista documenti indicizzati nella knowledge base.
-    
+
     Restituisce:
     - Nomi documenti indicizzati
     - Date indicizzazione per ogni documento
@@ -936,7 +939,7 @@ async def query_knowledge_base(
 async def list_documents():
     """
     Get list of all indexed documents.
-    
+
     Returns:
         Dict: List of documents with metadata
     """
@@ -945,14 +948,14 @@ async def list_documents():
         # Get Qdrant collection info
         response = requests.get("http://localhost:6333/collections/business_documents")
         collection_info = response.json()
-        
+
         return {
             "total_documents": collection_info['result']['points_count'],
             "status": collection_info['result']['status'],
             "indexed_vectors": collection_info['result']['indexed_vectors_count'],
             "collection_info": collection_info['result']['config']
         }
-    
+
     except Exception as e:
         logger.error(f"Failed to list documents: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to list documents: {str(e)}")
@@ -963,12 +966,12 @@ async def list_documents():
     summary="Svuota Knowledge Base",
     description="""
     Rimuove tutti i documenti indicizzati dalla knowledge base.
-    
+
     ATTENZIONE: Questa azione è IRREVERSIBILE!
-    
+
     Casi d'uso:
     - Manutenzione sistema periodica
-    - Refresh dati completo  
+    - Refresh dati completo
     - Reset ambiente di testing
     """,
     tags=["Base Conoscenza"]
@@ -976,7 +979,7 @@ async def list_documents():
 async def clear_knowledge_base():
     """
     Clear all indexed documents from the knowledge base.
-    
+
     Returns:
         Dict: Confirmation message
     """
@@ -984,13 +987,13 @@ async def clear_knowledge_base():
         import requests
         # Delete and recreate collection
         requests.delete("http://localhost:6333/collections/business_documents")
-        
+
         # Reinitialize RAG engine to recreate collection
         global rag_engine
         rag_engine = RAGEngine()
-        
+
         return {"message": "Knowledge base cleared successfully"}
-    
+
     except Exception as e:
         logger.error(f"Failed to clear knowledge base: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to clear knowledge base: {str(e)}")
@@ -1001,37 +1004,37 @@ async def clear_knowledge_base():
     summary="Indicizza Nuovi Documenti",
     description="""
     Indicizza nuovi documenti nella knowledge base per l'analisi.
-    
+
     Formati supportati:
     - File PDF (nativi e scansionati)
     - File CSV con vari separatori
     - File Excel (.xlsx, .xls)
     - File di testo (.txt, .md)
     - Caricamenti multipli in singola richiesta
-    
+
     Elaborazione in background:
     I documenti vengono indicizzati in background per prestazioni ottimali.
     """,
     tags=["Base Conoscenza"]
 )
 async def index_documents(
-    files: List[UploadFile] = File(..., description="Documenti da indicizzare"),
+    files: list[UploadFile] = File(..., description="Documenti da indicizzare"),
     background_tasks: BackgroundTasks = BackgroundTasks(),
     rag_engine: RAGEngine = Depends(get_optional_rag_engine)
 ):
     """
     Index multiple documents into the knowledge base.
-    
+
     Args:
         files: List of files to index
         background_tasks: Background task handler
-        
+
     Returns:
         Dict: Indexing status and information
     """
     try:
         temp_files = []
-        
+
         # Save all files temporarily
         for file in files:
             suffix = Path(file.filename).suffix
@@ -1039,7 +1042,7 @@ async def index_documents(
                 content = await file.read()
                 tmp_file.write(content)
                 temp_files.append((tmp_file.name, file.filename))
-        
+
         # Index documents in background
         def index_files():
             try:
@@ -1051,15 +1054,15 @@ async def index_documents(
                         os.unlink(path)
             except Exception as e:
                 logger.error(f"Background indexing failed: {str(e)}")
-        
+
         background_tasks.add_task(index_files)
-        
+
         return {
             "message": f"Indexing {len(files)} documents in background",
             "files": [filename for _, filename in temp_files],
             "status": "processing"
         }
-    
+
     except Exception as e:
         logger.error(f"Failed to index documents: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to index documents: {str(e)}")
@@ -1096,11 +1099,11 @@ async def general_exception_handler(request, exc):
 async def startup_event():
     """Initialize services on startup."""
     logger.info("Starting Business Intelligence RAG API...")
-    
+
     # Initialize services
     try:
         get_rag_engine()
-        get_csv_analyzer() 
+        get_csv_analyzer()
         get_pdf_processor()
         get_calculation_engine()
         get_pdf_exporter()
@@ -1118,7 +1121,7 @@ async def shutdown_event():
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     # Configuration for development
     uvicorn.run(
         "api_main:app",

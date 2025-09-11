@@ -3,14 +3,13 @@
 from datetime import datetime
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from llama_index.core import Document, Settings, SimpleDirectoryReader, StorageContext, VectorStoreIndex
 from llama_index.core.node_parser import SimpleNodeParser
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
 from llama_index.vector_stores.qdrant import QdrantVectorStore
-from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 
 from config.settings import settings
@@ -18,6 +17,7 @@ from services.format_helper import format_analysis_result
 from services.prompt_router import choose_prompt
 from services.query_cache import QueryCache
 from src.domain.entities.tenant_context import TenantContext
+from src.infrastructure.performance.connection_pool import get_qdrant_pool, get_query_optimizer
 
 try:
     from src.application.services.enterprise_orchestrator import EnterpriseOrchestrator, EnterpriseQuery
@@ -28,6 +28,17 @@ except ImportError:
     ENTERPRISE_AVAILABLE = False
     EnterpriseOrchestrator = None
     EnterpriseQuery = None
+
+try:
+    from src.application.services.hyde_retriever import HyDEConfig, HyDEQueryEngine
+    from src.application.services.streaming_rag import StreamingChunk, StreamingRAGEngine
+
+    ADVANCED_FEATURES_AVAILABLE = True
+except ImportError:
+    logger.warning("Advanced features (Streaming/HyDE) not available")
+    ADVANCED_FEATURES_AVAILABLE = False
+    StreamingRAGEngine = None
+    HyDEQueryEngine = None
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -45,7 +56,9 @@ class RAGEngine:
         self.collection_name = self._get_tenant_collection_name()
         # Initialize query cache if enabled (with tenant namespace if multi-tenant)
         cache_namespace = f"tenant_{tenant_context.tenant_id}" if tenant_context else None
-        self.query_cache = QueryCache(ttl_seconds=3600, namespace=cache_namespace) if settings.rag_enable_caching else None
+        self.query_cache = (
+            QueryCache(ttl_seconds=3600, namespace=cache_namespace) if settings.rag_enable_caching else None
+        )
         # Initialize enterprise orchestrator
         self.enterprise_orchestrator = None
         # Use connection pool for Qdrant
@@ -61,12 +74,9 @@ class RAGEngine:
                 model=settings.llm_model,
                 temperature=settings.temperature,
                 max_tokens=settings.max_tokens,
-                api_key=settings.openai_api_key
+                api_key=settings.openai_api_key,
             )
-            Settings.embed_model = OpenAIEmbedding(
-                model=settings.embedding_model,
-                api_key=settings.openai_api_key
-            )
+            Settings.embed_model = OpenAIEmbedding(model=settings.embedding_model, api_key=settings.openai_api_key)
             Settings.chunk_size = settings.chunk_size
             Settings.chunk_overlap = settings.chunk_overlap
 
@@ -78,20 +88,41 @@ class RAGEngine:
             self._setup_collection()
 
             # Initialize vector store
-            self.vector_store = QdrantVectorStore(
-                client=self.client,
-                collection_name=self.collection_name
-            )
+            self.vector_store = QdrantVectorStore(client=self.client, collection_name=self.collection_name)
 
             # Initialize or load existing index
             self._initialize_index()
-            
+
+            # Initialize advanced features (Streaming and HyDE)
+            self.streaming_engine = None
+            self.hyde_engine = None
+
+            if ADVANCED_FEATURES_AVAILABLE and self.index:
+                try:
+                    # Initialize streaming engine
+                    query_engine = self.index.as_query_engine()
+                    self.streaming_engine = StreamingRAGEngine(
+                        query_engine=query_engine, llm=Settings.llm, chunk_size=10, stream_delay=0.01
+                    )
+
+                    # Initialize HyDE engine
+                    hyde_config = HyDEConfig(num_hypothetical_docs=3, temperature=0.7, include_original_query=True)
+                    self.hyde_engine = HyDEQueryEngine(
+                        index=self.index,
+                        llm=Settings.llm,
+                        hyde_config=hyde_config,
+                        domain="financial",  # Set to financial for business documents
+                    )
+                    logger.info("Advanced features (Streaming/HyDE) initialized")
+                except Exception as e:
+                    logger.warning(f"Could not initialize advanced features: {str(e)}")
+
             # Initialize enterprise orchestrator after RAG components are ready
             if ENTERPRISE_AVAILABLE:
                 self.enterprise_orchestrator = EnterpriseOrchestrator(
                     rag_engine=self,
                     csv_analyzer=None,  # Will be set externally if needed
-                    openai_api_key=settings.openai_api_key  # Pass API key for embeddings
+                    openai_api_key=settings.openai_api_key,  # Pass API key for embeddings
                 )
             else:
                 self.enterprise_orchestrator = None
@@ -123,10 +154,7 @@ class RAGEngine:
                 vector_size = 1536  # OpenAI text-embedding-3-small dimension
                 self.client.create_collection(
                     collection_name=self.collection_name,
-                    vectors_config=VectorParams(
-                        size=vector_size,
-                        distance=Distance.COSINE
-                    )
+                    vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
                 )
                 logger.info(f"Created new collection: {self.collection_name}")
 
@@ -137,49 +165,49 @@ class RAGEngine:
     def _initialize_index(self):
         """Initialize or load existing index."""
         try:
-            storage_context = StorageContext.from_defaults(
-                vector_store=self.vector_store
-            )
+            storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
 
             # Check if index exists in vector store
             collection_info = self.client.get_collection(self.collection_name)
             if collection_info.points_count > 0:
                 # Load existing index
-                self.index = VectorStoreIndex.from_vector_store(
-                    self.vector_store
-                )
+                self.index = VectorStoreIndex.from_vector_store(self.vector_store)
                 logger.info(f"Loaded existing index with {collection_info.points_count} vectors")
             else:
                 # Create new empty index
-                self.index = VectorStoreIndex(
-                    [],
-                    storage_context=storage_context
-                )
+                self.index = VectorStoreIndex([], storage_context=storage_context)
                 logger.info("Created new empty index")
 
         except Exception as e:
             logger.error(f"Error initializing index: {str(e)}")
             self.index = VectorStoreIndex(
-                [],
-                storage_context=StorageContext.from_defaults(vector_store=self.vector_store)
+                [], storage_context=StorageContext.from_defaults(vector_store=self.vector_store)
             )
 
-    def index_documents(self, file_paths: List[str], metadata: Optional[Dict[str, Any]] = None, original_names: Optional[List[str]] = None, permanent_paths: Optional[List[str]] = None, force_prompt_type: Optional[str] = None, csv_analyzer=None) -> Dict[str, Any]:
+    def index_documents(
+        self,
+        file_paths: list[str],
+        metadata: Optional[dict[str, Any]] = None,
+        original_names: Optional[list[str]] = None,
+        permanent_paths: Optional[list[str]] = None,
+        force_prompt_type: Optional[str] = None,
+        csv_analyzer=None,
+    ) -> dict[str, Any]:
         """Index documents from file paths."""
         results = {
-            'indexed_files': [],
-            'failed_files': [],
-            'total_chunks': 0,
-            'errors': [],
-            'document_analyses': {}  # Store automatic analyses
+            "indexed_files": [],
+            "failed_files": [],
+            "total_chunks": 0,
+            "errors": [],
+            "document_analyses": {},  # Store automatic analyses
         }
 
         for i, file_path in enumerate(file_paths):
             try:
                 path = Path(file_path)
                 if not path.exists():
-                    results['failed_files'].append(file_path)
-                    results['errors'].append(f"File not found: {file_path}")
+                    results["failed_files"].append(file_path)
+                    results["errors"].append(f"File not found: {file_path}")
                     continue
 
                 # Use original filename if provided, otherwise use current filename
@@ -188,38 +216,36 @@ class RAGEngine:
                 permanent_path = permanent_paths[i] if permanent_paths and i < len(permanent_paths) else None
 
                 # Load document based on file type
-                if path.suffix.lower() == '.pdf':
+                if path.suffix.lower() == ".pdf":
                     documents = self._load_pdf(file_path, metadata)
-                elif path.suffix.lower() in ['.txt', '.md']:
+                elif path.suffix.lower() in [".txt", ".md"]:
                     documents = self._load_text(file_path, metadata)
-                elif path.suffix.lower() in ['.docx', '.doc']:
+                elif path.suffix.lower() in [".docx", ".doc"]:
                     documents = self._load_docx(file_path, metadata)
-                elif path.suffix.lower() == '.json':
+                elif path.suffix.lower() == ".json":
                     # JSON files are loaded as text documents
                     documents = self._load_text(file_path, metadata)
-                elif path.suffix.lower() == '.csv' and csv_analyzer:
+                elif path.suffix.lower() == ".csv" and csv_analyzer:
                     # CSV files are analyzed and converted to structured documents
                     documents = self._load_csv_with_analysis(file_path, csv_analyzer, metadata)
-                elif path.suffix.lower() == '.csv':
+                elif path.suffix.lower() == ".csv":
                     # Basic CSV loading without analysis
                     documents = self._load_csv_basic(file_path, metadata)
                 else:
-                    documents = SimpleDirectoryReader(
-                        input_files=[file_path]
-                    ).load_data()
+                    documents = SimpleDirectoryReader(input_files=[file_path]).load_data()
 
                 # Add metadata to documents
                 for doc in documents:
                     doc.metadata = doc.metadata or {}
                     doc_metadata = {
-                        'source': display_name,  # Nome file leggibile
-                        'indexed_at': datetime.now().isoformat(),
-                        'file_type': path.suffix.lower(),
-                        'document_size': len(doc.text) if hasattr(doc, 'text') else 0
+                        "source": display_name,  # Nome file leggibile
+                        "indexed_at": datetime.now().isoformat(),
+                        "file_type": path.suffix.lower(),
+                        "document_size": len(doc.text) if hasattr(doc, "text") else 0,
                     }
                     # Add permanent path for PDF viewing (only for PDFs)
-                    if permanent_path and path.suffix.lower() == '.pdf':
-                        doc_metadata['pdf_path'] = permanent_path
+                    if permanent_path and path.suffix.lower() == ".pdf":
+                        doc_metadata["pdf_path"] = permanent_path
 
                     doc.metadata.update(doc_metadata)
                     if metadata:
@@ -234,23 +260,23 @@ class RAGEngine:
 
                 # Generate automatic analysis of the document content
                 if documents:
-                    full_text = '\n'.join([doc.text for doc in documents])
+                    full_text = "\n".join([doc.text for doc in documents])
 
                     # Cache the document text for potential re-analysis
-                    if not hasattr(self, '_last_document_texts'):
+                    if not hasattr(self, "_last_document_texts"):
                         self._last_document_texts = {}
                     self._last_document_texts[display_name] = full_text
 
                     analysis = self.analyze_document_content(full_text, display_name, force_prompt_type)
-                    results['document_analyses'][display_name] = analysis
+                    results["document_analyses"][display_name] = analysis
 
-                results['indexed_files'].append(file_path)
-                results['total_chunks'] += len(nodes)
+                results["indexed_files"].append(file_path)
+                results["total_chunks"] += len(nodes)
                 logger.info(f"Indexed {file_path}: {len(nodes)} chunks")
 
             except Exception as e:
-                results['failed_files'].append(file_path)
-                results['errors'].append(f"Error indexing {file_path}: {str(e)}")
+                results["failed_files"].append(file_path)
+                results["errors"].append(f"Error indexing {file_path}: {str(e)}")
                 logger.error(f"Error indexing {file_path}: {str(e)}")
 
         return results
@@ -265,7 +291,9 @@ class RAGEngine:
             logger.error(f"Error cleaning metadata: {str(e)}")
             return False
 
-    def analyze_document_content(self, document_text: str, file_name: str, force_prompt_type: Optional[str] = None) -> str:
+    def analyze_document_content(
+        self, document_text: str, file_name: str, force_prompt_type: Optional[str] = None
+    ) -> str:
         """Generate automatic analysis of document content using specialized prompts."""
         try:
             from openai import OpenAI
@@ -300,7 +328,9 @@ class RAGEngine:
                     prompt_name = "generale"
                     prompt_text = PROMPT_GENERAL(file_name, analysis_text)
                     debug_info = {"forced": True, "type": "generale", "fallback": True}
-                    logger.warning(f"Unknown prompt type '{force_prompt_type}', using general prompt for document '{file_name}'")
+                    logger.warning(
+                        f"Unknown prompt type '{force_prompt_type}', using general prompt for document '{file_name}'"
+                    )
             else:
                 # Use automatic selection
                 prompt_name, prompt_text, debug_info = choose_prompt(file_name, analysis_text)
@@ -312,15 +342,12 @@ class RAGEngine:
                 messages=[
                     {
                         "role": "system",
-                        "content": "Sei un analista aziendale esperto che crea analisi professionali di documenti. Rispondi sempre in italiano perfetto e in modo strutturato e chiaro. Segui esattamente il formato richiesto nel prompt."
+                        "content": "Sei un analista aziendale esperto che crea analisi professionali di documenti. Rispondi sempre in italiano perfetto e in modo strutturato e chiaro. Segui esattamente il formato richiesto nel prompt.",
                     },
-                    {
-                        "role": "user",
-                        "content": prompt_text
-                    }
+                    {"role": "user", "content": prompt_text},
                 ],
                 temperature=0.2,  # Lower temperature for more structured output
-                max_tokens=1500  # Increased for JSON + summary format
+                max_tokens=1500,  # Increased for JSON + summary format
             )
 
             analysis_result = response.choices[0].message.content
@@ -337,11 +364,11 @@ class RAGEngine:
             logger.error(f"Error analyzing document content: {str(e)}")
             return "Analisi automatica non disponibile per questo documento. Contenuto indicizzato correttamente per le ricerche."
 
-    def reanalyze_documents_with_prompt(self, force_prompt_type: str) -> Dict[str, str]:
+    def reanalyze_documents_with_prompt(self, force_prompt_type: str) -> dict[str, str]:
         """Re-analyze existing documents with a specific prompt type."""
         try:
             # Check if we have existing analyses in memory that can be re-processed
-            if hasattr(self, '_last_document_texts') and self._last_document_texts:
+            if hasattr(self, "_last_document_texts") and self._last_document_texts:
                 logger.info("Using cached document texts for re-analysis")
                 results = {}
                 for source, text in self._last_document_texts.items():
@@ -350,7 +377,9 @@ class RAGEngine:
                         analysis = self.analyze_document_content(text, source, force_prompt_type)
                         results[source] = analysis
                     else:
-                        results[source] = f"## Errore di Ri-analisi\n\nNessun contenuto disponibile per il documento '{source}'."
+                        results[source] = (
+                            f"## Errore di Ri-analisi\n\nNessun contenuto disponibile per il documento '{source}'."
+                        )
                 return results
 
             # Fallback: try to get content from vector store (less reliable)
@@ -376,7 +405,7 @@ class RAGEngine:
                     documents_content = {}
 
                     for node in response.source_nodes:
-                        source = node.node.metadata.get('source', 'Unknown')
+                        source = node.node.metadata.get("source", "Unknown")
                         text = node.node.text or node.node.get_content()
 
                         if source not in documents_content:
@@ -389,9 +418,11 @@ class RAGEngine:
                     for source, text_chunks in documents_content.items():
                         try:
                             # Combine all chunks for this document
-                            full_text = '\n\n'.join(text_chunks)
+                            full_text = "\n\n".join(text_chunks)
 
-                            logger.info(f"Re-analyzing document '{source}': {len(text_chunks)} chunks, {len(full_text)} total characters")
+                            logger.info(
+                                f"Re-analyzing document '{source}': {len(text_chunks)} chunks, {len(full_text)} total characters"
+                            )
 
                             # Check if we have actual content
                             if not full_text.strip() or len(full_text.strip()) < 50:
@@ -431,7 +462,7 @@ class RAGEngine:
             logger.error(f"Error in reanalyze_documents_with_prompt: {str(e)}")
             return {"error": f"Errore nella ri-analisi: {str(e)}"}
 
-    def _load_pdf(self, file_path: str, metadata: Optional[Dict[str, Any]] = None) -> List[Document]:
+    def _load_pdf(self, file_path: str, metadata: Optional[dict[str, Any]] = None) -> list[Document]:
         """Load and parse PDF documents with enhanced text extraction."""
         try:
             from pypdf import PdfReader
@@ -448,49 +479,53 @@ class RAGEngine:
                     page_text_length = len(text.strip())
                     total_extracted_text += text
 
-                    logger.debug(f"Page {i+1}: extracted {page_text_length} characters")
+                    logger.debug(f"Page {i + 1}: extracted {page_text_length} characters")
 
                     if text.strip():
                         doc = Document(
                             text=text,
                             metadata={
-                                'page': i + 1,
-                                'total_pages': len(reader.pages),
-                                'source': file_path,
-                                'page_text_length': page_text_length
-                            }
+                                "page": i + 1,
+                                "total_pages": len(reader.pages),
+                                "source": file_path,
+                                "page_text_length": page_text_length,
+                            },
                         )
                         if metadata:
                             doc.metadata.update(metadata)
                         documents.append(doc)
                     else:
-                        logger.warning(f"Page {i+1} in {file_path} has no extractable text")
+                        logger.warning(f"Page {i + 1} in {file_path} has no extractable text")
 
                 except Exception as page_error:
-                    logger.error(f"Error extracting text from page {i+1} in {file_path}: {str(page_error)}")
+                    logger.error(f"Error extracting text from page {i + 1} in {file_path}: {str(page_error)}")
                     continue
 
             total_text_length = len(total_extracted_text.strip())
-            logger.info(f"PDF processing complete: {len(documents)} pages with text, {total_text_length} total characters")
+            logger.info(
+                f"PDF processing complete: {len(documents)} pages with text, {total_text_length} total characters"
+            )
 
             # If we extracted very little text, try alternative approach
             if total_text_length < 100:
-                logger.warning(f"Very little text extracted ({total_text_length} chars). PDF might be image-based or have extraction issues.")
+                logger.warning(
+                    f"Very little text extracted ({total_text_length} chars). PDF might be image-based or have extraction issues."
+                )
 
                 # Create a placeholder document with a warning
                 if not documents:
                     warning_doc = Document(
                         text=f"[ATTENZIONE] Il documento PDF '{file_path}' potrebbe contenere principalmente immagini o avere problemi di estrazione testo. "
-                              f"Sono stati estratti solo {total_text_length} caratteri da {len(reader.pages)} pagine. "
-                              f"Per un'analisi completa, si consiglia di utilizzare un documento con testo selezionabile o di convertire "
-                              f"le immagini in testo utilizzando OCR.",
+                        f"Sono stati estratti solo {total_text_length} caratteri da {len(reader.pages)} pagine. "
+                        f"Per un'analisi completa, si consiglia di utilizzare un documento con testo selezionabile o di convertire "
+                        f"le immagini in testo utilizzando OCR.",
                         metadata={
-                            'page': 1,
-                            'total_pages': len(reader.pages),
-                            'source': file_path,
-                            'extraction_warning': True,
-                            'total_text_length': total_text_length
-                        }
+                            "page": 1,
+                            "total_pages": len(reader.pages),
+                            "source": file_path,
+                            "extraction_warning": True,
+                            "total_text_length": total_text_length,
+                        },
                     )
                     if metadata:
                         warning_doc.metadata.update(metadata)
@@ -502,16 +537,13 @@ class RAGEngine:
             logger.error(f"Error loading PDF {file_path}: {str(e)}")
             raise
 
-    def _load_text(self, file_path: str, metadata: Optional[Dict[str, Any]] = None) -> List[Document]:
+    def _load_text(self, file_path: str, metadata: Optional[dict[str, Any]] = None) -> list[Document]:
         """Load text or markdown files."""
         try:
-            with open(file_path, encoding='utf-8') as f:
+            with open(file_path, encoding="utf-8") as f:
                 content = f.read()
 
-            doc = Document(
-                text=content,
-                metadata={'source': file_path}
-            )
+            doc = Document(text=content, metadata={"source": file_path})
             if metadata:
                 doc.metadata.update(metadata)
 
@@ -521,7 +553,7 @@ class RAGEngine:
             logger.error(f"Error loading text file {file_path}: {str(e)}")
             raise
 
-    def _load_docx(self, file_path: str, metadata: Optional[Dict[str, Any]] = None) -> List[Document]:
+    def _load_docx(self, file_path: str, metadata: Optional[dict[str, Any]] = None) -> list[Document]:
         """Load Word documents."""
         try:
             from docx import Document as DocxDocument
@@ -540,10 +572,7 @@ class RAGEngine:
                         if cell.text.strip():
                             full_text.append(cell.text)
 
-            document = Document(
-                text='\n'.join(full_text),
-                metadata={'source': file_path}
-            )
+            document = Document(text="\n".join(full_text), metadata={"source": file_path})
             if metadata:
                 document.metadata.update(metadata)
 
@@ -553,15 +582,17 @@ class RAGEngine:
             logger.error(f"Error loading DOCX {file_path}: {str(e)}")
             raise
 
-    def query(self, query_text: str, top_k: int = 3, filters: Optional[Dict[str, Any]] = None, analysis_type: Optional[str] = None) -> Dict[str, Any]:
+    def query(
+        self,
+        query_text: str,
+        top_k: int = 3,
+        filters: Optional[dict[str, Any]] = None,
+        analysis_type: Optional[str] = None,
+    ) -> dict[str, Any]:
         """Query the indexed documents with optional specialized analysis."""
         try:
             if not self.index:
-                return {
-                    'answer': "Nessun documento è stato ancora indicizzato.",
-                    'sources': [],
-                    'confidence': 0
-                }
+                return {"answer": "Nessun documento è stato ancora indicizzato.", "sources": [], "confidence": 0}
 
             # Check cache first if enabled
             if self.query_cache:
@@ -576,7 +607,7 @@ class RAGEngine:
                 similarity_top_k=top_k or settings.rag_similarity_top_k,
                 response_mode=settings.rag_response_mode,  # Configurable: compact, tree_summarize, simple
                 verbose=settings.debug_mode,
-                streaming=False
+                streaming=False,
             )
 
             # If analysis_type is specified, enhance the query with specialized context
@@ -591,13 +622,11 @@ class RAGEngine:
 
             # Extract source information
             sources = []
-            if hasattr(response, 'source_nodes'):
+            if hasattr(response, "source_nodes"):
                 for node in response.source_nodes:
-                    sources.append({
-                        'text': node.node.text[:200] + "...",
-                        'score': node.score,
-                        'metadata': node.node.metadata
-                    })
+                    sources.append(
+                        {"text": node.node.text[:200] + "...", "score": node.score, "metadata": node.node.metadata}
+                    )
 
             # If specialized analysis is requested, post-process the response
             if analysis_type and analysis_type != "standard":
@@ -606,10 +635,10 @@ class RAGEngine:
                 response_text = str(response)
 
             result = {
-                'answer': response_text,
-                'sources': sources,
-                'confidence': sources[0]['score'] if sources else 0,
-                'analysis_type': analysis_type or 'standard'
+                "answer": response_text,
+                "sources": sources,
+                "confidence": sources[0]["score"] if sources else 0,
+                "analysis_type": analysis_type or "standard",
             }
 
             # Cache the result if caching is enabled
@@ -620,16 +649,11 @@ class RAGEngine:
 
         except Exception as e:
             logger.error(f"Error querying index: {str(e)}")
-            return {
-                'answer': f"Error processing query: {str(e)}",
-                'sources': [],
-                'confidence': 0
-            }
+            return {"answer": f"Error processing query: {str(e)}", "sources": [], "confidence": 0}
 
-    async def enterprise_query(self, 
-                             query_text: str, 
-                             enable_enterprise_features: bool = True,
-                             **kwargs) -> Dict[str, Any]:
+    async def enterprise_query(
+        self, query_text: str, enable_enterprise_features: bool = True, **kwargs
+    ) -> dict[str, Any]:
         """
         Enterprise query with full validation, normalization, and fact table integration.
 
@@ -645,11 +669,11 @@ class RAGEngine:
         try:
             # Create enterprise query - filter known parameters
             valid_params = {
-                'query_text': query_text,
-                'top_k': kwargs.get('top_k'),
-                'use_context': kwargs.get('use_context'),
-                'csv_analysis': kwargs.get('csv_analysis'),
-                'confidence_threshold': kwargs.get('confidence_threshold', 70.0)
+                "query_text": query_text,
+                "top_k": kwargs.get("top_k"),
+                "use_context": kwargs.get("use_context"),
+                "csv_analysis": kwargs.get("csv_analysis"),
+                "confidence_threshold": kwargs.get("confidence_threshold", 70.0),
             }
 
             # Remove None values
@@ -661,44 +685,38 @@ class RAGEngine:
             documents = []
             if hasattr(self, "_last_document_texts"):
                 for filename, content in self._last_document_texts.items():
-                    documents.append({
-                        'filename': filename,
-                        'content': content,
-                        'hash': str(hash(content))
-                    })
-            
+                    documents.append({"filename": filename, "content": content, "hash": str(hash(content))})
+
             # Process through enterprise pipeline
-            processing_result = await self.enterprise_orchestrator.process_enterprise_query(
-                enterprise_query, 
-                documents
-            )
-            
+            processing_result = await self.enterprise_orchestrator.process_enterprise_query(enterprise_query, documents)
+
             # Generate AI response and get sources
             ai_response = self._generate_ai_response_with_sources(processing_result)
 
             # Convert processing result to standard query response format
             enterprise_response = {
-                'answer': ai_response['answer'],
-                'sources': ai_response['sources'],
-                'confidence': processing_result.confidence_score,
-                'analysis_type': 'enterprise',
-                'enterprise_data': {
-                    'source_references': [ref.to_dict() for ref in processing_result.source_refs],
-                    'validation_results': [val.to_dict() for val in processing_result.validation_results],
-                    'normalized_metrics': {
+                "answer": ai_response["answer"],
+                "sources": ai_response["sources"],
+                "confidence": processing_result.confidence_score,
+                "analysis_type": "enterprise",
+                "enterprise_data": {
+                    "source_references": [ref.to_dict() for ref in processing_result.source_refs],
+                    "validation_results": [val.to_dict() for val in processing_result.validation_results],
+                    "normalized_metrics": {
                         k: {
-                            'value': v.to_float(),
-                            'original': v.original_value,
-                            'scale': v.scale_applied.unit_name,
-                            'confidence': v.confidence
-                        } for k, v in processing_result.normalized_data.items()
+                            "value": v.to_float(),
+                            "original": v.original_value,
+                            "scale": v.scale_applied.unit_name,
+                            "confidence": v.confidence,
+                        }
+                        for k, v in processing_result.normalized_data.items()
                     },
-                    'mapped_metrics': processing_result.mapped_metrics,
-                    'fact_table_records': processing_result.fact_table_records,
-                    'processing_time_ms': processing_result.processing_time_ms,
-                    'warnings': processing_result.warnings,
-                    'errors': processing_result.errors
-                }
+                    "mapped_metrics": processing_result.mapped_metrics,
+                    "fact_table_records": processing_result.fact_table_records,
+                    "processing_time_ms": processing_result.processing_time_ms,
+                    "warnings": processing_result.warnings,
+                    "errors": processing_result.errors,
+                },
             }
 
             logger.info(f"Enterprise query processed with confidence {processing_result.confidence_score:.1%}")
@@ -709,16 +727,16 @@ class RAGEngine:
             # Fallback to standard query on error
             return self.query(query_text, **kwargs)
 
-    def _generate_ai_response_with_sources(self, processing_result) -> Dict[str, Any]:
+    def _generate_ai_response_with_sources(self, processing_result) -> dict[str, Any]:
         """Generate AI response with sources from processing result."""
         try:
             # Use standard query method to get AI response and sources
-            if hasattr(processing_result, 'query_text') and self.index:
+            if hasattr(processing_result, "query_text") and self.index:
                 standard_response = self.query(processing_result.query_text, top_k=3)
 
                 # Format enterprise response with AI answer + enterprise metadata
-                enhanced_answer = standard_response['answer']
-                
+                enhanced_answer = standard_response["answer"]
+
                 # Add enterprise metadata to the response
                 metadata_parts = []
 
@@ -727,7 +745,7 @@ class RAGEngine:
                     metadata_parts.append("\n\n## 📊 Metriche Finanziarie Rilevate")
                     for metric_name, normalized in processing_result.normalized_data.items():
                         mapped = processing_result.mapped_metrics.get(metric_name)
-                        canonical_name = mapped.get('canonical_name', metric_name) if mapped else metric_name
+                        canonical_name = mapped.get("canonical_name", metric_name) if mapped else metric_name
                         metadata_parts.append(
                             f"- **{canonical_name}**: {normalized.to_base_units():,.0f}"
                             f" (scala: {normalized.scale_applied.unit_name})"
@@ -745,33 +763,28 @@ class RAGEngine:
                 processing_metadata = []
                 if processing_result.fact_table_records > 0:
                     processing_metadata.append(f"{processing_result.fact_table_records} record salvati nel fact table")
-                processing_metadata.append(f"Elaborato in {processing_result.processing_time_ms:.0f}ms con confidenza {processing_result.confidence_score:.1%}")
-                
+                processing_metadata.append(
+                    f"Elaborato in {processing_result.processing_time_ms:.0f}ms con confidenza {processing_result.confidence_score:.1%}"
+                )
+
                 if processing_metadata:
                     metadata_parts.append(f"\n\n*{' • '.join(processing_metadata)}*")
 
                 # Combine AI answer with enterprise metadata
                 if metadata_parts:
                     enhanced_answer = enhanced_answer + "\n".join(metadata_parts)
-                
-                return {
-                    'answer': enhanced_answer,
-                    'sources': standard_response['sources']
-                }
-            
+
+                return {"answer": enhanced_answer, "sources": standard_response["sources"]}
+
             # Fallback if no query_text or index
             return {
-                'answer': f"Elaborato in {processing_result.processing_time_ms:.0f}ms con confidenza {processing_result.confidence_score:.1%}",
-                'sources': []
+                "answer": f"Elaborato in {processing_result.processing_time_ms:.0f}ms con confidenza {processing_result.confidence_score:.1%}",
+                "sources": [],
             }
 
         except Exception as e:
             logger.error(f"Error generating AI response with sources: {e}")
-            return {
-                'answer': f"Errore nella generazione della risposta: {str(e)}",
-                'sources': []
-            }
-    
+            return {"answer": f"Errore nella generazione della risposta: {str(e)}", "sources": []}
 
     def _enhance_query_with_analysis_type(self, query_text: str, analysis_type: str) -> str:
         """Enhance query based on analysis type."""
@@ -851,7 +864,7 @@ class RAGEngine:
             return f"{enhancement}\n\nDomanda: {query_text}"
         return query_text
 
-    def _apply_specialized_analysis(self, response: str, sources: List[Dict], query: str, analysis_type: str) -> str:
+    def _apply_specialized_analysis(self, response: str, sources: list[dict], query: str, analysis_type: str) -> str:
         """Apply specialized post-processing based on analysis type."""
         try:
             from openai import OpenAI
@@ -859,15 +872,17 @@ class RAGEngine:
             client = OpenAI(api_key=settings.openai_api_key)
 
             # Prepare source context
-            source_context = "\n\n".join([
-                f"Fonte {i+1} (rilevanza: {s['score']:.2f}):\n{s['text']}"
-                for i, s in enumerate(sources[:3])  # Use top 3 sources
-            ])
+            source_context = "\n\n".join(
+                [
+                    f"Fonte {i + 1} (rilevanza: {s['score']:.2f}):\n{s['text']}"
+                    for i, s in enumerate(sources[:3])  # Use top 3 sources
+                ]
+            )
 
             # Create specialized prompt based on analysis type
             specialized_prompts = {
-                'bilancio': f"""Riformula questa risposta con focus finanziario professionale:
-                            
+                "bilancio": f"""Riformula questa risposta con focus finanziario professionale:
+
                             Risposta originale: {response}
 
                             Fonti rilevanti:
@@ -880,9 +895,8 @@ class RAGEngine:
                             - Implicazioni finanziarie
 
                             Usa un tono da equity analyst professionale.""",
+                "report_dettagliato": f"""Trasforma questa risposta in un briefing professionale dettagliato:
 
-                'report_dettagliato': f"""Trasforma questa risposta in un briefing professionale dettagliato:
-                            
                             Risposta originale: {response}
 
                             Fonti rilevanti:
@@ -899,9 +913,8 @@ class RAGEngine:
                             [Azioni suggerite basate sui dati]
 
                             Mantieni un tono professionale da investment analyst.""",
+                "fatturato": f"""Riformula con focus su vendite e revenue:
 
-                'fatturato': f"""Riformula con focus su vendite e revenue:
-                            
                             Risposta: {response}
                             Fonti: {source_context}
 
@@ -916,8 +929,11 @@ class RAGEngine:
             completion = client.chat.completions.create(
                 model=settings.llm_model,
                 messages=[
-                    {"role": "system", "content": "Sei un analista esperto che fornisce analisi specializzate basate sul tipo di documento."},
-                    {"role": "user", "content": prompt}
+                    {
+                        "role": "system",
+                        "content": "Sei un analista esperto che fornisce analisi specializzate basate sul tipo di documento.",
+                    },
+                    {"role": "user", "content": prompt},
                 ],
                 temperature=0.3,
                 max_tokens=1000,
@@ -932,7 +948,9 @@ class RAGEngine:
             logger.error(f"Error applying specialized analysis: {str(e)}")
             return response  # Return original response on error
 
-    def query_with_context(self, query_text: str, context_data: Dict[str, Any], top_k: int = 2, analysis_type: Optional[str] = None) -> Dict[str, Any]:
+    def query_with_context(
+        self, query_text: str, context_data: dict[str, Any], top_k: int = 2, analysis_type: Optional[str] = None
+    ) -> dict[str, Any]:
         """Query with additional context from CSV analysis."""
         try:
             # Enhance query with context
@@ -951,7 +969,7 @@ class RAGEngine:
             logger.error(f"Error in query with context: {str(e)}")
             return {"answer": f"Error processing query: {str(e)}", "sources": [], "confidence": 0}
 
-    def _format_context(self, context_data: Dict[str, Any]) -> str:
+    def _format_context(self, context_data: dict[str, Any]) -> str:
         """Format context data for query enhancement."""
         formatted_parts = []
 
@@ -972,6 +990,104 @@ class RAGEngine:
                 formatted_parts.append(f"- {insight}")
 
         return "\n".join(formatted_parts)
+
+    async def query_stream(self, query_text: str, top_k: int = 3, **kwargs):
+        """
+        Stream query response in real-time.
+
+        Args:
+            query_text: User query
+            top_k: Number of documents to retrieve
+            **kwargs: Additional arguments
+
+        Yields:
+            StreamingChunk objects with tokens and metadata
+        """
+        if not self.streaming_engine:
+            logger.warning("Streaming not available, falling back to standard query")
+            result = self.query(query_text, top_k=top_k)
+            # Convert standard response to single chunk
+            if ADVANCED_FEATURES_AVAILABLE:
+                yield StreamingChunk(
+                    token=result.get("answer", ""), metadata={"sources": result.get("sources", [])}, is_final=True
+                )
+            else:
+                yield {"answer": result.get("answer", ""), "sources": result.get("sources", [])}
+            return
+
+        # Stream the response
+        async for chunk in self.streaming_engine.stream_query(query_text, **kwargs):
+            yield chunk
+
+    def query_with_hyde(self, query_text: str, top_k: int = 3, **kwargs) -> dict[str, Any]:
+        """
+        Query using HyDE for improved retrieval.
+
+        Args:
+            query_text: User query
+            top_k: Number of documents to retrieve
+            **kwargs: Additional arguments
+
+        Returns:
+            Query response with improved retrieval
+        """
+        if not self.hyde_engine:
+            logger.warning("HyDE not available, falling back to standard query")
+            return self.query(query_text, top_k=top_k)
+
+        try:
+            # Use HyDE engine for query
+            response = self.hyde_engine.query(query_text, **kwargs)
+
+            # Format response
+            sources = []
+            if hasattr(response, "source_nodes"):
+                for node in response.source_nodes[:top_k]:
+                    sources.append(
+                        {
+                            "content": node.node.text[:500],
+                            "metadata": node.node.metadata,
+                            "score": float(node.score) if node.score else 0.0,
+                        }
+                    )
+
+            result = {
+                "answer": str(response),
+                "sources": sources,
+                "confidence": sum(s["score"] for s in sources) / len(sources) if sources else 0.0,
+                "method": "hyde",
+            }
+
+            logger.info(f"HyDE query completed with {len(sources)} sources")
+            return result
+
+        except Exception as e:
+            logger.error(f"Error in HyDE query: {str(e)}")
+            return self.query(query_text, top_k=top_k)
+
+    def benchmark_hyde(self, test_queries: list[str]) -> dict[str, float]:
+        """
+        Benchmark HyDE improvement over standard retrieval.
+
+        Args:
+            test_queries: List of test queries
+
+        Returns:
+            Benchmark results
+        """
+        if not self.hyde_engine or not self.index:
+            return {"error": "HyDE or index not available"}
+
+        try:
+            base_retriever = self.index.as_retriever()
+            results = self.hyde_engine.benchmark_improvement(test_queries=test_queries, base_retriever=base_retriever)
+
+            logger.info(f"HyDE Benchmark Results: {results}")
+            return results
+
+        except Exception as e:
+            logger.error(f"Error benchmarking HyDE: {str(e)}")
+            return {"error": str(e)}
 
     def delete_documents(self, source_filter: str) -> bool:
         """Delete documents by source filter."""
@@ -1008,7 +1124,7 @@ class RAGEngine:
             logger.error(f"Error deleting documents: {str(e)}")
             return False
 
-    def get_index_stats(self) -> Dict[str, Any]:
+    def get_index_stats(self) -> dict[str, Any]:
         """Get statistics about the indexed documents."""
         try:
             collection_info = self.client.get_collection(self.collection_name)
@@ -1024,7 +1140,7 @@ class RAGEngine:
             logger.error(f"Error getting index stats: {str(e)}")
             return {"total_vectors": 0, "error": str(e)}
 
-    def explore_database(self, limit: int = 100, offset: int = 0, search_text: Optional[str] = None) -> Dict[str, Any]:
+    def explore_database(self, limit: int = 100, offset: int = 0, search_text: Optional[str] = None) -> dict[str, Any]:
         """Explore documents in the vector database with pagination and search."""
         try:
             # Get collection info
@@ -1101,7 +1217,7 @@ class RAGEngine:
             logger.error(f"Error exploring database: {str(e)}")
             return {"documents": [], "total_count": 0, "unique_sources": [], "stats": {}, "error": str(e)}
 
-    def _get_unique_sources_details(self) -> List[Dict[str, Any]]:
+    def _get_unique_sources_details(self) -> list[dict[str, Any]]:
         """Get detailed information about unique document sources."""
         try:
             # Use scroll to get all points and extract unique sources
@@ -1154,7 +1270,7 @@ class RAGEngine:
             unique_sources = []
             for source_info in sources_map.values():
                 source_info["page_count"] = len(source_info["pages"]) if source_info["pages"] else None
-                source_info["pages"] = sorted(list(source_info["pages"])) if source_info["pages"] else []
+                source_info["pages"] = sorted(source_info["pages"]) if source_info["pages"] else []
 
                 # Check if we have cached analysis for this document
                 if hasattr(self, "_last_document_texts") and source_info["name"] in self._last_document_texts:
@@ -1171,7 +1287,7 @@ class RAGEngine:
             logger.error(f"Error getting unique sources: {str(e)}")
             return []
 
-    def get_document_chunks(self, source_name: str) -> List[Dict[str, Any]]:
+    def get_document_chunks(self, source_name: str) -> list[dict[str, Any]]:
         """Get all chunks for a specific document source."""
         try:
             from qdrant_client.models import FieldCondition, Filter, MatchValue
@@ -1276,7 +1392,7 @@ class RAGEngine:
             logger.error(f"Error deleting document: {str(e)}")
             return False
 
-    def search_in_database(self, search_query: str, limit: int = 20) -> List[Dict[str, Any]]:
+    def search_in_database(self, search_query: str, limit: int = 20) -> list[dict[str, Any]]:
         """Search for specific content in the database using semantic search."""
         try:
             # Use the existing query infrastructure for semantic search
@@ -1306,7 +1422,7 @@ class RAGEngine:
             logger.error(f"Error searching in database: {str(e)}")
             return []
 
-    def generate_faq(self, num_questions: int = 10) -> Dict[str, Any]:
+    def generate_faq(self, num_questions: int = 10) -> dict[str, Any]:
         """Generate FAQ based on vector database content.
 
         Args:
@@ -1396,7 +1512,7 @@ class RAGEngine:
                             if "text" in source:
                                 sample_texts.append(source["text"])
                         content_sample = "\n\n".join(sample_texts[:20])
-                except:  # noqa: E722
+                except:
                     pass
 
             # Validate we have real content, not metadata
@@ -1520,8 +1636,8 @@ Genera SOLO le domande, una per riga, numerate da 1 a {num_questions}:
             return {"error": f"Errore nella generazione delle FAQ: {str(e)}", "faqs": [], "success": False}
 
     def _load_csv_with_analysis(
-        self, file_path: str, csv_analyzer, metadata: Optional[Dict[str, Any]] = None
-    ) -> List[Document]:
+        self, file_path: str, csv_analyzer, metadata: Optional[dict[str, Any]] = None
+    ) -> list[Document]:
         """Load CSV file with automatic analysis and insights generation."""
         from pathlib import Path
 
@@ -1608,7 +1724,7 @@ Genera SOLO le domande, una per riga, numerate da 1 a {num_questions}:
             # Fallback to basic CSV loading
             return self._load_csv_basic(file_path, metadata)
 
-    def _load_csv_basic(self, file_path: str, metadata: Optional[Dict[str, Any]] = None) -> List[Document]:
+    def _load_csv_basic(self, file_path: str, metadata: Optional[dict[str, Any]] = None) -> list[Document]:
         """Basic CSV loading without analysis (fallback method)."""
         from pathlib import Path
 

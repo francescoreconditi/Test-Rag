@@ -1,10 +1,10 @@
 """Source reference value objects for detailed provenance tracking."""
 
 from dataclasses import dataclass
-from enum import Enum
-from typing import Optional, Dict, Any, Union, List
-import hashlib
 from datetime import datetime
+from enum import Enum
+import hashlib
+from typing import Any, Optional, Union
 
 
 class SourceType(Enum):
@@ -12,7 +12,7 @@ class SourceType(Enum):
     PDF = "pdf"
     EXCEL = "excel"
     CSV = "csv"
-    DOCX = "docx" 
+    DOCX = "docx"
     TXT = "txt"
     MD = "markdown"
     JSON = "json"
@@ -22,46 +22,46 @@ class SourceType(Enum):
 @dataclass(frozen=True)
 class SourceReference:
     """Immutable source reference with detailed provenance."""
-    
+
     # Core identification
     file_path: str  # Full path for better tracking
     file_name: Optional[str] = None  # Just the filename
     file_hash: Optional[str] = None  # SHA-256 of original file
     source_type: Optional[SourceType] = None
-    
+
     # Location within document
     page: Optional[int] = None
     page_number: Optional[int] = None  # Alias for page
-    sheet: Optional[str] = None  
+    sheet: Optional[str] = None
     cell: Optional[str] = None
     table_index: Optional[int] = None
     row_label: Optional[str] = None
     column_label: Optional[str] = None
-    
+
     # Text/content location
     text_start: Optional[int] = None  # Character position
     text_end: Optional[int] = None
     xpath: Optional[str] = None  # For HTML/XML
-    
+
     # Metadata
     extraction_method: Optional[str] = None  # Method used for extraction
     extraction_timestamp: Optional[datetime] = None
     confidence_score: Optional[float] = None
-    
+
     def __post_init__(self):
         """Set extraction timestamp and derive file_name if not provided."""
         if self.extraction_timestamp is None:
             object.__setattr__(self, 'extraction_timestamp', datetime.now())
-        
+
         # Derive file_name from file_path if not provided
         if self.file_name is None and self.file_path:
             from pathlib import Path
             object.__setattr__(self, 'file_name', Path(self.file_path).name)
-        
+
         # Use page_number as alias for page
         if self.page_number is not None and self.page is None:
             object.__setattr__(self, 'page', self.page_number)
-        
+
         # Auto-detect source_type if not provided
         if self.source_type is None and self.file_name:
             ext = self.file_name.split('.')[-1].lower()
@@ -69,43 +69,43 @@ class SourceReference:
                 if st.value == ext:
                     object.__setattr__(self, 'source_type', st)
                     break
-    
+
     def to_string(self) -> str:
         """Convert to standardized string format: file.pdf|p.12|tab:1|row:Ricavi"""
         parts = [self.file_name]
-        
+
         if self.page:
             parts.append(f"p.{self.page}")
-        
+
         if self.sheet:
             parts.append(f"sheet:{self.sheet}")
-            
+
         if self.cell:
             parts.append(f"cell:{self.cell}")
-            
+
         if self.table_index:
             parts.append(f"tab:{self.table_index}")
-            
+
         if self.row_label:
             parts.append(f"row:{self.row_label}")
-            
+
         if self.column_label:
             parts.append(f"col:{self.column_label}")
-            
+
         if self.xpath:
             parts.append(f"xpath:{self.xpath}")
-            
+
         return "|".join(parts)
-    
+
     @classmethod
     def from_string(cls, ref_string: str) -> 'SourceReference':
         """Parse from standardized string format."""
         parts = ref_string.split("|")
         if not parts:
             raise ValueError(f"Invalid source reference string: {ref_string}")
-        
+
         file_name = parts[0]
-        
+
         # Determine source type from file extension
         ext = file_name.split('.')[-1].lower()
         source_type = SourceType.PDF  # default
@@ -113,13 +113,13 @@ class SourceReference:
             if st.value == ext:
                 source_type = st
                 break
-        
+
         kwargs = {
             'file_name': file_name,
             'file_hash': '',  # Will need to be set separately
             'source_type': source_type
         }
-        
+
         # Parse location parts
         for part in parts[1:]:
             if part.startswith('p.'):
@@ -136,10 +136,10 @@ class SourceReference:
                 kwargs['column_label'] = part[4:]
             elif part.startswith('xpath:'):
                 kwargs['xpath'] = part[6:]
-        
+
         return cls(**kwargs)
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
             'file_name': self.file_name,
@@ -163,55 +163,55 @@ class SourceReference:
 @dataclass(frozen=True)
 class ProvenancedValue:
     """A value with its complete provenance chain."""
-    
+
     # The actual value
     value: Union[float, int, str, bool]
-    
+
     # Where it came from
     source_ref: SourceReference
-    
+
     # What it represents
     metric_name: Optional[str] = None
     unit: Optional[str] = None
     currency: Optional[str] = None
-    
+
     # Temporal context
     period: Optional[str] = None  # e.g., "FY2024", "Q2_2025"
     period_start: Optional[datetime] = None
     period_end: Optional[datetime] = None
-    
+
     # Business context
     entity: Optional[str] = None  # Company/BU
     scenario: Optional[str] = None  # Actual/Budget/Forecast
     perimeter: Optional[str] = None  # Consolidated/Standalone
-    
+
     # Quality indicators
     is_calculated: bool = False
     calculation_formula: Optional[str] = None
-    calculated_from: Optional[List['ProvenancedValue']] = None  # Input values used in calculation
+    calculated_from: Optional[list['ProvenancedValue']] = None  # Input values used in calculation
     calculation_confidence: Optional[float] = None  # Confidence in the calculation
-    
+
     # Validation flags
-    quality_flags: Optional[Dict[str, bool]] = None  # e.g., {'range_check': True, 'coherence_check': False}
-    
+    quality_flags: Optional[dict[str, bool]] = None  # e.g., {'range_check': True, 'coherence_check': False}
+
     def __post_init__(self):
         """Initialize quality flags if not provided."""
         if self.quality_flags is None:
             object.__setattr__(self, 'quality_flags', {})
-    
-    def get_lineage(self) -> Dict[str, Any]:
+
+    def get_lineage(self) -> dict[str, Any]:
         """Get complete lineage information."""
         lineage = {
             'primary_source': self.source_ref.to_string(),
             'is_calculated': self.is_calculated,
             'extraction_timestamp': self.source_ref.extraction_timestamp.isoformat() if self.source_ref.extraction_timestamp else None,
         }
-        
+
         if self.is_calculated and self.calculated_from:
             lineage['calculation_formula'] = self.calculation_formula
             lineage['calculation_confidence'] = self.calculation_confidence
             lineage['calculated_from'] = []
-            
+
             for input_value in self.calculated_from:
                 input_info = {
                     'metric': input_value.metric_name,
@@ -220,10 +220,10 @@ class ProvenancedValue:
                     'period': input_value.period
                 }
                 lineage['calculated_from'].append(input_info)
-        
+
         return lineage
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for storage/API."""
         return {
             'value': self.value,
@@ -246,10 +246,10 @@ class ProvenancedValue:
 
 class SourceReferenceBuilder:
     """Builder for creating source references easily."""
-    
+
     @staticmethod
-    def for_pdf(file_name: str, file_hash: str, page: int, 
-                table_index: Optional[int] = None, 
+    def for_pdf(file_name: str, file_hash: str, page: int,
+                table_index: Optional[int] = None,
                 row_label: Optional[str] = None) -> SourceReference:
         """Create reference for PDF source."""
         return SourceReference(
@@ -261,11 +261,11 @@ class SourceReferenceBuilder:
             table_index=table_index,
             row_label=row_label
         )
-    
+
     @staticmethod
-    def for_excel(file_name: str, file_hash: str, sheet: str, 
+    def for_excel(file_name: str, file_hash: str, sheet: str,
                   cell: Optional[str] = None,
-                  row_label: Optional[str] = None, 
+                  row_label: Optional[str] = None,
                   column_label: Optional[str] = None) -> SourceReference:
         """Create reference for Excel source."""
         return SourceReference(
@@ -278,9 +278,9 @@ class SourceReferenceBuilder:
             row_label=row_label,
             column_label=column_label
         )
-    
+
     @staticmethod
-    def for_csv(file_name: str, file_hash: str, 
+    def for_csv(file_name: str, file_hash: str,
                 row_label: Optional[str] = None,
                 column_label: Optional[str] = None) -> SourceReference:
         """Create reference for CSV source."""

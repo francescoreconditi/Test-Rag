@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 
 class DocumentType(Enum):
@@ -32,13 +32,13 @@ class DocumentMetadata:
     author: Optional[str] = None
     title: Optional[str] = None
     subject: Optional[str] = None
-    keywords: List[str] = field(default_factory=list)
+    keywords: list[str] = field(default_factory=list)
     created_date: Optional[datetime] = None
     modified_date: Optional[datetime] = None
     language: str = "it"
     page_count: Optional[int] = None
     word_count: Optional[int] = None
-    custom_fields: Dict[str, Any] = field(default_factory=dict)
+    custom_fields: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -49,8 +49,8 @@ class Document:
     file_path: Path = field(default_factory=Path)
     document_type: Optional[DocumentType] = None
     content: str = ""
-    chunks: List[str] = field(default_factory=list)
-    embeddings: List[List[float]] = field(default_factory=list)
+    chunks: list[str] = field(default_factory=list)
+    embeddings: list[list[float]] = field(default_factory=list)
     metadata: DocumentMetadata = field(default_factory=DocumentMetadata)
     status: DocumentStatus = DocumentStatus.PENDING
     error_message: Optional[str] = None
@@ -87,7 +87,7 @@ class Document:
         """Get number of chunks."""
         return len(self.chunks)
 
-    def add_chunk(self, text: str, embedding: Optional[List[float]] = None) -> None:
+    def add_chunk(self, text: str, embedding: Optional[list[float]] = None) -> None:
         """Add a text chunk with optional embedding."""
         self.chunks.append(text)
         if embedding:
@@ -121,7 +121,7 @@ class Document:
 
         return summary
 
-    def search_content(self, query: str, case_sensitive: bool = False) -> List[str]:
+    def search_content(self, query: str, case_sensitive: bool = False) -> list[str]:
         """Search for query in document chunks."""
         results = []
         search_query = query if case_sensitive else query.lower()
@@ -133,7 +133,7 @@ class Document:
 
         return results
 
-    def validate(self) -> List[str]:
+    def validate(self) -> list[str]:
         """Validate document integrity."""
         errors = []
 
@@ -151,7 +151,7 @@ class Document:
 
         return errors
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
         return {
             'id': self.id,

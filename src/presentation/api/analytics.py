@@ -5,18 +5,18 @@ Analytics API for Advanced Reporting
 RESTful API for analytics data, metrics, and reporting functionality.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query, Header
-from fastapi.responses import JSONResponse, FileResponse
-from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
-from pydantic import BaseModel
-import json
 from pathlib import Path
+from typing import Any, Optional
 
-from src.core.security.multi_tenant_manager import MultiTenantManager, TenantSession
-from src.application.services.report_scheduler import ReportScheduler, ReportType, ReportFormat, ReportFrequency
-from src.presentation.ui.dashboard_embed import DashboardEmbed
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+
 from services.rag_engine import RAGEngine
+from src.application.services.report_scheduler import ReportScheduler
+from src.core.security.multi_tenant_manager import MultiTenantManager, TenantSession
+from src.presentation.ui.dashboard_embed import DashboardEmbed
 
 router = APIRouter(prefix="/api/v1/analytics", tags=["analytics"])
 
@@ -26,16 +26,16 @@ class AnalyticsQuery(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     granularity: str = "day"  # hour, day, week, month
-    metrics: List[str] = ["queries", "documents", "users"]
-    filters: Dict[str, Any] = {}
+    metrics: list[str] = ["queries", "documents", "users"]
+    filters: dict[str, Any] = {}
 
 class ReportRequest(BaseModel):
     """Request to generate a report."""
     name: str
     report_type: str
     format: str = "json"
-    parameters: Dict[str, Any] = {}
-    delivery_config: Dict[str, Any] = {}
+    parameters: dict[str, Any] = {}
+    delivery_config: dict[str, Any] = {}
 
 class ScheduledReportRequest(BaseModel):
     """Request to create scheduled report."""
@@ -44,9 +44,9 @@ class ScheduledReportRequest(BaseModel):
     format: str = "pdf"
     frequency: str = "weekly"
     delivery: str = "storage"
-    parameters: Dict[str, Any] = {}
-    delivery_config: Dict[str, Any] = {}
-    schedule_config: Dict[str, Any] = {}
+    parameters: dict[str, Any] = {}
+    delivery_config: dict[str, Any] = {}
+    schedule_config: dict[str, Any] = {}
     enabled: bool = True
 
 class DashboardEmbedRequest(BaseModel):
@@ -59,7 +59,7 @@ class DashboardEmbedRequest(BaseModel):
     auto_refresh: bool = False
     refresh_interval: int = 300
     public_access: bool = False
-    allowed_domains: List[str] = []
+    allowed_domains: list[str] = []
 
 # Initialize services
 tenant_manager = MultiTenantManager()
@@ -70,13 +70,13 @@ async def get_current_tenant(authorization: str = Header(None)) -> TenantSession
     """Get current tenant from authorization header."""
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
-    
+
     token = authorization.split(" ")[1]
     session = await tenant_manager.authenticate_tenant_request(token)
-    
+
     if not session:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
-    
+
     return session
 
 @router.get("/health")
@@ -99,18 +99,18 @@ async def get_metrics_overview(
         tenant_context = tenant_manager.get_tenant(session.tenant_id)
         if not tenant_context:
             raise HTTPException(status_code=404, detail="Tenant not found")
-        
+
         # Get usage statistics
         usage = tenant_manager.get_tenant_usage(session.tenant_id)
-        
+
         # Get RAG engine statistics
         rag_engine = RAGEngine(tenant_context=tenant_context)
         index_stats = rag_engine.get_index_stats()
-        
+
         # Calculate date range
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
-        
+
         # Compile overview metrics
         overview = {
             "tenant_info": {
@@ -142,9 +142,9 @@ async def get_metrics_overview(
                 "days": days
             }
         }
-        
+
         return overview
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -160,12 +160,9 @@ async def query_analytics(
             start_date = datetime.fromisoformat(query.start_date.replace('Z', '+00:00'))
         else:
             start_date = datetime.now() - timedelta(days=30)
-        
-        if query.end_date:
-            end_date = datetime.fromisoformat(query.end_date.replace('Z', '+00:00'))
-        else:
-            end_date = datetime.now()
-        
+
+        end_date = datetime.fromisoformat(query.end_date.replace('Z', '+00:00')) if query.end_date else datetime.now()
+
         # Generate mock analytics data based on query
         # In production, this would query actual analytics database
         analytics_data = {
@@ -178,10 +175,10 @@ async def query_analytics(
             },
             "data": {}
         }
-        
+
         # Generate data for each requested metric
         days_range = (end_date - start_date).days
-        
+
         if "queries" in query.metrics:
             analytics_data["data"]["queries"] = {
                 "total": 1250,
@@ -196,7 +193,7 @@ async def query_analytics(
                     for i in range(min(days_range, 30))
                 ]
             }
-        
+
         if "documents" in query.metrics:
             analytics_data["data"]["documents"] = {
                 "total": 342,
@@ -216,7 +213,7 @@ async def query_analytics(
                     for i in range(min(days_range, 30))
                 ]
             }
-        
+
         if "users" in query.metrics:
             analytics_data["data"]["users"] = {
                 "total_active": 47,
@@ -231,9 +228,9 @@ async def query_analytics(
                     for i in range(min(days_range, 30))
                 ]
             }
-        
+
         return analytics_data
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -245,7 +242,7 @@ async def list_reports(
     """List available reports for tenant."""
     try:
         reports = report_scheduler.get_scheduled_reports(session.tenant_id)
-        
+
         return {
             "total": len(reports),
             "reports": [
@@ -264,7 +261,7 @@ async def list_reports(
                 for report in reports[:limit]
             ]
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -286,11 +283,11 @@ async def generate_report(
             "delivery_config": request.delivery_config,
             "enabled": True
         }
-        
+
         # Generate report
         scheduled_report = report_scheduler.create_scheduled_report(config)
         result = report_scheduler.run_report_now(scheduled_report.id)
-        
+
         if result.get('success'):
             return {
                 "success": True,
@@ -302,7 +299,7 @@ async def generate_report(
             }
         else:
             raise HTTPException(status_code=500, detail=result.get('error', 'Report generation failed'))
-            
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -325,9 +322,9 @@ async def create_scheduled_report(
             "schedule_config": request.schedule_config,
             "enabled": request.enabled
         }
-        
+
         scheduled_report = report_scheduler.create_scheduled_report(config)
-        
+
         return {
             "success": True,
             "report_id": scheduled_report.id,
@@ -335,7 +332,7 @@ async def create_scheduled_report(
             "next_run": scheduled_report.next_run,
             "created_at": scheduled_report.created_at.isoformat()
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -349,26 +346,26 @@ async def download_report(
         # Check if report belongs to tenant
         reports = report_scheduler.get_scheduled_reports(session.tenant_id)
         report = next((r for r in reports if r.id == report_id), None)
-        
+
         if not report:
             raise HTTPException(status_code=404, detail="Report not found")
-        
+
         # Find the latest report output
         outputs_dir = Path("data/report_outputs")
         report_files = list(outputs_dir.glob(f"{report.name}_*"))
-        
+
         if not report_files:
             raise HTTPException(status_code=404, detail="No report output found")
-        
+
         # Get the latest file
         latest_file = max(report_files, key=lambda f: f.stat().st_mtime)
-        
+
         return FileResponse(
             path=latest_file,
             filename=latest_file.name,
             media_type='application/octet-stream'
         )
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -379,7 +376,7 @@ async def list_dashboard_embeds(
     """List dashboard embeds for tenant."""
     try:
         embeds = dashboard_embed.list_embeds(session.tenant_id)
-        
+
         return {
             "total": len(embeds),
             "embeds": [
@@ -397,7 +394,7 @@ async def list_dashboard_embeds(
                 for embed in embeds
             ]
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -421,10 +418,10 @@ async def create_dashboard_embed(
             "allowed_domains": request.allowed_domains,
             "api_key_required": not request.public_access
         }
-        
+
         embed_config = dashboard_embed.create_embed(config)
         embed_code = dashboard_embed.generate_embed_code(embed_config.id)
-        
+
         return {
             "success": True,
             "embed_id": embed_config.id,
@@ -433,7 +430,7 @@ async def create_dashboard_embed(
             "iframe_code": embed_code['iframe'],
             "created_at": embed_config.created_at.isoformat()
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -448,22 +445,22 @@ async def get_embed_code(
         # Verify embed belongs to tenant
         embeds = dashboard_embed.list_embeds(session.tenant_id)
         embed_config = next((e for e in embeds if e.id == embed_id), None)
-        
+
         if not embed_config:
             raise HTTPException(status_code=404, detail="Embed not found")
-        
+
         embed_code = dashboard_embed.generate_embed_code(embed_id)
-        
+
         if format not in embed_code:
             raise HTTPException(status_code=400, detail=f"Invalid format: {format}")
-        
+
         return {
             "embed_id": embed_id,
             "format": format,
             "code": embed_code[format],
             "embed_url": embed_code['embed_url']
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -477,13 +474,13 @@ async def get_embed_analytics(
         # Verify embed belongs to tenant
         embeds = dashboard_embed.list_embeds(session.tenant_id)
         embed_config = next((e for e in embeds if e.id == embed_id), None)
-        
+
         if not embed_config:
             raise HTTPException(status_code=404, detail="Embed not found")
-        
+
         analytics = dashboard_embed.get_embed_analytics(embed_id)
         return analytics
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -539,7 +536,7 @@ async def list_report_templates(
                 "parameters": ["days", "include_charts", "granularity"]
             },
             {
-                "id": "query_insights", 
+                "id": "query_insights",
                 "name": "Query Insights",
                 "description": "Analysis of query patterns and performance",
                 "parameters": ["period", "top_n", "include_categories"]

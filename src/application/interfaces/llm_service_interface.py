@@ -1,7 +1,7 @@
 """LLM Service interface."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from src.domain.entities import AnalysisResult, FinancialData
 
@@ -13,7 +13,7 @@ class ILLMService(ABC):
     def generate_analysis(
         self,
         financial_data: FinancialData,
-        context: Optional[Dict[str, Any]] = None,
+        context: Optional[dict[str, Any]] = None,
         analysis_type: str = "comprehensive"
     ) -> AnalysisResult:
         """Generate analysis from financial data."""
@@ -22,9 +22,9 @@ class ILLMService(ABC):
     @abstractmethod
     def generate_insights(
         self,
-        data: Dict[str, Any],
-        focus_areas: Optional[List[str]] = None
-    ) -> List[str]:
+        data: dict[str, Any],
+        focus_areas: Optional[list[str]] = None
+    ) -> list[str]:
         """Generate business insights from data."""
         pass
 
@@ -32,8 +32,8 @@ class ILLMService(ABC):
     def generate_recommendations(
         self,
         analysis: AnalysisResult,
-        business_context: Optional[Dict[str, Any]] = None
-    ) -> List[str]:
+        business_context: Optional[dict[str, Any]] = None
+    ) -> list[str]:
         """Generate actionable recommendations."""
         pass
 
@@ -41,7 +41,7 @@ class ILLMService(ABC):
     def answer_question(
         self,
         question: str,
-        context: Dict[str, Any],
+        context: dict[str, Any],
         max_tokens: int = 500
     ) -> str:
         """Answer a specific question based on context."""
@@ -71,8 +71,8 @@ class ILLMService(ABC):
     def extract_information(
         self,
         text: str,
-        schema: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        schema: dict[str, Any]
+    ) -> dict[str, Any]:
         """Extract structured information from text."""
         pass
 
@@ -80,15 +80,15 @@ class ILLMService(ABC):
     def classify_text(
         self,
         text: str,
-        categories: List[str]
-    ) -> Dict[str, float]:
+        categories: list[str]
+    ) -> dict[str, float]:
         """Classify text into categories with confidence scores."""
         pass
 
     @abstractmethod
     def generate_report(
         self,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         template: Optional[str] = None,
         format: str = "markdown"
     ) -> str:
@@ -100,27 +100,27 @@ class ILLMService(ABC):
         self,
         doc1: str,
         doc2: str,
-        aspects: Optional[List[str]] = None
-    ) -> Dict[str, Any]:
+        aspects: Optional[list[str]] = None
+    ) -> dict[str, Any]:
         """Compare two documents."""
         pass
 
     @abstractmethod
     def detect_anomalies_with_explanation(
         self,
-        data: List[Dict[str, Any]],
+        data: list[dict[str, Any]],
         context: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Detect and explain anomalies in data."""
         pass
 
     @abstractmethod
     def forecast_with_reasoning(
         self,
-        historical_data: List[Dict[str, Any]],
+        historical_data: list[dict[str, Any]],
         periods: int,
-        factors: Optional[List[str]] = None
-    ) -> Dict[str, Any]:
+        factors: Optional[list[str]] = None
+    ) -> dict[str, Any]:
         """Generate forecast with reasoning."""
         pass
 
@@ -128,16 +128,16 @@ class ILLMService(ABC):
     def validate_analysis(
         self,
         analysis: AnalysisResult,
-        validation_rules: Optional[List[str]] = None
-    ) -> Dict[str, Any]:
+        validation_rules: Optional[list[str]] = None
+    ) -> dict[str, Any]:
         """Validate analysis results."""
         pass
 
     @abstractmethod
     def generate_executive_summary(
         self,
-        analysis_results: List[AnalysisResult],
-        key_metrics: Optional[List[str]] = None
+        analysis_results: list[AnalysisResult],
+        key_metrics: Optional[list[str]] = None
     ) -> str:
         """Generate executive summary from multiple analyses."""
         pass
@@ -145,8 +145,8 @@ class ILLMService(ABC):
     @abstractmethod
     def identify_trends(
         self,
-        time_series_data: List[Dict[str, Any]],
+        time_series_data: list[dict[str, Any]],
         confidence_threshold: float = 0.7
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Identify trends in time series data."""
         pass

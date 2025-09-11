@@ -2,11 +2,11 @@
 
 from dataclasses import dataclass
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+import os
+from typing import Any, Optional
 
 import numpy as np
 from openai import OpenAI
-import os
 
 try:
     from rank_bm25 import BM25Okapi
@@ -22,7 +22,6 @@ try:
 except ImportError:
     RERANKER_AVAILABLE = False
 
-import hashlib
 from pathlib import Path
 import pickle
 
@@ -38,10 +37,10 @@ class RetrievalResult:
     bm25_score: float
     embedding_score: float
     rerank_score: Optional[float]
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
     source_id: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "content": self.content,
@@ -60,8 +59,8 @@ class IndexedDocument:
 
     content: str
     embedding: np.ndarray
-    tokens: List[str]
-    metadata: Dict[str, Any]
+    tokens: list[str]
+    metadata: dict[str, Any]
     doc_id: str
 
 
@@ -78,7 +77,7 @@ class HybridRetriever:
         """Initialize hybrid retriever."""
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(exist_ok=True)
-        
+
         # Initialize OpenAI client for embeddings
         api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
         if api_key:
@@ -103,7 +102,7 @@ class HybridRetriever:
             self.reranker = None
 
         # Index components
-        self.documents: List[IndexedDocument] = []
+        self.documents: list[IndexedDocument] = []
         self.bm25_index: Optional[BM25Okapi] = None
         self.doc_embeddings: Optional[np.ndarray] = None
 
@@ -113,7 +112,7 @@ class HybridRetriever:
         self.use_reranking = True  # Whether to use cross-encoder reranking
 
     def add_documents(
-        self, documents: List[Dict[str, Any]], content_field: str = "content", metadata_field: str = "metadata"
+        self, documents: list[dict[str, Any]], content_field: str = "content", metadata_field: str = "metadata"
     ) -> None:
         """Add documents to the hybrid index."""
         new_docs = []
@@ -155,7 +154,7 @@ class HybridRetriever:
         self._build_bm25_index()
         self._build_embedding_index()
 
-    def _tokenize(self, text: str) -> List[str]:
+    def _tokenize(self, text: str) -> list[str]:
         """Simple tokenization for BM25."""
         import re
 
@@ -206,7 +205,7 @@ class HybridRetriever:
 
     def search(
         self, query: str, top_k: int = 10, bm25_top_k: int = 50, embedding_top_k: int = 50, final_rerank_k: int = 10
-    ) -> List[RetrievalResult]:
+    ) -> list[RetrievalResult]:
         """Perform hybrid search."""
         if not self.documents:
             logger.warning("No documents in hybrid index")
@@ -227,7 +226,7 @@ class HybridRetriever:
 
         return combined_results[:top_k]
 
-    def _bm25_search(self, query: str, top_k: int = 50) -> List[Tuple[int, float]]:
+    def _bm25_search(self, query: str, top_k: int = 50) -> list[tuple[int, float]]:
         """Search using BM25."""
         if not self.bm25_index:
             return []
@@ -245,7 +244,7 @@ class HybridRetriever:
         logger.debug(f"BM25 found {len(results)} results")
         return results
 
-    def _embedding_search(self, query: str, top_k: int = 50) -> List[Tuple[int, float]]:
+    def _embedding_search(self, query: str, top_k: int = 50) -> list[tuple[int, float]]:
         """Search using embedding similarity."""
         if not self.openai_client or self.doc_embeddings is None:
             return []
@@ -254,7 +253,7 @@ class HybridRetriever:
             # Generate query embedding
             response = self.openai_client.embeddings.create(
                 model=self.embedding_model_name,
-                input=query[:8191]  # OpenAI max input length  
+                input=query[:8191]  # OpenAI max input length
             )
             query_embedding = np.array(response.data[0].embedding)
 
@@ -275,8 +274,8 @@ class HybridRetriever:
             return []
 
     def _combine_scores(
-        self, bm25_results: List[Tuple[int, float]], embedding_results: List[Tuple[int, float]], top_k: int
-    ) -> List[RetrievalResult]:
+        self, bm25_results: list[tuple[int, float]], embedding_results: list[tuple[int, float]], top_k: int
+    ) -> list[RetrievalResult]:
         """Combine BM25 and embedding scores."""
 
         # Normalize scores to [0, 1] range
@@ -327,7 +326,7 @@ class HybridRetriever:
 
         return results
 
-    def _rerank_results(self, query: str, results: List[RetrievalResult], top_k: int) -> List[RetrievalResult]:
+    def _rerank_results(self, query: str, results: list[RetrievalResult], top_k: int) -> list[RetrievalResult]:
         """Rerank results using cross-encoder."""
         if not self.reranker or len(results) <= 1:
             return results
@@ -401,7 +400,7 @@ class HybridRetriever:
         self.doc_embeddings = None
         logger.info("Cleared hybrid index")
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get index statistics."""
         return {
             "document_count": len(self.documents),
@@ -415,11 +414,11 @@ class HybridRetriever:
 
     def optimize_weights(
         self,
-        queries: List[str],
-        relevance_scores: List[List[float]],
-        weight_range: Tuple[float, float] = (0.1, 0.9),
+        queries: list[str],
+        relevance_scores: list[list[float]],
+        weight_range: tuple[float, float] = (0.1, 0.9),
         steps: int = 10,
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """Optimize BM25 and embedding weights based on relevance feedback."""
         best_weights = (self.bm25_weight, self.embedding_weight)
         best_score = 0.0

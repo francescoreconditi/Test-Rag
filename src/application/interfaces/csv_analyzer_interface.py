@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import pandas as pd
 
@@ -28,7 +28,7 @@ class ICSVAnalyzer(ABC):
         pass
 
     @abstractmethod
-    def calculate_metrics(self, force_refresh: bool = False) -> Dict[str, Any]:
+    def calculate_metrics(self, force_refresh: bool = False) -> dict[str, Any]:
         """Calculate financial metrics."""
         pass
 
@@ -38,7 +38,7 @@ class ICSVAnalyzer(ABC):
         pass
 
     @abstractmethod
-    def calculate_financial_ratios(self) -> Dict[str, float]:
+    def calculate_financial_ratios(self) -> dict[str, float]:
         """Calculate common financial ratios."""
         pass
 
@@ -48,17 +48,17 @@ class ICSVAnalyzer(ABC):
         pass
 
     @abstractmethod
-    def get_summary_statistics(self) -> Dict[str, Any]:
+    def get_summary_statistics(self) -> dict[str, Any]:
         """Get summary statistics for numeric columns."""
         pass
 
     @abstractmethod
-    def compare_datasets(self, value_column: str, comparison_column: str = None) -> Dict[str, Any]:
+    def compare_datasets(self, value_column: str, comparison_column: str = None) -> dict[str, Any]:
         """Compare main dataset with comparison dataset."""
         pass
 
     @abstractmethod
-    def generate_insights(self) -> List[str]:
+    def generate_insights(self) -> list[str]:
         """Generate automatic insights from the data."""
         pass
 
@@ -68,7 +68,7 @@ class ICSVAnalyzer(ABC):
         pass
 
     @abstractmethod
-    def get_time_series_analysis(self, value_column: str, time_column: str = 'anno') -> Dict[str, Any]:
+    def get_time_series_analysis(self, value_column: str, time_column: str = 'anno') -> dict[str, Any]:
         """Perform time series analysis on a column."""
         pass
 
@@ -78,7 +78,7 @@ class ICSVAnalyzer(ABC):
         pass
 
     @abstractmethod
-    def segment_analysis(self, segment_column: str, value_column: str) -> Dict[str, Any]:
+    def segment_analysis(self, segment_column: str, value_column: str) -> dict[str, Any]:
         """Analyze data by segments."""
         pass
 
@@ -88,11 +88,11 @@ class ICSVAnalyzer(ABC):
         pass
 
     @abstractmethod
-    def validate_data_quality(self) -> Dict[str, List[str]]:
+    def validate_data_quality(self) -> dict[str, list[str]]:
         """Validate data quality and return issues."""
         pass
 
     @abstractmethod
-    def get_parsed_values_report(self) -> Dict[str, Any]:
+    def get_parsed_values_report(self) -> dict[str, Any]:
         """Get report of all parsed values with their provenance."""
         pass

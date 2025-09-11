@@ -3,7 +3,7 @@
 import logging
 import logging.config
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 
 def setup_logging(
@@ -22,7 +22,7 @@ def setup_logging(
         log_file.parent.mkdir(parents=True, exist_ok=True)
 
     # Base configuration
-    config: Dict[str, Any] = {
+    config: dict[str, Any] = {
         "version": 1,
         "disable_existing_loggers": False,
         "formatters": {
@@ -134,7 +134,7 @@ def get_logger(name: str) -> logging.Logger:
 class ContextFilter(logging.Filter):
     """Custom filter to add context information to log records."""
 
-    def __init__(self, context: Dict[str, Any]):
+    def __init__(self, context: dict[str, Any]):
         super().__init__()
         self.context = context
 

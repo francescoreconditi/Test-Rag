@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Type, TypeVar
+from typing import Any, Callable, Optional, TypeVar
 
 from src.application.interfaces import (
     IAnalysisResultRepository,
@@ -20,26 +20,26 @@ class DependencyContainer:
 
     def __init__(self):
         """Initialize the container."""
-        self._services: Dict[Type, Any] = {}
-        self._factories: Dict[Type, Callable] = {}
-        self._singletons: Dict[Type, Any] = {}
+        self._services: dict[type, Any] = {}
+        self._factories: dict[type, Callable] = {}
+        self._singletons: dict[type, Any] = {}
 
-    def register_singleton(self, interface: Type[T], implementation: Type[T]) -> None:
+    def register_singleton(self, interface: type[T], implementation: type[T]) -> None:
         """Register a singleton service."""
         self._services[interface] = implementation
         logger.debug(f"Registered singleton: {interface.__name__} -> {implementation.__name__}")
 
-    def register_factory(self, interface: Type[T], factory: Callable[[], T]) -> None:
+    def register_factory(self, interface: type[T], factory: Callable[[], T]) -> None:
         """Register a factory function for creating instances."""
         self._factories[interface] = factory
         logger.debug(f"Registered factory for: {interface.__name__}")
 
-    def register_instance(self, interface: Type[T], instance: T) -> None:
+    def register_instance(self, interface: type[T], instance: T) -> None:
         """Register an existing instance."""
         self._singletons[interface] = instance
         logger.debug(f"Registered instance: {interface.__name__}")
 
-    def get(self, interface: Type[T]) -> T:
+    def get(self, interface: type[T]) -> T:
         """Get a service instance."""
         # Check for existing singleton instance
         if interface in self._singletons:
@@ -56,10 +56,7 @@ class DependencyContainer:
             implementation = self._services[interface]
 
             # Create singleton instance
-            if hasattr(implementation, '__init__'):
-                instance = implementation()
-            else:
-                instance = implementation
+            instance = implementation() if hasattr(implementation, '__init__') else implementation
 
             self._singletons[interface] = instance
             logger.debug(f"Created singleton instance: {interface.__name__}")
@@ -67,7 +64,7 @@ class DependencyContainer:
 
         raise ValueError(f"Service not registered: {interface.__name__}")
 
-    def is_registered(self, interface: Type[T]) -> bool:
+    def is_registered(self, interface: type[T]) -> bool:
         """Check if a service is registered."""
         return (interface in self._services or
                 interface in self._factories or
@@ -80,7 +77,7 @@ class DependencyContainer:
         self._singletons.clear()
         logger.info("Dependency container cleared")
 
-    def configure_default_services(self, config: Optional[Dict[str, Any]] = None) -> None:
+    def configure_default_services(self, config: Optional[dict[str, Any]] = None) -> None:
         """Configure default services with optional configuration."""
         if config is None:
             config = {}
@@ -112,7 +109,7 @@ class DependencyContainer:
 
         logger.info("Default services configured")
 
-    def configure_production_services(self, config: Dict[str, Any]) -> None:
+    def configure_production_services(self, config: dict[str, Any]) -> None:
         """Configure services for production environment."""
 
         # Configure with production implementations
@@ -128,11 +125,11 @@ class DependencyContainer:
 
         logger.info(f"Production services configured with Qdrant at {qdrant_host}:{qdrant_port}")
 
-    def health_check(self) -> Dict[str, bool]:
+    def health_check(self) -> dict[str, bool]:
         """Perform health check on all registered services."""
         health_status = {}
 
-        for interface in self._services.keys():
+        for interface in self._services:
             try:
                 service = self.get(interface)
 
@@ -162,7 +159,7 @@ def get_container() -> DependencyContainer:
     return _container
 
 
-def configure_container(config: Optional[Dict[str, Any]] = None, production: bool = False) -> DependencyContainer:
+def configure_container(config: Optional[dict[str, Any]] = None, production: bool = False) -> DependencyContainer:
     """Configure the global dependency container."""
     container = get_container()
 
@@ -174,6 +171,6 @@ def configure_container(config: Optional[Dict[str, Any]] = None, production: boo
     return container
 
 
-def inject(interface: Type[T]) -> T:
+def inject(interface: type[T]) -> T:
     """Convenience function to inject a dependency."""
     return get_container().get(interface)

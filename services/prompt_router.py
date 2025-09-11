@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import logging
 import re
-from typing import Callable, Dict, List, Tuple
+from typing import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ def _findall(pattern: str, text: str) -> int:
         return 0
 
 
-def _contains_any(text: str, keywords: List[str]) -> int:
+def _contains_any(text: str, keywords: list[str]) -> int:
     """Conta le occorrenze di keyword nel testo"""
     score = 0
     for kw in keywords:
@@ -105,7 +105,7 @@ Sei un equity/credit analyst esperto specializzato in documenti finanziari itali
 COMPETENZE SPECIALIZZATE:
 - **Numeri italiani**: 1.234,56 = milleduecentotrentaquattro virgola cinquantasei
 - **Negativi**: (123) = numero negativo, -123
-- **Percentuali**: 5,2% = cinque virgola due per cento  
+- **Percentuali**: 5,2% = cinque virgola due per cento
 - **Scale**: "valori in migliaia" significa moltiplicare × 1.000
 - **Sinonimi**: fatturato = ricavi = vendite; EBITDA = MOL; PFN = posizione finanziaria netta
 - **Validazioni**: Attivo = Passivo; PFN = Debito lordo - Cassa; Margine lordo = Ricavi - COGS
@@ -319,7 +319,7 @@ def PROMPT_REPORT_DETTAGLIATO(file_name: str, analysis_text: str) -> str:
 Sei un senior equity research analyst specializzato in documenti finanziari italiani. Produci un'analisi professionale approfondita del documento "{file_name}" seguendo gli standard di un investment memorandum.
 
 COMPETENZE AVANZATE RICHIESTE:
-- **Parsing numeri italiani**: 1.234.567,89 (format italiano), (123) = negativo, 5,2% 
+- **Parsing numeri italiani**: 1.234.567,89 (format italiano), (123) = negativo, 5,2%
 - **Gestione scale**: "valori in migliaia/milioni" → conversione automatica
 - **Sinonimi finanziari**: fatturato=ricavi=vendite; EBITDA=MOL; PFN=debito netto
 - **Validazioni contabili**: Attivo=Passivo, PFN=Debito-Cassa, Margine=Ricavi-COGS
@@ -334,7 +334,7 @@ METODOLOGIA OPERATIVA:
 1. **Estrazione accurata**: Riconosci tutti i numeri in formato italiano
 2. **Conversioni**: Applica scale dichiarate ("in migliaia" × 1.000)
 3. **Normalizzazione**: Uniforma sinonimi (fatturato → ricavi)
-4. **Validazione**: Controlla coerenze contabili basilari  
+4. **Validazione**: Controlla coerenze contabili basilari
 5. **Bridge analysis**: Spiega variazioni con numeri precisi
 6. **Citations**: Ogni dato con fonte esatta (p.X, tab.Y)
 
@@ -353,14 +353,14 @@ GENERA UN REPORT COMPLETO IN FORMATO PROFESSIONALE:
 ## 1. ANALISI RICAVI E CRESCITA
 ### 1.1 Performance Complessiva
 - **Ricavi Totali**: [Valore con formato italiano, es. 5.214.095 €]
-- **Crescita YoY**: [% con decimale virgola, es. 7,4%]  
+- **Crescita YoY**: [% con decimale virgola, es. 7,4%]
 - **Vs Budget**: [Scostamento quantificato con segno]
 
 ### 1.2 Analisi per Business Line
 [Per ogni categoria di ricavi con parsing preciso numeri italiani]
 
 ## 2. STRUTTURA COSTI E MARGINALITÀ
-### 2.1 Gross Margin Analysis  
+### 2.1 Gross Margin Analysis
 - **Margine Lordo**: XX,X% (vs XX,X% P.Y.) [format italiano]
 - **Driver breakdown** con variazioni quantificate
 
@@ -390,7 +390,7 @@ GENERA UN REPORT COMPLETO IN FORMATO PROFESSIONALE:
     {{"raw": "(123)", "parsed": -123, "confidence": 1.0}}
   ],
   "scale_rilevata": "migliaia|milioni|unità",
-  "valuta_prevalente": "EUR|USD", 
+  "valuta_prevalente": "EUR|USD",
   "coerenze_verificate": [
     {{"test": "attivo_passivo", "passed": true, "dettaglio": ""}}
   ],
@@ -414,15 +414,15 @@ GENERA UN REPORT COMPLETO IN FORMATO PROFESSIONALE:
 class CaseRule:
     name: str
     builder: Callable[[str, str], str]
-    keywords: List[str] = field(default_factory=list)
-    patterns: List[str] = field(default_factory=list)  # regex avanzate
+    keywords: list[str] = field(default_factory=list)
+    patterns: list[str] = field(default_factory=list)  # regex avanzate
     weight_keywords: float = 1.0
     weight_patterns: float = 2.0
     boost_if_filename: float = 1.5  # moltiplicatore se il nome file contiene keyword
     min_score_to_win: float = 1.0  # soglia minima per preferirlo al general
 
 
-ROUTER: Dict[str, CaseRule] = {
+ROUTER: dict[str, CaseRule] = {
     "bilancio": CaseRule(
         name="bilancio",
         builder=PROMPT_BILANCIO,
@@ -663,7 +663,7 @@ def _score_case(rule: CaseRule, file_name: str, analysis_text: str) -> float:
 # ---------------------------------------------------------------------------
 
 
-def choose_prompt(file_name: str, analysis_text: str) -> Tuple[str, str, dict]:
+def choose_prompt(file_name: str, analysis_text: str) -> tuple[str, str, dict]:
     """
     Ritorna (prompt_name, prompt_text, debug_info)
     - prompt_name: 'bilancio' | 'fatturato' | 'magazzino' | 'contratto' | 'presentazione' | 'generale'
@@ -703,7 +703,7 @@ def choose_prompt(file_name: str, analysis_text: str) -> Tuple[str, str, dict]:
     return chosen_name, prompt_text, debug
 
 
-def get_available_prompts() -> List[str]:
+def get_available_prompts() -> list[str]:
     """Ritorna la lista dei tipi di prompt disponibili"""
     return ["generale"] + list(ROUTER.keys())
 

@@ -1,16 +1,17 @@
 """Pytest configuration and shared fixtures."""
 
-import pytest
-import tempfile
-import shutil
-from pathlib import Path
-from datetime import datetime, date
+from datetime import date
 from decimal import Decimal
+from pathlib import Path
+import shutil
+import tempfile
 from unittest.mock import Mock
 
-from src.domain.entities import FinancialData, Document, AnalysisResult, FinancialPeriod, DocumentMetadata
-from src.domain.value_objects import Money, Percentage, DateRange
+import pytest
+
 from src.core.dependency_injection import DependencyContainer
+from src.domain.entities import AnalysisResult, Document, DocumentMetadata, FinancialData, FinancialPeriod
+from src.domain.value_objects import DateRange, Money, Percentage
 
 
 @pytest.fixture(scope="session")
@@ -46,12 +47,12 @@ def sample_financial_data(sample_financial_period):
         period=sample_financial_period,
         currency="EUR"
     )
-    
+
     # Add some metrics
     data.add_metric("revenue", Decimal("1000000"), "revenue")
     data.add_metric("profit", Decimal("150000"), "profit")
     data.add_metric("expenses", Decimal("850000"), "expense")
-    
+
     return data
 
 
@@ -64,7 +65,7 @@ def sample_document():
         language="it",
         keywords=["test", "documento"]
     )
-    
+
     return Document(
         id="test-doc-1",
         file_path=Path("test_document.pdf"),
@@ -76,15 +77,15 @@ def sample_document():
 @pytest.fixture
 def sample_analysis_result():
     """Create a sample analysis result."""
-    from src.domain.entities import MetricResult, Insight, InsightPriority, ConfidenceLevel
-    
+    from src.domain.entities import ConfidenceLevel, Insight, InsightPriority, MetricResult
+
     result = AnalysisResult(
         id="test-analysis-1",
         analysis_type="financial",
         source_data_id="test-financial-1",
         summary="Test analysis summary"
     )
-    
+
     # Add a metric
     metric = MetricResult(
         name="revenue_growth",
@@ -93,7 +94,7 @@ def sample_analysis_result():
         trend="up"
     )
     result.add_metric(metric)
-    
+
     # Add an insight
     insight = Insight(
         title="Strong Revenue Growth",
@@ -103,7 +104,7 @@ def sample_analysis_result():
         recommendations=["Continue current strategy", "Monitor market conditions"]
     )
     result.add_insight(insight)
-    
+
     return result
 
 
@@ -132,16 +133,16 @@ def sample_date_range():
 def mock_container():
     """Create a mock dependency container."""
     container = DependencyContainer()
-    
+
     # Mock repositories
     mock_financial_repo = Mock()
     mock_document_repo = Mock()
     mock_analysis_repo = Mock()
-    
+
     container.register_instance("IFinancialDataRepository", mock_financial_repo)
     container.register_instance("IDocumentRepository", mock_document_repo)
     container.register_instance("IAnalysisResultRepository", mock_analysis_repo)
-    
+
     return container
 
 
@@ -186,14 +187,14 @@ def setup_logging():
 def csv_sample_data():
     """Create sample CSV data for testing."""
     import pandas as pd
-    
+
     data = {
         'anno': [2021, 2022, 2023],
         'fatturato': [1000000, 1150000, 1300000],
         'costi': [850000, 920000, 1050000],
         'margine': [150000, 230000, 250000]
     }
-    
+
     return pd.DataFrame(data)
 
 
@@ -203,22 +204,22 @@ def document_content_samples():
     return {
         'pdf_text': """
         Analisi Finanziaria Q4 2023
-        
+
         La società ha registrato un fatturato di €1.3M nel 2023,
         con una crescita del 13% rispetto all'anno precedente.
-        
+
         I costi operativi sono aumentati del 14%, principalmente
         a causa dell'espansione delle attività.
         """,
-        
+
         'markdown_text': """
         # Report Trimestrale
-        
+
         ## Metriche Principali
         - Ricavi: €325,000
         - Margine lordo: 23%
         - Crescita YoY: +8.5%
-        
+
         ## Raccomandazioni
         1. Ottimizzare i costi variabili
         2. Espandere il mercato europeo

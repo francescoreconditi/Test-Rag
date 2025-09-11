@@ -59,7 +59,7 @@ if exist ".venv\Scripts\activate.bat" (
 
 :: Install basic dependencies
 echo [INFO] Installing Redis, Celery, and Flower...
-pip install redis celery flower requests
+pip install redis celery flower requests eventlet
 
 echo [SUCCESS] Dependencies installation complete
 
@@ -201,8 +201,8 @@ echo.
 echo Next Steps:
 echo    1. Test Redis: docker exec -it rag_redis redis-cli ping
 echo    2. Test Qdrant: curl http://localhost:6333/
-echo    3. Start Celery: celery -A src.infrastructure.performance.celery_tasks worker --loglevel=info
-echo    4. Start Flower: flower -A src.infrastructure.performance.celery_tasks --port=5555
+echo    3. Start Celery: celery -A src.infrastructure.performance.celery_tasks worker --loglevel=info --pool=solo
+echo    4. Start Flower: python -m celery -A src.infrastructure.performance.celery_tasks flower --port=5555
 ) > monitoring_endpoints.txt
 
 echo [SUCCESS] Monitoring info created in monitoring_endpoints.txt

@@ -10,17 +10,17 @@ Multi-tenant fact table repository for enterprise RAG system.
 Provides tenant-isolated data storage with dimensional modeling and provenance tracking.
 """
 
-import logging
-from typing import Dict, List, Optional, Any, Tuple
+from dataclasses import dataclass
 from datetime import datetime
+import json
+import logging
 from pathlib import Path
 import sqlite3
-import json
-from dataclasses import dataclass
+from typing import Any, Optional
 
-from src.infrastructure.repositories.fact_table_repository import FactTableRepository, FactRecord
 from src.domain.entities.tenant_context import TenantContext
 from src.domain.value_objects.source_reference import SourceReference
+from src.infrastructure.repositories.fact_table_repository import FactRecord, FactTableRepository
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +29,8 @@ class TenantFactRecord(FactRecord):
     """Fact record with tenant isolation."""
     tenant_id: str
     tenant_schema: str
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary including tenant information."""
         base_dict = super().to_dict()
         base_dict.update({
@@ -44,17 +44,17 @@ class MultiTenantFactTableRepository:
     Enterprise multi-tenant fact table repository.
     Provides complete tenant isolation for financial metrics data.
     """
-    
+
     def __init__(self, base_database_path: str = "data/multi_tenant_facts.db"):
         self.base_database_path = Path(base_database_path)
         self.base_database_path.parent.mkdir(exist_ok=True)
-        
+
         # Tenant-specific repositories
-        self._tenant_repositories: Dict[str, FactTableRepository] = {}
-        
+        self._tenant_repositories: dict[str, FactTableRepository] = {}
+
         # Master tenant registry
         self._init_master_database()
-    
+
     def _init_master_database(self):
         """Initialize master database for tenant registry."""
         try:
@@ -69,7 +69,7 @@ class MultiTenantFactTableRepository:
                         fact_count INTEGER DEFAULT 0,
                         storage_size_bytes INTEGER DEFAULT 0
                     );
-                    
+
                     CREATE TABLE IF NOT EXISTS tenant_metrics_summary (
                         tenant_id TEXT NOT NULL,
                         metric_name TEXT NOT NULL,
@@ -81,7 +81,7 @@ class MultiTenantFactTableRepository:
                         PRIMARY KEY (tenant_id, metric_name, entity_name, period_key),
                         FOREIGN KEY (tenant_id) REFERENCES tenant_databases (tenant_id)
                     );
-                    
+
                     CREATE TABLE IF NOT EXISTS cross_tenant_analytics (
                         analytics_id INTEGER PRIMARY KEY AUTOINCREMENT,
                         analytics_type TEXT NOT NULL,
@@ -90,7 +90,7 @@ class MultiTenantFactTableRepository:
                         results TEXT NOT NULL,
                         created_at TEXT NOT NULL
                     );
-                    
+
                     CREATE INDEX IF NOT EXISTS idx_tenant_db_path ON tenant_databases(database_path);
                     CREATE INDEX IF NOT EXISTS idx_tenant_summary_metric ON tenant_metrics_summary(metric_name);
                     CREATE INDEX IF NOT EXISTS idx_cross_tenant_type ON cross_tenant_analytics(analytics_type);
@@ -99,39 +99,39 @@ class MultiTenantFactTableRepository:
         except Exception as e:
             logger.error(f"Failed to initialize master database: {e}")
             raise
-    
+
     async def get_tenant_repository(self, tenant_context: TenantContext) -> FactTableRepository:
         """Get or create tenant-specific fact table repository."""
         tenant_id = tenant_context.tenant_id
-        
+
         # Return cached repository if available
         if tenant_id in self._tenant_repositories:
             await self._update_tenant_access(tenant_id)
             return self._tenant_repositories[tenant_id]
-        
+
         try:
             # Create tenant-specific database path
             tenant_db_path = self.base_database_path.parent / f"tenant_{tenant_id}_facts.db"
-            
+
             # Initialize tenant repository
             tenant_repo = FactTableRepository(str(tenant_db_path))
-            
+
             # Customize for tenant isolation
             await self._setup_tenant_schema(tenant_repo, tenant_context)
-            
+
             # Register tenant database
             await self._register_tenant_database(tenant_context, str(tenant_db_path))
-            
+
             # Cache repository
             self._tenant_repositories[tenant_id] = tenant_repo
-            
+
             logger.info(f"Created tenant repository for: {tenant_id}")
             return tenant_repo
-            
+
         except Exception as e:
             logger.error(f"Failed to create tenant repository for {tenant_id}: {e}")
             raise
-    
+
     async def _setup_tenant_schema(self, repository: FactTableRepository, tenant_context: TenantContext):
         """Setup tenant-specific schema modifications."""
         try:
@@ -140,46 +140,46 @@ class MultiTenantFactTableRepository:
                 # Check if tenant columns exist
                 cursor = conn.execute("PRAGMA table_info(facts)")
                 columns = [row[1] for row in cursor.fetchall()]
-                
+
                 if 'tenant_id' not in columns:
                     conn.execute("ALTER TABLE facts ADD COLUMN tenant_id TEXT NOT NULL DEFAULT ''")
-                
+
                 if 'tenant_schema' not in columns:
                     conn.execute("ALTER TABLE facts ADD COLUMN tenant_schema TEXT NOT NULL DEFAULT ''")
-                
+
                 if 'encryption_key_id' not in columns:
                     conn.execute("ALTER TABLE facts ADD COLUMN encryption_key_id TEXT")
-                
+
                 # Create tenant-specific indexes
                 conn.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_facts_tenant_id 
+                    CREATE INDEX IF NOT EXISTS idx_facts_tenant_id
                     ON facts(tenant_id)
                 """)
-                
+
                 conn.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_facts_tenant_metric 
+                    CREATE INDEX IF NOT EXISTS idx_facts_tenant_metric
                     ON facts(tenant_id, metric_name)
                 """)
-                
+
                 conn.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_facts_tenant_entity 
+                    CREATE INDEX IF NOT EXISTS idx_facts_tenant_entity
                     ON facts(tenant_id, entity_name)
                 """)
-            
+
             logger.debug(f"Setup tenant schema for: {tenant_context.tenant_id}")
-            
+
         except Exception as e:
             logger.error(f"Failed to setup tenant schema: {e}")
             raise
-    
+
     async def _register_tenant_database(self, tenant_context: TenantContext, database_path: str):
         """Register tenant database in master registry."""
         try:
             now = datetime.now().isoformat()
-            
+
             with sqlite3.connect(self.base_database_path) as conn:
                 conn.execute("""
-                    INSERT OR REPLACE INTO tenant_databases 
+                    INSERT OR REPLACE INTO tenant_databases
                     (tenant_id, database_path, schema_name, created_at, last_accessed)
                     VALUES (?, ?, ?, ?, ?)
                 """, (
@@ -189,26 +189,26 @@ class MultiTenantFactTableRepository:
                     now,
                     now
                 ))
-            
+
             logger.debug(f"Registered tenant database: {tenant_context.tenant_id}")
-            
+
         except Exception as e:
             logger.error(f"Failed to register tenant database: {e}")
             raise
-    
+
     async def _update_tenant_access(self, tenant_id: str):
         """Update last access time for tenant."""
         try:
             with sqlite3.connect(self.base_database_path) as conn:
                 conn.execute("""
-                    UPDATE tenant_databases 
+                    UPDATE tenant_databases
                     SET last_accessed = ?
                     WHERE tenant_id = ?
                 """, (datetime.now().isoformat(), tenant_id))
         except Exception as e:
             logger.warning(f"Failed to update tenant access time: {e}")
-    
-    async def store_tenant_fact(self, 
+
+    async def store_tenant_fact(self,
                               tenant_context: TenantContext,
                               metric_name: str,
                               value: float,
@@ -217,11 +217,11 @@ class MultiTenantFactTableRepository:
                               scenario: str,
                               source_reference: SourceReference,
                               confidence_score: float = 1.0,
-                              metadata: Optional[Dict[str, Any]] = None) -> bool:
+                              metadata: Optional[dict[str, Any]] = None) -> bool:
         """Store a fact record for a specific tenant."""
         try:
             tenant_repo = await self.get_tenant_repository(tenant_context)
-            
+
             # Create tenant fact record
             tenant_fact = TenantFactRecord(
                 fact_id=f"{tenant_context.tenant_id}_{datetime.now().timestamp()}_{hash(metric_name + entity_name + period_key)}",
@@ -237,24 +237,24 @@ class MultiTenantFactTableRepository:
                 tenant_id=tenant_context.tenant_id,
                 tenant_schema=tenant_context.database_schema
             )
-            
+
             # Store in tenant repository with additional tenant fields
             success = await self._store_tenant_fact_record(tenant_repo, tenant_fact, tenant_context)
-            
+
             if success:
                 # Update tenant metrics summary
                 await self._update_tenant_metrics_summary(tenant_context.tenant_id, tenant_fact)
-                
+
                 # Update tenant usage
                 tenant_context.update_usage(storage_delta_gb=0.001)  # Approximate storage increase
-            
+
             return success
-            
+
         except Exception as e:
             logger.error(f"Failed to store tenant fact for {tenant_context.tenant_id}: {e}")
             return False
-    
-    async def _store_tenant_fact_record(self, 
+
+    async def _store_tenant_fact_record(self,
                                       repository: FactTableRepository,
                                       tenant_fact: TenantFactRecord,
                                       tenant_context: TenantContext) -> bool:
@@ -277,7 +277,7 @@ class MultiTenantFactTableRepository:
                     'tenant_schema': tenant_fact.tenant_schema,
                     'encryption_key_id': tenant_context.encryption_key_id
                 }
-                
+
                 # Insert fact record
                 conn.execute("""
                     INSERT INTO facts (
@@ -286,14 +286,14 @@ class MultiTenantFactTableRepository:
                         tenant_id, tenant_schema, encryption_key_id
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, tuple(fact_data.values()))
-            
+
             logger.debug(f"Stored tenant fact: {tenant_fact.fact_id}")
             return True
-            
+
         except Exception as e:
             logger.error(f"Failed to store tenant fact record: {e}")
             return False
-    
+
     async def _update_tenant_metrics_summary(self, tenant_id: str, fact: TenantFactRecord):
         """Update tenant metrics summary for fast lookups."""
         try:
@@ -302,8 +302,8 @@ class MultiTenantFactTableRepository:
                     INSERT OR REPLACE INTO tenant_metrics_summary
                     (tenant_id, metric_name, entity_name, period_key, latest_value, value_count, last_updated)
                     VALUES (
-                        ?, ?, ?, ?, ?, 
-                        COALESCE((SELECT value_count + 1 FROM tenant_metrics_summary 
+                        ?, ?, ?, ?, ?,
+                        COALESCE((SELECT value_count + 1 FROM tenant_metrics_summary
                                  WHERE tenant_id=? AND metric_name=? AND entity_name=? AND period_key=?), 1),
                         ?
                     )
@@ -314,15 +314,15 @@ class MultiTenantFactTableRepository:
                 ))
         except Exception as e:
             logger.warning(f"Failed to update tenant metrics summary: {e}")
-    
-    async def query_tenant_facts(self, 
+
+    async def query_tenant_facts(self,
                                tenant_context: TenantContext,
-                               filters: Optional[Dict[str, Any]] = None,
-                               limit: int = 100) -> List[TenantFactRecord]:
+                               filters: Optional[dict[str, Any]] = None,
+                               limit: int = 100) -> list[TenantFactRecord]:
         """Query facts for a specific tenant."""
         try:
             tenant_repo = await self.get_tenant_repository(tenant_context)
-            
+
             # Build query with tenant isolation
             base_query = """
                 SELECT fact_id, metric_name, value, entity_name, period_key, scenario,
@@ -331,9 +331,9 @@ class MultiTenantFactTableRepository:
                 FROM facts
                 WHERE tenant_id = ?
             """
-            
+
             params = [tenant_context.tenant_id]
-            
+
             # Add filters
             if filters:
                 for key, value in filters.items():
@@ -343,14 +343,14 @@ class MultiTenantFactTableRepository:
                     elif key == 'confidence_threshold':
                         base_query += " AND confidence_score >= ?"
                         params.append(value)
-            
+
             base_query += " ORDER BY created_at DESC LIMIT ?"
             params.append(limit)
-            
+
             with sqlite3.connect(tenant_repo.database_path) as conn:
                 cursor = conn.execute(base_query, params)
                 facts = []
-                
+
                 for row in cursor.fetchall():
                     source_ref_data = json.loads(row[6])
                     source_reference = SourceReference(
@@ -362,7 +362,7 @@ class MultiTenantFactTableRepository:
                         extraction_timestamp=datetime.fromisoformat(source_ref_data['extraction_timestamp']),
                         content_hash=source_ref_data['content_hash']
                     )
-                    
+
                     fact = TenantFactRecord(
                         fact_id=row[0],
                         metric_name=row[1],
@@ -378,14 +378,14 @@ class MultiTenantFactTableRepository:
                         tenant_schema=row[11]
                     )
                     facts.append(fact)
-            
+
             return facts
-            
+
         except Exception as e:
             logger.error(f"Failed to query tenant facts: {e}")
             return []
-    
-    async def get_tenant_metrics_summary(self, tenant_id: str) -> Dict[str, Any]:
+
+    async def get_tenant_metrics_summary(self, tenant_id: str) -> dict[str, Any]:
         """Get metrics summary for a tenant."""
         try:
             with sqlite3.connect(self.base_database_path) as conn:
@@ -395,7 +395,7 @@ class MultiTenantFactTableRepository:
                     WHERE tenant_id = ?
                     ORDER BY last_updated DESC
                 """, (tenant_id,))
-                
+
                 metrics = []
                 for row in cursor.fetchall():
                     metrics.append({
@@ -406,19 +406,19 @@ class MultiTenantFactTableRepository:
                         'value_count': row[4],
                         'last_updated': row[5]
                     })
-                
+
                 # Get overall statistics
                 cursor = conn.execute("""
-                    SELECT COUNT(*) as total_metrics, 
+                    SELECT COUNT(*) as total_metrics,
                            COUNT(DISTINCT metric_name) as unique_metrics,
                            COUNT(DISTINCT entity_name) as unique_entities,
                            MAX(last_updated) as last_activity
                     FROM tenant_metrics_summary
                     WHERE tenant_id = ?
                 """, (tenant_id,))
-                
+
                 stats_row = cursor.fetchone()
-                
+
                 return {
                     'tenant_id': tenant_id,
                     'metrics': metrics,
@@ -429,11 +429,11 @@ class MultiTenantFactTableRepository:
                         'last_activity': stats_row[3]
                     }
                 }
-            
+
         except Exception as e:
             logger.error(f"Failed to get tenant metrics summary: {e}")
             return {}
-    
+
     async def delete_tenant_data(self, tenant_id: str) -> bool:
         """Delete all data for a tenant (GDPR compliance)."""
         try:
@@ -443,35 +443,35 @@ class MultiTenantFactTableRepository:
                     SELECT database_path FROM tenant_databases WHERE tenant_id = ?
                 """, (tenant_id,))
                 row = cursor.fetchone()
-                
+
                 if not row:
                     logger.warning(f"Tenant database not found: {tenant_id}")
                     return True  # Already deleted
-                
+
                 tenant_db_path = Path(row[0])
-            
+
             # Delete tenant database file
             if tenant_db_path.exists():
                 tenant_db_path.unlink()
                 logger.info(f"Deleted tenant database: {tenant_db_path}")
-            
+
             # Remove from master registry
             with sqlite3.connect(self.base_database_path) as conn:
                 conn.execute("DELETE FROM tenant_databases WHERE tenant_id = ?", (tenant_id,))
                 conn.execute("DELETE FROM tenant_metrics_summary WHERE tenant_id = ?", (tenant_id,))
-            
+
             # Remove from cache
             if tenant_id in self._tenant_repositories:
                 del self._tenant_repositories[tenant_id]
-            
+
             logger.info(f"Completely deleted tenant data: {tenant_id}")
             return True
-            
+
         except Exception as e:
             logger.error(f"Failed to delete tenant data {tenant_id}: {e}")
             return False
-    
-    async def get_tenant_storage_usage(self, tenant_id: str) -> Dict[str, Any]:
+
+    async def get_tenant_storage_usage(self, tenant_id: str) -> dict[str, Any]:
         """Get storage usage statistics for a tenant."""
         try:
             with sqlite3.connect(self.base_database_path) as conn:
@@ -479,31 +479,31 @@ class MultiTenantFactTableRepository:
                     SELECT database_path FROM tenant_databases WHERE tenant_id = ?
                 """, (tenant_id,))
                 row = cursor.fetchone()
-                
+
                 if not row:
                     return {'error': 'Tenant not found'}
-                
+
                 tenant_db_path = Path(row[0])
-                
+
                 if not tenant_db_path.exists():
                     return {'error': 'Database file not found'}
-                
+
                 # Get file size
                 file_size_bytes = tenant_db_path.stat().st_size
                 file_size_mb = file_size_bytes / (1024 * 1024)
-                
+
                 # Get record counts
                 with sqlite3.connect(tenant_db_path) as tenant_conn:
                     cursor = tenant_conn.execute("SELECT COUNT(*) FROM facts WHERE tenant_id = ?", (tenant_id,))
                     fact_count = cursor.fetchone()[0]
-                    
+
                     cursor = tenant_conn.execute("""
-                        SELECT COUNT(DISTINCT metric_name), COUNT(DISTINCT entity_name), 
+                        SELECT COUNT(DISTINCT metric_name), COUNT(DISTINCT entity_name),
                                COUNT(DISTINCT period_key)
                         FROM facts WHERE tenant_id = ?
                     """, (tenant_id,))
                     unique_counts = cursor.fetchone()
-                
+
                 return {
                     'tenant_id': tenant_id,
                     'database_path': str(tenant_db_path),
@@ -515,29 +515,29 @@ class MultiTenantFactTableRepository:
                     'unique_periods': unique_counts[2],
                     'avg_bytes_per_fact': round(file_size_bytes / fact_count, 2) if fact_count > 0 else 0
                 }
-            
+
         except Exception as e:
             logger.error(f"Failed to get storage usage for tenant {tenant_id}: {e}")
             return {'error': str(e)}
-    
+
     async def export_tenant_data(self, tenant_id: str, export_format: str = 'json') -> Optional[str]:
         """Export all tenant data for migration or backup."""
         try:
             tenant_summary = await self.get_tenant_metrics_summary(tenant_id)
             storage_info = await self.get_tenant_storage_usage(tenant_id)
-            
+
             # Get all facts (no limit for export)
             with sqlite3.connect(self.base_database_path) as conn:
                 cursor = conn.execute("""
                     SELECT database_path FROM tenant_databases WHERE tenant_id = ?
                 """, (tenant_id,))
                 row = cursor.fetchone()
-                
+
                 if not row:
                     return None
-                
+
                 tenant_db_path = row[0]
-            
+
             # Export all facts
             with sqlite3.connect(tenant_db_path) as conn:
                 cursor = conn.execute("""
@@ -548,7 +548,7 @@ class MultiTenantFactTableRepository:
                     WHERE tenant_id = ?
                     ORDER BY created_at
                 """, (tenant_id,))
-                
+
                 facts = []
                 for row in cursor.fetchall():
                     facts.append({
@@ -566,7 +566,7 @@ class MultiTenantFactTableRepository:
                         'tenant_schema': row[11],
                         'encryption_key_id': row[12]
                     })
-            
+
             export_data = {
                 'tenant_id': tenant_id,
                 'export_timestamp': datetime.now().isoformat(),
@@ -575,13 +575,13 @@ class MultiTenantFactTableRepository:
                 'storage_info': storage_info,
                 'facts': facts
             }
-            
+
             if export_format == 'json':
                 return json.dumps(export_data, indent=2)
             else:
                 # Could add CSV, XML, etc. formats here
                 return json.dumps(export_data, indent=2)
-            
+
         except Exception as e:
             logger.error(f"Failed to export tenant data {tenant_id}: {e}")
             return None

@@ -6,7 +6,7 @@ import json
 import logging
 from pathlib import Path
 import sqlite3
-from typing import Any, Dict, List, Optional, Type, TypeVar
+from typing import Any, Optional, TypeVar
 
 from src.application.interfaces.repository_interfaces import IRepository
 
@@ -18,7 +18,7 @@ T = TypeVar('T')
 class BaseRepository(IRepository, ABC):
     """Base repository with SQLite implementation."""
 
-    def __init__(self, db_path: Path, table_name: str, entity_class: Type[T]):
+    def __init__(self, db_path: Path, table_name: str, entity_class: type[T]):
         """Initialize repository with database connection."""
         self.db_path = db_path
         self.table_name = table_name
@@ -44,11 +44,11 @@ class BaseRepository(IRepository, ABC):
 
             # Add indexes
             conn.execute(f"""
-                CREATE INDEX IF NOT EXISTS idx_{self.table_name}_created_at 
+                CREATE INDEX IF NOT EXISTS idx_{self.table_name}_created_at
                 ON {self.table_name} (created_at)
             """)
             conn.execute(f"""
-                CREATE INDEX IF NOT EXISTS idx_{self.table_name}_updated_at 
+                CREATE INDEX IF NOT EXISTS idx_{self.table_name}_updated_at
                 ON {self.table_name} (updated_at)
             """)
 
@@ -87,7 +87,7 @@ class BaseRepository(IRepository, ABC):
 
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(f"""
-                INSERT OR REPLACE INTO {self.table_name} 
+                INSERT OR REPLACE INTO {self.table_name}
                 (id, data, created_at, updated_at)
                 VALUES (?, ?, ?, ?)
             """, (entity_id, data, now, now))
@@ -110,7 +110,7 @@ class BaseRepository(IRepository, ABC):
 
         return None
 
-    def find_all(self, limit: int = 100, offset: int = 0) -> List[T]:
+    def find_all(self, limit: int = 100, offset: int = 0) -> list[T]:
         """Find all entities with pagination."""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(f"""
@@ -180,7 +180,7 @@ class BaseRepository(IRepository, ABC):
 
             return cursor.fetchone()[0]
 
-    def find_by_criteria(self, criteria: Dict[str, Any], limit: int = 100) -> List[T]:
+    def find_by_criteria(self, criteria: dict[str, Any], limit: int = 100) -> list[T]:
         """Find entities matching criteria in JSON data."""
         entities = []
 
@@ -206,7 +206,7 @@ class BaseRepository(IRepository, ABC):
 
         return entities
 
-    def execute_query(self, query: str, params: tuple = ()) -> List[Any]:
+    def execute_query(self, query: str, params: tuple = ()) -> list[Any]:
         """Execute a custom query."""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(query, params)

@@ -64,10 +64,10 @@ st.markdown("""
         border-left: 4px solid #1f77b4;
         margin: 1rem 0;
     }
-    
+
     /* Suppress browser console warnings for Popper.js */
-    .st-emotion-cache-1wmy9hl { 
-        z-index: 999999; 
+    .st-emotion-cache-1wmy9hl {
+        z-index: 999999;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -1086,9 +1086,9 @@ def show_document_rag():
                     # This is a simple embed attempt - may not work in all browsers
                     pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
                     pdf_display = f'''
-                    <iframe 
-                        src="data:application/pdf;base64,{pdf_base64}#page={pdf_info['page']}" 
-                        width="100%" 
+                    <iframe
+                        src="data:application/pdf;base64,{pdf_base64}#page={pdf_info['page']}"
+                        width="100%"
                         height="600px"
                         style="border: none;">
                         Il tuo browser non supporta la visualizzazione PDF integrata.
@@ -1305,8 +1305,8 @@ def show_dashboard():
                     y=[g['growth_percentage'] for g in growth_data],
                     mode='lines+markers',
                     name='YoY Growth',
-                    line=dict(color='#1f77b4', width=3),
-                    marker=dict(size=8)
+                    line={"color": '#1f77b4', "width": 3},
+                    marker={"size": 8}
                 ))
                 fig.update_layout(
                     title="Trend di Crescita Fatturato",
@@ -1670,9 +1670,9 @@ def show_database_explorer():
                 try:
                     pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
                     pdf_display = f'''
-                    <iframe 
-                        src="data:application/pdf;base64,{pdf_base64}#page={pdf_info['page']}" 
-                        width="100%" 
+                    <iframe
+                        src="data:application/pdf;base64,{pdf_base64}#page={pdf_info['page']}"
+                        width="100%"
                         height="600px"
                         style="border: none;">
                         Il tuo browser non supporta la visualizzazione PDF integrata.
@@ -1737,18 +1737,18 @@ def show_settings():
 
     st.markdown("""
     Per modificare le impostazioni:
-    
+
     1. Crea un file `.env` nella root del progetto
     2. Copia il contenuto da `.env.example`
     3. Aggiungi la tua chiave API OpenAI
     4. Modifica altri parametri se necessario
     5. Riavvia l'applicazione
-    
+
     ### Variabili di Ambiente Richieste:
     - `OPENAI_API_KEY`: La tua chiave API OpenAI
     - `QDRANT_HOST`: Host del server Qdrant (default: localhost)
     - `QDRANT_PORT`: Porta del server Qdrant (default: 6333)
-    
+
     ### Configurazione Opzionale:
     - `LLM_MODEL`: Modello OpenAI da usare (default: gpt-4-turbo-preview)
     - `CHUNK_SIZE`: Dimensione blocchi documenti (default: 512)
@@ -1814,7 +1814,7 @@ def show_settings():
                     for pdf in pdf_files:
                         file_size = pdf.stat().st_size / 1024 / 1024  # MB
                         st.text(f"📄 {pdf.name} ({file_size:.1f} MB)")
-            
+
             with col2:
                 if st.button("🗑️ Elimina Tutti i PDF", type="secondary", help="Rimuove tutti i PDF salvati (NON influenza l'indicizzazione)"):
                     try:

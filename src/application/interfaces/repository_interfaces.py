@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from src.domain.entities import AnalysisResult, Document, FinancialData
 from src.domain.value_objects import DateRange
@@ -22,7 +22,7 @@ class IRepository(ABC):
         pass
 
     @abstractmethod
-    def find_all(self, limit: int = 100, offset: int = 0) -> List[Any]:
+    def find_all(self, limit: int = 100, offset: int = 0) -> list[Any]:
         """Find all entities with pagination."""
         pass
 
@@ -51,12 +51,12 @@ class IFinancialDataRepository(IRepository):
     """Repository interface for financial data."""
 
     @abstractmethod
-    def find_by_company(self, company_name: str) -> List[FinancialData]:
+    def find_by_company(self, company_name: str) -> list[FinancialData]:
         """Find financial data by company name."""
         pass
 
     @abstractmethod
-    def find_by_period(self, date_range: DateRange) -> List[FinancialData]:
+    def find_by_period(self, date_range: DateRange) -> list[FinancialData]:
         """Find financial data within a date range."""
         pass
 
@@ -65,7 +65,7 @@ class IFinancialDataRepository(IRepository):
         self,
         company_name: str,
         date_range: DateRange
-    ) -> List[FinancialData]:
+    ) -> list[FinancialData]:
         """Find financial data by company and period."""
         pass
 
@@ -75,7 +75,7 @@ class IFinancialDataRepository(IRepository):
         pass
 
     @abstractmethod
-    def get_companies(self) -> List[str]:
+    def get_companies(self) -> list[str]:
         """Get list of all companies."""
         pass
 
@@ -85,7 +85,7 @@ class IFinancialDataRepository(IRepository):
         metric_name: str,
         threshold: float,
         operator: str = "gte"  # gte, lte, gt, lt, eq
-    ) -> List[FinancialData]:
+    ) -> list[FinancialData]:
         """Find financial data by metric threshold."""
         pass
 
@@ -94,7 +94,7 @@ class IFinancialDataRepository(IRepository):
         self,
         company_name: str,
         aggregation_period: str  # 'monthly', 'quarterly', 'yearly'
-    ) -> List[FinancialData]:
+    ) -> list[FinancialData]:
         """Aggregate financial data by period."""
         pass
 
@@ -103,32 +103,32 @@ class IDocumentRepository(IRepository):
     """Repository interface for documents."""
 
     @abstractmethod
-    def find_by_type(self, document_type: str) -> List[Document]:
+    def find_by_type(self, document_type: str) -> list[Document]:
         """Find documents by type."""
         pass
 
     @abstractmethod
-    def find_by_status(self, status: str) -> List[Document]:
+    def find_by_status(self, status: str) -> list[Document]:
         """Find documents by processing status."""
         pass
 
     @abstractmethod
-    def find_indexed(self) -> List[Document]:
+    def find_indexed(self) -> list[Document]:
         """Find all indexed documents."""
         pass
 
     @abstractmethod
-    def find_by_metadata(self, metadata_key: str, metadata_value: Any) -> List[Document]:
+    def find_by_metadata(self, metadata_key: str, metadata_value: Any) -> list[Document]:
         """Find documents by metadata."""
         pass
 
     @abstractmethod
-    def search_content(self, query: str, limit: int = 10) -> List[Document]:
+    def search_content(self, query: str, limit: int = 10) -> list[Document]:
         """Search documents by content."""
         pass
 
     @abstractmethod
-    def find_similar(self, document_id: str, limit: int = 5) -> List[Document]:
+    def find_similar(self, document_id: str, limit: int = 5) -> list[Document]:
         """Find similar documents."""
         pass
 
@@ -138,7 +138,7 @@ class IDocumentRepository(IRepository):
         pass
 
     @abstractmethod
-    def find_recent(self, days: int = 7) -> List[Document]:
+    def find_recent(self, days: int = 7) -> list[Document]:
         """Find recently added documents."""
         pass
 
@@ -152,27 +152,27 @@ class IAnalysisResultRepository(IRepository):
     """Repository interface for analysis results."""
 
     @abstractmethod
-    def find_by_type(self, analysis_type: str) -> List[AnalysisResult]:
+    def find_by_type(self, analysis_type: str) -> list[AnalysisResult]:
         """Find analysis results by type."""
         pass
 
     @abstractmethod
-    def find_by_source(self, source_data_id: str) -> List[AnalysisResult]:
+    def find_by_source(self, source_data_id: str) -> list[AnalysisResult]:
         """Find analysis results by source data ID."""
         pass
 
     @abstractmethod
-    def find_recent(self, hours: int = 24) -> List[AnalysisResult]:
+    def find_recent(self, hours: int = 24) -> list[AnalysisResult]:
         """Find recent analysis results."""
         pass
 
     @abstractmethod
-    def find_high_confidence(self, min_confidence: float = 0.8) -> List[AnalysisResult]:
+    def find_high_confidence(self, min_confidence: float = 0.8) -> list[AnalysisResult]:
         """Find high confidence analysis results."""
         pass
 
     @abstractmethod
-    def find_with_anomalies(self) -> List[AnalysisResult]:
+    def find_with_anomalies(self) -> list[AnalysisResult]:
         """Find analysis results containing anomalies."""
         pass
 
@@ -182,11 +182,11 @@ class IAnalysisResultRepository(IRepository):
         pass
 
     @abstractmethod
-    def find_by_date_range(self, start_date: datetime, end_date: datetime) -> List[AnalysisResult]:
+    def find_by_date_range(self, start_date: datetime, end_date: datetime) -> list[AnalysisResult]:
         """Find analysis results within date range."""
         pass
 
     @abstractmethod
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get repository statistics."""
         pass

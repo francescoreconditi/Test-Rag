@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from openai import OpenAI
 
@@ -23,7 +23,7 @@ class LLMService:
         self.temperature = settings.temperature
         self.max_tokens = settings.max_tokens
 
-    def generate_business_insights(self, csv_analysis: Dict[str, Any], rag_context: Optional[str] = None, document_name: Optional[str] = None) -> str:
+    def generate_business_insights(self, csv_analysis: dict[str, Any], rag_context: Optional[str] = None, document_name: Optional[str] = None) -> str:
         """Generate comprehensive business insights from analysis data."""
         try:
             # Prepare the prompt
@@ -49,7 +49,7 @@ class LLMService:
             logger.error(f"Error generating insights: {str(e)}")
             return f"Unable to generate insights: {str(e)}"
 
-    def _build_insights_prompt(self, csv_analysis: Dict[str, Any], rag_context: Optional[str], document_name: Optional[str] = None) -> str:
+    def _build_insights_prompt(self, csv_analysis: dict[str, Any], rag_context: Optional[str], document_name: Optional[str] = None) -> str:
         """Build comprehensive prompt for insights generation."""
         prompt_parts = ["Per favore analizza i seguenti dati aziendali e fornisci approfondimenti strategici:\n"]
 
@@ -83,13 +83,13 @@ class LLMService:
             prompt_parts.append(f"\n## Contesto Aggiuntivo dai Documenti:\n{rag_context}")
 
         prompt_parts.append("""
-        
+
 IMPORTANTE: Rispondi ESCLUSIVAMENTE in italiano. Non usare MAI termini inglesi.
 
 Per favore fornisci:
 1. **Riepilogo Esecutivo** (2-3 frasi in italiano)
 2. **Punti di Forza Chiave** (3 punti elenco in italiano)
-3. **Aree di Preoccupazione** (3 punti elenco in italiano) 
+3. **Aree di Preoccupazione** (3 punti elenco in italiano)
 4. **Raccomandazioni Strategiche** (5 azioni specifiche in italiano)
 5. **Valutazione del Rischio** (in italiano)
 6. **Prospettive a 12 Mesi** (in italiano)
@@ -100,7 +100,7 @@ Usa sempre la traduzione italiana: "Riepilogo Esecutivo", "Punti di Forza", "Cre
 
         return "\n".join(prompt_parts)
 
-    def compare_periods_narrative(self, comparison_data: Dict[str, Any]) -> str:
+    def compare_periods_narrative(self, comparison_data: dict[str, Any]) -> str:
         """Generate narrative comparison between periods."""
         try:
             prompt = self._build_comparison_prompt(comparison_data)
@@ -124,7 +124,7 @@ Usa sempre la traduzione italiana: "Riepilogo Esecutivo", "Punti di Forza", "Cre
             logger.error(f"Error generating comparison narrative: {str(e)}")
             return "Unable to generate comparison narrative."
 
-    def _build_comparison_prompt(self, comparison_data: Dict[str, Any]) -> str:
+    def _build_comparison_prompt(self, comparison_data: dict[str, Any]) -> str:
         """Build prompt for period comparison."""
         prompt_parts = ["Analizza il seguente confronto tra periodi:\n"]
 
@@ -139,7 +139,7 @@ Usa sempre la traduzione italiana: "Riepilogo Esecutivo", "Punti di Forza", "Cre
                 prompt_parts.append(f"- {metric}: {pct:+.1f}%")
 
         prompt_parts.append("""
-        
+
 Per favore fornisci una narrazione chiara e concisa che:
 1. Evidenzi i cambiamenti più significativi
 2. Spieghi le cause potenziali
@@ -149,7 +149,7 @@ Per favore fornisci una narrazione chiara e concisa che:
 
         return "\n".join(prompt_parts)
 
-    def answer_business_question(self, question: str, context: Dict[str, Any]) -> str:
+    def answer_business_question(self, question: str, context: dict[str, Any]) -> str:
         """Answer specific business questions using available context."""
         try:
             # Build context-aware prompt
@@ -190,9 +190,9 @@ Per favore fornisci una risposta dettagliata e basata sui dati che:
 
     def generate_executive_report(
         self,
-        csv_analysis: Dict[str, Any],
+        csv_analysis: dict[str, Any],
         rag_insights: Optional[str] = None,
-        custom_sections: Optional[List[str]] = None,
+        custom_sections: Optional[list[str]] = None,
     ) -> str:
         """Generate comprehensive executive report."""
         try:
@@ -243,7 +243,7 @@ Usa terminologia aziendale italiana (fatturato, crescita, prestazioni, margini, 
             logger.error(f"Error generating executive report: {str(e)}")
             return f"Unable to generate report: {str(e)}"
 
-    def identify_anomalies_explanation(self, anomalies: List[Dict[str, Any]]) -> str:
+    def identify_anomalies_explanation(self, anomalies: list[dict[str, Any]]) -> str:
         """Generate explanations for detected anomalies."""
         try:
             if not anomalies:
@@ -280,7 +280,7 @@ Per ogni anomalia, fornisci:
             logger.error(f"Error explaining anomalies: {str(e)}")
             return "Unable to analyze anomalies."
 
-    def generate_action_items(self, analysis: Dict[str, Any], priority_count: int = 10) -> List[Dict[str, str]]:
+    def generate_action_items(self, analysis: dict[str, Any], priority_count: int = 10) -> list[dict[str, str]]:
         """Generate prioritized action items from analysis."""
         try:
             prompt = f"""
@@ -326,15 +326,15 @@ Concentrati su azioni realistiche e implementabili che affrontino direttamente g
         except Exception as e:
             logger.error(f"Error generating action items: {str(e)}")
             return []
-    
-    def analyze_document_with_prompt(self, document_text: str, file_name: str) -> Dict[str, Any]:
+
+    def analyze_document_with_prompt(self, document_text: str, file_name: str) -> dict[str, Any]:
         """Analyze a document using specialized prompt routing."""
         try:
             # Use prompt router to select appropriate prompt
             prompt_name, prompt_text, debug_info = choose_prompt(file_name, document_text)
-            
+
             logger.info(f"Using specialized prompt '{prompt_name}' for document '{file_name}'")
-            
+
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -347,13 +347,13 @@ Concentrati su azioni realistiche e implementabili che affrontino direttamente g
                 temperature=0.2,  # Lower for structured output
                 max_tokens=1500,
             )
-            
+
             content = response.choices[0].message.content
-            
+
             # Try to extract JSON if present
             json_data = None
             summary = None
-            
+
             # Extract JSON section
             import re
             json_match = re.search(r"<JSON>(.*?)</JSON>", content, re.DOTALL)
@@ -362,12 +362,12 @@ Concentrati su azioni realistiche e implementabili che affrontino direttamente g
                     json_data = json.loads(json_match.group(1))
                 except json.JSONDecodeError:
                     logger.warning("Failed to parse JSON from response")
-            
+
             # Extract summary section
             summary_match = re.search(r"<SINTESI>(.*?)</SINTESI>", content, re.DOTALL)
             if summary_match:
                 summary = summary_match.group(1).strip()
-            
+
             return {
                 "prompt_type": prompt_name,
                 "structured_data": json_data,
@@ -375,7 +375,7 @@ Concentrati su azioni realistiche e implementabili che affrontino direttamente g
                 "raw_response": content,
                 "debug_info": debug_info
             }
-            
+
         except Exception as e:
             logger.error(f"Error analyzing document: {str(e)}")
             return {

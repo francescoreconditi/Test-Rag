@@ -52,7 +52,12 @@
       "Bash(docker:*)",
       "Bash(pip install:*)",
       "Bash(.venvScriptsactivate)",
-      "Bash(source:*)"
+      "Bash(source:*)",
+      "Bash(pip show:*)",
+      "Bash(celery:*)",
+      "Bash(set FLOWER_UNAUTHENTICATED_API=true)",
+      "Bash(start_flower.bat)",
+      "Bash(cmd /c:*)"
     ],
     "deny": [],
     "ask": []

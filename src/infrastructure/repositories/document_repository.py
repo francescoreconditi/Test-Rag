@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from src.application.interfaces.repository_interfaces import IDocumentRepository
 from src.domain.entities import Document, DocumentStatus, DocumentType
@@ -33,7 +33,7 @@ class DocumentRepository(BaseRepository, IDocumentRepository):
             """)
             conn.commit()
 
-    def find_by_type(self, document_type: str) -> List[Document]:
+    def find_by_type(self, document_type: str) -> list[Document]:
         """Find documents by type."""
         all_docs = self.find_all(limit=10000)
 
@@ -48,7 +48,7 @@ class DocumentRepository(BaseRepository, IDocumentRepository):
             if doc.document_type == doc_type_enum
         ]
 
-    def find_by_status(self, status: str) -> List[Document]:
+    def find_by_status(self, status: str) -> list[Document]:
         """Find documents by processing status."""
         all_docs = self.find_all(limit=10000)
 
@@ -63,11 +63,11 @@ class DocumentRepository(BaseRepository, IDocumentRepository):
             if doc.status == status_enum
         ]
 
-    def find_indexed(self) -> List[Document]:
+    def find_indexed(self) -> list[Document]:
         """Find all indexed documents."""
         return self.find_by_status(DocumentStatus.INDEXED.value)
 
-    def find_by_metadata(self, metadata_key: str, metadata_value: Any) -> List[Document]:
+    def find_by_metadata(self, metadata_key: str, metadata_value: Any) -> list[Document]:
         """Find documents by metadata."""
         all_docs = self.find_all(limit=10000)
 
@@ -79,7 +79,7 @@ class DocumentRepository(BaseRepository, IDocumentRepository):
 
         return results
 
-    def search_content(self, query: str, limit: int = 10) -> List[Document]:
+    def search_content(self, query: str, limit: int = 10) -> list[Document]:
         """Search documents by content."""
         all_docs = self.find_all(limit=10000)
         query_lower = query.lower()
@@ -115,7 +115,7 @@ class DocumentRepository(BaseRepository, IDocumentRepository):
         scored_docs.sort(key=lambda x: x[0], reverse=True)
         return [doc for _, doc in scored_docs[:limit]]
 
-    def find_similar(self, document_id: str, limit: int = 5) -> List[Document]:
+    def find_similar(self, document_id: str, limit: int = 5) -> list[Document]:
         """Find similar documents."""
         source_doc = self.find_by_id(document_id)
 
@@ -175,7 +175,7 @@ class DocumentRepository(BaseRepository, IDocumentRepository):
 
         return None
 
-    def find_recent(self, days: int = 7) -> List[Document]:
+    def find_recent(self, days: int = 7) -> list[Document]:
         """Find recently added documents."""
         cutoff_date = datetime.now() - timedelta(days=days)
         all_docs = self.find_all(limit=10000)
@@ -195,13 +195,12 @@ class DocumentRepository(BaseRepository, IDocumentRepository):
         for doc in all_docs:
             # Only cleanup failed or archived documents
             if doc.status in [DocumentStatus.FAILED, DocumentStatus.ARCHIVED]:
-                if doc.created_at < cutoff_date:
-                    if self.delete(doc.id):
-                        deleted_count += 1
+                if doc.created_at < cutoff_date and self.delete(doc.id):
+                    deleted_count += 1
 
         return deleted_count
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get repository statistics."""
         all_docs = self.find_all(limit=10000)
 

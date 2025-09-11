@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 
 class AnalysisType(Enum):
@@ -65,9 +65,9 @@ class Insight:
     description: str
     priority: InsightPriority = InsightPriority.MEDIUM
     confidence: ConfidenceLevel = ConfidenceLevel.MEDIUM
-    supporting_metrics: List[str] = field(default_factory=list)
-    recommendations: List[str] = field(default_factory=list)
-    risks: List[str] = field(default_factory=list)
+    supporting_metrics: list[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
+    risks: list[str] = field(default_factory=list)
 
     def to_executive_summary(self) -> str:
         """Generate executive summary."""
@@ -93,11 +93,11 @@ class AnalysisResult:
     id: Optional[str] = None
     analysis_type: AnalysisType = AnalysisType.FINANCIAL
     source_data_id: Optional[str] = None
-    metrics: List[MetricResult] = field(default_factory=list)
-    insights: List[Insight] = field(default_factory=list)
+    metrics: list[MetricResult] = field(default_factory=list)
+    insights: list[Insight] = field(default_factory=list)
     summary: str = ""
-    visualizations: Dict[str, Any] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    visualizations: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.now)
     processing_time_seconds: Optional[float] = None
     model_used: Optional[str] = None
@@ -121,15 +121,15 @@ class AnalysisResult:
         total_confidence = sum(m.confidence for m in self.metrics)
         self.confidence_score = total_confidence / len(self.metrics)
 
-    def get_high_priority_insights(self) -> List[Insight]:
+    def get_high_priority_insights(self) -> list[Insight]:
         """Get high priority insights."""
         return [i for i in self.insights if i.priority in [InsightPriority.HIGH, InsightPriority.CRITICAL]]
 
-    def get_anomalies(self) -> List[MetricResult]:
+    def get_anomalies(self) -> list[MetricResult]:
         """Get detected anomalies."""
         return [m for m in self.metrics if m.is_anomaly]
 
-    def get_metrics_by_trend(self, trend: str) -> List[MetricResult]:
+    def get_metrics_by_trend(self, trend: str) -> list[MetricResult]:
         """Get metrics by trend direction."""
         return [m for m in self.metrics if m.trend == trend]
 
@@ -168,7 +168,7 @@ class AnalysisResult:
 
         return report
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
         return {
             'id': self.id,

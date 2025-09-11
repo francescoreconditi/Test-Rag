@@ -195,10 +195,7 @@ class DateRange:
         """Create a range for a specific month."""
         start = date(year, month, 1)
 
-        if month == 12:
-            end = date(year, 12, 31)
-        else:
-            end = date(year, month + 1, 1) - timedelta(days=1)
+        end = date(year, 12, 31) if month == 12 else date(year, month + 1, 1) - timedelta(days=1)
 
         return cls(start, end)
 
@@ -217,9 +214,6 @@ class DateRange:
         end_month = quarter * 3
 
         start = date(year, start_month, 1)
-        if end_month == 12:
-            end = date(year, 12, 31)
-        else:
-            end = date(year, end_month + 1, 1) - timedelta(days=1)
+        end = date(year, 12, 31) if end_month == 12 else date(year, end_month + 1, 1) - timedelta(days=1)
 
         return cls(start, end)

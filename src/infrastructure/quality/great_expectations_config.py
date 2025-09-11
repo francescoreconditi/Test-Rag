@@ -1,60 +1,60 @@
 """Great Expectations configuration for data quality validation."""
 
+import json
+import logging
+from pathlib import Path
+from typing import Any
+
 import great_expectations as gx
 from great_expectations.checkpoint import Checkpoint
 from great_expectations.core.batch import BatchRequest
 from great_expectations.core.expectation_configuration import ExpectationConfiguration
-from great_expectations.core.expectation_suite import ExpectationSuite
-from typing import Dict, List, Any, Optional
 import pandas as pd
-from pathlib import Path
-import json
-import logging
 
 logger = logging.getLogger(__name__)
 
 
 class DataQualityValidator:
     """Data quality validation using Great Expectations."""
-    
+
     def __init__(self, data_dir: str = "data/great_expectations"):
         """Initialize Great Expectations context."""
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Initialize context
         self.context = gx.get_context()
-        
+
         # Create expectation suites
         self._create_expectation_suites()
-        
+
         logger.info("Great Expectations validator initialized")
-    
+
     def _create_expectation_suites(self):
         """Create expectation suites for different data types."""
-        
+
         # Financial Metrics Suite
         self._create_financial_metrics_suite()
-        
+
         # Balance Sheet Suite
         self._create_balance_sheet_suite()
-        
+
         # Income Statement Suite
         self._create_income_statement_suite()
-        
+
         # Data Completeness Suite
         self._create_completeness_suite()
-    
+
     def _create_financial_metrics_suite(self):
         """Create expectations for financial metrics."""
-        
+
         suite_name = "financial_metrics_suite"
-        
+
         try:
             suite = self.context.get_expectation_suite(suite_name)
         except:
             suite = self.context.add_expectation_suite(suite_name)
-        
+
         # Revenue expectations
         suite.add_expectation(
             ExpectationConfiguration(
@@ -62,7 +62,7 @@ class DataQualityValidator:
                 kwargs={"column": "ricavi"}
             )
         )
-        
+
         suite.add_expectation(
             ExpectationConfiguration(
                 expectation_type="expect_column_values_to_be_between",
@@ -74,7 +74,7 @@ class DataQualityValidator:
                 }
             )
         )
-        
+
         # EBITDA Margin expectations
         suite.add_expectation(
             ExpectationConfiguration(
@@ -87,7 +87,7 @@ class DataQualityValidator:
                 }
             )
         )
-        
+
         # Debt ratios
         suite.add_expectation(
             ExpectationConfiguration(
@@ -100,7 +100,7 @@ class DataQualityValidator:
                 }
             )
         )
-        
+
         # DSO expectations
         suite.add_expectation(
             ExpectationConfiguration(
@@ -113,20 +113,20 @@ class DataQualityValidator:
                 }
             )
         )
-        
+
         self.context.save_expectation_suite(suite)
         logger.info(f"Created suite: {suite_name}")
-    
+
     def _create_balance_sheet_suite(self):
         """Create expectations for balance sheet validation."""
-        
+
         suite_name = "balance_sheet_suite"
-        
+
         try:
             suite = self.context.get_expectation_suite(suite_name)
         except:
             suite = self.context.add_expectation_suite(suite_name)
-        
+
         # Assets = Liabilities + Equity
         suite.add_expectation(
             ExpectationConfiguration(
@@ -139,7 +139,7 @@ class DataQualityValidator:
                 }
             )
         )
-        
+
         # Working capital coherence
         suite.add_expectation(
             ExpectationConfiguration(
@@ -147,7 +147,7 @@ class DataQualityValidator:
                 kwargs={"column": "capitale_circolante_netto"}
             )
         )
-        
+
         # Equity should be positive (mostly)
         suite.add_expectation(
             ExpectationConfiguration(
@@ -160,7 +160,7 @@ class DataQualityValidator:
                 }
             )
         )
-        
+
         # Cash should be non-negative
         suite.add_expectation(
             ExpectationConfiguration(
@@ -172,20 +172,20 @@ class DataQualityValidator:
                 }
             )
         )
-        
+
         self.context.save_expectation_suite(suite)
         logger.info(f"Created suite: {suite_name}")
-    
+
     def _create_income_statement_suite(self):
         """Create expectations for income statement validation."""
-        
+
         suite_name = "income_statement_suite"
-        
+
         try:
             suite = self.context.get_expectation_suite(suite_name)
         except:
             suite = self.context.add_expectation_suite(suite_name)
-        
+
         # Gross margin = Revenue - COGS
         suite.add_expectation(
             ExpectationConfiguration(
@@ -193,7 +193,7 @@ class DataQualityValidator:
                 kwargs={"column": "margine_lordo"}
             )
         )
-        
+
         # EBITDA <= Gross Margin
         suite.add_expectation(
             ExpectationConfiguration(
@@ -206,7 +206,7 @@ class DataQualityValidator:
                 }
             )
         )
-        
+
         # EBIT <= EBITDA
         suite.add_expectation(
             ExpectationConfiguration(
@@ -219,7 +219,7 @@ class DataQualityValidator:
                 }
             )
         )
-        
+
         # Tax rate reasonable
         suite.add_expectation(
             ExpectationConfiguration(
@@ -232,26 +232,26 @@ class DataQualityValidator:
                 }
             )
         )
-        
+
         self.context.save_expectation_suite(suite)
         logger.info(f"Created suite: {suite_name}")
-    
+
     def _create_completeness_suite(self):
         """Create expectations for data completeness."""
-        
+
         suite_name = "data_completeness_suite"
-        
+
         try:
             suite = self.context.get_expectation_suite(suite_name)
         except:
             suite = self.context.add_expectation_suite(suite_name)
-        
+
         # Critical fields should not be null
         critical_fields = [
-            "entity_id", "period_year", "period_type", 
+            "entity_id", "period_year", "period_type",
             "metric_name", "value", "source_file"
         ]
-        
+
         for field in critical_fields:
             suite.add_expectation(
                 ExpectationConfiguration(
@@ -259,7 +259,7 @@ class DataQualityValidator:
                     kwargs={"column": field}
                 )
             )
-        
+
         # Period year should be reasonable
         suite.add_expectation(
             ExpectationConfiguration(
@@ -271,7 +271,7 @@ class DataQualityValidator:
                 }
             )
         )
-        
+
         # Confidence score
         suite.add_expectation(
             ExpectationConfiguration(
@@ -283,16 +283,16 @@ class DataQualityValidator:
                 }
             )
         )
-        
+
         self.context.save_expectation_suite(suite)
         logger.info(f"Created suite: {suite_name}")
-    
-    def validate_dataframe(self, 
-                          df: pd.DataFrame, 
+
+    def validate_dataframe(self,
+                          df: pd.DataFrame,
                           suite_name: str,
-                          save_results: bool = True) -> Dict[str, Any]:
+                          save_results: bool = True) -> dict[str, Any]:
         """Validate a dataframe against an expectation suite."""
-        
+
         # Create a batch from the dataframe
         batch_request = BatchRequest(
             datasource_name="pandas_datasource",
@@ -301,19 +301,19 @@ class DataQualityValidator:
             runtime_parameters={"batch_data": df},
             batch_identifiers={"default_identifier": "default_identifier"}
         )
-        
+
         # Get the suite
         suite = self.context.get_expectation_suite(suite_name)
-        
+
         # Create validator
         validator = self.context.get_validator(
             batch_request=batch_request,
             expectation_suite=suite
         )
-        
+
         # Run validation
         results = validator.validate()
-        
+
         # Process results
         validation_summary = {
             "success": results.success,
@@ -322,7 +322,7 @@ class DataQualityValidator:
             "failed_expectations": sum(1 for r in results.results if not r.success),
             "failures": []
         }
-        
+
         # Collect failures
         for result in results.results:
             if not result.success:
@@ -331,65 +331,65 @@ class DataQualityValidator:
                     "kwargs": result.expectation_config.kwargs,
                     "result": result.result
                 })
-        
+
         # Save results if requested
         if save_results:
             results_path = self.data_dir / f"validation_results_{suite_name}.json"
             with open(results_path, 'w') as f:
                 json.dump(validation_summary, f, indent=2, default=str)
-            
+
             # Generate HTML report
             self._generate_html_report(results, suite_name)
-        
+
         logger.info(f"Validation complete: {validation_summary['successful_expectations']}/{validation_summary['total_expectations']} passed")
-        
+
         return validation_summary
-    
+
     def _generate_html_report(self, results, suite_name: str):
         """Generate HTML validation report."""
         try:
             # Build data docs
             self.context.build_data_docs()
-            
+
             # Get the URL to the validation results
-            validation_result_identifier = results.meta.get("active_batch_definition", {}).get("batch_identifiers", {})
-            
+            results.meta.get("active_batch_definition", {}).get("batch_identifiers", {})
+
             logger.info(f"HTML report generated for {suite_name}")
         except Exception as e:
             logger.warning(f"Could not generate HTML report: {e}")
-    
-    def validate_financial_data(self, data: List[Dict[str, Any]]) -> Dict[str, Any]:
+
+    def validate_financial_data(self, data: list[dict[str, Any]]) -> dict[str, Any]:
         """Validate financial data using appropriate suites."""
-        
+
         # Convert to DataFrame
         df = pd.DataFrame(data)
-        
+
         all_results = {}
-        
+
         # Determine which suites to run based on available columns
         if 'ricavi' in df.columns:
             all_results['financial_metrics'] = self.validate_dataframe(
                 df, 'financial_metrics_suite'
             )
-        
+
         if 'attivo_totale' in df.columns and 'passivo_totale' in df.columns:
             all_results['balance_sheet'] = self.validate_dataframe(
                 df, 'balance_sheet_suite'
             )
-        
+
         if 'margine_lordo' in df.columns:
             all_results['income_statement'] = self.validate_dataframe(
                 df, 'income_statement_suite'
             )
-        
+
         # Always run completeness
         all_results['completeness'] = self.validate_dataframe(
             df, 'data_completeness_suite'
         )
-        
+
         # Aggregate results
         total_success = all(r.get('success', False) for r in all_results.values())
-        
+
         return {
             'overall_success': total_success,
             'suite_results': all_results,
@@ -400,10 +400,10 @@ class DataQualityValidator:
                 'successful_expectations': sum(r.get('successful_expectations', 0) for r in all_results.values())
             }
         }
-    
+
     def create_checkpoint(self, name: str, suite_name: str) -> Checkpoint:
         """Create a checkpoint for automated validation."""
-        
+
         checkpoint_config = {
             "name": name,
             "config_version": 1,
@@ -430,10 +430,10 @@ class DataQualityValidator:
                 }
             ]
         }
-        
+
         checkpoint = self.context.add_checkpoint(**checkpoint_config)
         logger.info(f"Created checkpoint: {name}")
-        
+
         return checkpoint
 
 
@@ -441,7 +441,7 @@ class DataQualityValidator:
 if __name__ == "__main__":
     # Initialize validator
     validator = DataQualityValidator()
-    
+
     # Sample data
     sample_data = [
         {
@@ -466,14 +466,14 @@ if __name__ == "__main__":
             "confidence_score": 0.92
         }
     ]
-    
+
     # Validate
     results = validator.validate_financial_data(sample_data)
-    
-    print(f"Validation Results:")
+
+    print("Validation Results:")
     print(f"Overall Success: {results['overall_success']}")
     print(f"Summary: {json.dumps(results['summary'], indent=2)}")
-    
+
     # Show any failures
     for suite_name, suite_results in results['suite_results'].items():
         if suite_results['failures']:
