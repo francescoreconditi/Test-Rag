@@ -4,9 +4,9 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 import logging
 import re
-from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Tuple
 
 logger = logging.getLogger(__name__)
@@ -46,7 +46,7 @@ def _contains_any(text: str, keywords: List[str]) -> int:
 
 
 def PROMPT_GENERAL(file_name: str, analysis_text: str) -> str:
-    return """
+    return f"""
 Sei un analista aziendale esperto. Analizza esclusivamente il documento "{file_name}" incluso di seguito, senza usare fonti esterne né inferenze oltre il testo.
 
 === DOCUMENTO (testo estratto) ===
@@ -95,11 +95,11 @@ REGOLE
 <SINTESI>
 Scrivi 120–200 parole con tono da analista professionale, richiamando "p. X" dopo i numeri chiave.
 </SINTESI>
-""".format(file_name=file_name, analysis_text=analysis_text)
+"""
 
 
 def PROMPT_BILANCIO(file_name: str, analysis_text: str) -> str:
-    return """
+    return f"""
 Sei un equity/credit analyst esperto specializzato in documenti finanziari italiani. Analizza il documento "{file_name}" applicando le seguenti competenze:
 
 COMPETENZE SPECIALIZZATE:
@@ -164,11 +164,11 @@ In 150–250 parole, evidenzia crescita/contrazione, driver principali, rischi f
 REGOLE
 - Compila solo ciò che è presente nel documento
 - Non calcolare ratios se non sono nel testo, a meno che tutte le grandezze per un calcolo semplice siano presenti
-""".format(file_name=file_name, analysis_text=analysis_text)
+"""
 
 
 def PROMPT_FATTURATO(file_name: str, analysis_text: str) -> str:
-    return """
+    return f"""
 Agisci come sales/revenue analyst esperto. Analizza il documento "{file_name}" qui sotto (no fonti esterne).
 
 === DOCUMENTO ===
@@ -201,11 +201,11 @@ OUTPUT:
 <SINTESI>
 120–180 parole con trend di vendita, scostamenti, mix prodotto/cliente, rischi/opportunità. Cita "p. X" dopo i numeri.
 </SINTESI>
-""".format(file_name=file_name, analysis_text=analysis_text)
+"""
 
 
 def PROMPT_MAGAZZINO(file_name: str, analysis_text: str) -> str:
-    return """
+    return f"""
 Agisci come operations/inventory analyst esperto. Analizza il documento "{file_name}" (solo contenuto incluso).
 
 === DOCUMENTO ===
@@ -233,11 +233,11 @@ OUTPUT:
 <SINTESI>
 120–180 parole focalizzate su rotazione, OTIF, obsoleti, rischi operativi e prossimi passi, con citazioni "p. X".
 </SINTESI>
-""".format(file_name=file_name, analysis_text=analysis_text)
+"""
 
 
 def PROMPT_CONTRATTO(file_name: str, analysis_text: str) -> str:
-    return """
+    return f"""
 Agisci come legal/ops analyst esperto. Analizza il contratto "{file_name}" basandoti solo sul testo.
 
 === DOCUMENTO ===
@@ -268,12 +268,12 @@ Executive summary (120–180 parole) con clausole critiche e red flag. Cita pagi
 </SINTESI>
 
 REGOLE: non inferire; se mancano dettagli, lascia campi vuoti e segnala in "note".
-""".format(file_name=file_name, analysis_text=analysis_text)
+"""
 
 
 def PROMPT_PRESENTAZIONE(file_name: str, analysis_text: str) -> str:
     """Prompt specializzato per presentazioni e slide"""
-    return """
+    return f"""
 Sei un business analyst esperto. Analizza la presentazione "{file_name}" basandoti solo sul contenuto fornito.
 
 === DOCUMENTO ===
@@ -310,12 +310,12 @@ OUTPUT:
 <SINTESI>
 Riassunto esecutivo (150-200 parole) che cattura l'essenza della presentazione, i messaggi chiave e le raccomandazioni principali. Cita "slide X" o "p. X" per riferimenti specifici.
 </SINTESI>
-""".format(file_name=file_name, analysis_text=analysis_text)
+"""
 
 
 def PROMPT_REPORT_DETTAGLIATO(file_name: str, analysis_text: str) -> str:
     """Prompt per analisi approfondita stile NotebookLM di report finanziari complessi"""
-    return """
+    return f"""
 Sei un senior equity research analyst specializzato in documenti finanziari italiani. Produci un'analisi professionale approfondita del documento "{file_name}" seguendo gli standard di un investment memorandum.
 
 COMPETENZE AVANZATE RICHIESTE:
@@ -402,7 +402,7 @@ GENERA UN REPORT COMPLETO IN FORMATO PROFESSIONALE:
   }}
 }}
 </JSON_METRICS>
-""".format(file_name=file_name, analysis_text=analysis_text)
+"""
 
 
 # ---------------------------------------------------------------------------
@@ -496,9 +496,9 @@ ROUTER: Dict[str, CaseRule] = {
             "quarter",
         ],
         patterns=[
-            r"\b€\s?\d", 
-            r"\b%\b", 
-            r"\byoy\b|\byear.over.year\b", 
+            r"\b€\s?\d",
+            r"\b%\b",
+            r"\byoy\b|\byear.over.year\b",
             r"\bqoq\b|\bmom\b|\bq[1-4]\b",
             r"\bgrowth\s+rate\b",
             r"\bbreakdown\b",
@@ -539,8 +539,8 @@ ROUTER: Dict[str, CaseRule] = {
             "supply chain",
         ],
         patterns=[
-            r"\bOTIF\b", 
-            r"\bSKU\b", 
+            r"\bOTIF\b",
+            r"\bSKU\b",
             r"\bgiorni\b.*\bgiacenza\b",
             r"\bDIO\b|\bDSO\b|\bDPO\b",
             r"\bwarehouse\b",
@@ -587,8 +587,8 @@ ROUTER: Dict[str, CaseRule] = {
             "warranties",
         ],
         patterns=[
-            r"\bart\.\s?\d+", 
-            r"\bcapo\s+[ivx]+\b", 
+            r"\bart\.\s?\d+",
+            r"\bcapo\s+[ivx]+\b",
             r"\bsezione\b\s*\d+",
             r"\bclause\s+\d+",
             r"\bparagraph\s+\d+",
@@ -676,7 +676,7 @@ def choose_prompt(file_name: str, analysis_text: str) -> Tuple[str, str, dict]:
 
     # migliore candidato oltre la soglia minima; altrimenti GENERAL
     best_name = max(scores, key=scores.get) if scores else "generale"
-    
+
     if scores and best_name in ROUTER:
         best_rule = ROUTER[best_name]
         if scores[best_name] >= best_rule.min_score_to_win:
@@ -690,16 +690,16 @@ def choose_prompt(file_name: str, analysis_text: str) -> Tuple[str, str, dict]:
         builder = PROMPT_GENERAL
 
     prompt_text = builder(file_name, analysis_text)
-    
+
     debug = {
         "scores": scores,
         "chosen": chosen_name,
         "file_hint": file_name,
         "length_chars": len(analysis_text),
     }
-    
+
     logger.info(f"Prompt router: scelto '{chosen_name}' per file '{file_name}' (scores: {scores})")
-    
+
     return chosen_name, prompt_text, debug
 
 

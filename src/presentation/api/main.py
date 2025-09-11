@@ -531,6 +531,7 @@ async def analyze_pdf(
     start_time = datetime.now()
     
     # Validate file
+    print (file.filename)
     if not file.filename.lower().endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
     
