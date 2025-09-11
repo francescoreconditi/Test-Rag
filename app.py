@@ -720,12 +720,12 @@ def show_document_rag():
         st.subheader("🎯 Tipo di Analisi per Query")
         query_analysis_options = [
             "Standard (RAG normale)",
-            "Bilancio - Analisi finanziaria dettagliata",
-            "Report Dettagliato - Investment memo style",
-            "Fatturato - Focus vendite e revenue",
-            "Magazzino - Focus logistica",
-            "Contratto - Focus legale",
-            "Presentazione - Focus strategico"
+            "Bilancio - Analisi finanziaria per bilanci e report finanziari",
+            "Report Dettagliato - Stile Investment memo",
+            "Fatturato - Analisi vendite e ricavi",
+            "Magazzino - Analisi logistica e gestione scorte",
+            "Contratto - Analisi legale e contrattuale",
+            "Presentazione - Analisi di presentazioni e slide deck",
         ]
 
         selected_query_analysis = st.selectbox(

@@ -24,7 +24,7 @@ try:
 
     ENTERPRISE_AVAILABLE = True
 except ImportError:
-    logger.warning("Enterprise orchestrator not available")
+    logging.Logger.warning("Enterprise orchestrator not available")
     ENTERPRISE_AVAILABLE = False
     EnterpriseOrchestrator = None
     EnterpriseQuery = None
@@ -795,26 +795,73 @@ class RAGEngine:
     def _enhance_query_with_analysis_type(self, query_text: str, analysis_type: str) -> str:
         """Enhance query based on analysis type."""
         enhancements = {
-            "bilancio": """Analizza questa domanda dal punto di vista finanziario e di bilancio.
-                         Considera metriche come ricavi, EBITDA, margini, cash flow, PFN e covenant.
-                         Fornisci numeri specifici e confronti YoY quando disponibili.
+            "bilancio": """
+                        Sei un equity/credit analyst esperto specializzato in documenti finanziari italiani. Analizza il la domanda applicando le seguenti competenze:
+
+                        COMPETENZE SPECIALIZZATE:
+                        - **Numeri italiani**: 1.234,56 = milleduecentotrentaquattro virgola cinquantasei
+                        - **Negativi**: (123) = numero negativo, -123
+                        - **Percentuali**: 5,2% = cinque virgola due per cento
+                        - **Scale**: "valori in migliaia" significa moltiplicare × 1.000
+                        - **Sinonimi**: fatturato = ricavi = vendite; EBITDA = MOL; PFN = posizione finanziaria netta
+                        - **Validazioni**: Attivo = Passivo; PFN = Debito lordo - Cassa; Margine lordo = Ricavi - COGS
+
+                        ISTRUZIONI OPERATIVE:
+                        1. **Parsing accurato**: Riconosci formato numerico italiano (es. 1.234.567,89)
+                        2. **Provenienza precisa**: Cita sempre "p. X" o "tab. Y" per ogni numero
+                        3. **Controlli coerenza**: Verifica equazioni contabili basilari
+                        4. **Scale applicate**: Se dichiarato "in migliaia", converti automaticamente
+                        5. **Sinonimi**: Normalizza "fatturato" → "ricavi", "MOL" → "EBITDA"
+
+
+
+                        REGOLE
+                        - Considera metriche come ricavi, EBITDA, margini, cash flow, PFN e covenant.
+                        - Fornisci numeri specifici e confronti YoY quando disponibili
                          """,
-            "fatturato": """Analizza questa domanda focalizzandoti su vendite e fatturato.
-                          Considera ASP, volumi, mix prodotto/cliente, pipeline e forecast.
-                          Evidenzia trend di crescita e driver principali.
-                          """,
-            "magazzino": """Analizza questa domanda dal punto di vista logistico e di gestione scorte.
-                          Considera rotazione, OTIF, lead time, obsoleti e livelli di servizio.
-                          """,
-            "contratto": """Analizza questa domanda dal punto di vista legale e contrattuale.
-                          Considera obblighi, SLA, penali, responsabilità e clausole rilevanti.
-                          """,
-            "presentazione": """Analizza questa domanda estraendo i messaggi chiave e le raccomandazioni strategiche.
-                             Identifica obiettivi, milestone e next steps.
+            "fatturato": """
+                        Agisci come sales/revenue analyst esperto. Analizza il la domadna data (no fonti esterne).
+                        Focalizzati su vendite e fatturato.
+                        Considera ASP, volumi, mix prodotto/cliente, pipeline e forecast.
+                        Evidenzia trend di crescita e driver principali
+                        Cita "p. X" dopo i numeri
+                         """,
+            "magazzino": """
+                        Agisci come operations/inventory analyst esperto. Analizza la domanda dal punto di vista logistico e di gestione scorte.
+                        Focalizzati su rotazione, OTIF, obsoleti, lead time, livelli di servizio, rischi operativi e prossimi passi, con citazioni "p. X".
+                         """,
+            "contratto": """
+                        Agisci come legal/ops analyst esperto. Analizza la domanda dal punto di vista legale e contrattuale.
+                        Considera obblighi, SLA, penali, responsabilità, clausole rilevanti e red flag. Cita pagine (p. X).
+
+                        REGOLE: non inferire; se mancano dettagli, fallo notare e non prendere iniziative.
+                         """,
+            "presentazione": """
+                        Sei un business analyst esperto. Analizza la domanda estraendo i messaggi chiave e le raccomandazioni strategiche.
+                        Identifica obiettivi, milestone e next steps.
+                        Cattura l'essenza della presentazione, i messaggi chiave e le raccomandazioni principali. Cita "slide X" o "p. X" per riferimenti specifici.
                              """,
-            "report_dettagliato": """Fornisci un'analisi approfondita in stile investment memorandum.
-                                   Include executive summary, analisi per sezione, KPI, rischi e raccomandazioni.
-                                   Quantifica sempre le variazioni e usa confronti YoY/Budget.
+            "report_dettagliato": """
+                                Sei un senior equity research analyst specializzato in documenti finanziari italiani. Produci un'analisi professionale approfondita della domanda in stile investment memorandum.
+
+                                COMPETENZE AVANZATE RICHIESTE:
+                                - **Parsing numeri italiani**: 1.234.567,89 (format italiano), (123) = negativo, 5,2%
+                                - **Gestione scale**: "valori in migliaia/milioni" → conversione automatica
+                                - **Sinonimi finanziari**: fatturato=ricavi=vendite; EBITDA=MOL; PFN=debito netto
+                                - **Validazioni contabili**: Attivo=Passivo, PFN=Debito-Cassa, Margine=Ricavi-COGS
+                                - **Provenienza granulare**: "p.12|tab.1|riga:Ricavi" per ogni numero
+                                - **Confronti strutturati**: YoY%, vs Budget%, scostamenti quantificati
+
+                                METODOLOGIA OPERATIVA:
+                                1. **Estrazione accurata**: Riconosci tutti i numeri in formato italiano
+                                2. **Conversioni**: Applica scale dichiarate ("in migliaia" × 1.000)
+                                3. **Normalizzazione**: Uniforma sinonimi (fatturato → ricavi)
+                                4. **Validazione**: Controlla coerenze contabili basilari  
+                                5. **Bridge analysis**: Spiega variazioni con numeri precisi
+                                6. **Citations**: Ogni dato con fonte esatta (p.X, tab.Y)
+
+                                Includi executive summary, analisi per sezione, KPI, rischi e raccomandazioni.
+                                Quantifica sempre le variazioni e usa confronti YoY/Budget.
                                    """,
         }
 
