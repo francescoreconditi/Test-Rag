@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     embedding_model: str = Field(default="text-embedding-3-small", env="EMBEDDING_MODEL")
     llm_model: str = Field(default="gpt-4-turbo-preview", env="LLM_MODEL")
     max_tokens: int = Field(default=2000, env="MAX_TOKENS")
-    temperature: float = Field(default=0.7, env="TEMPERATURE")
+    temperature: float = Field(default=0.0, env="TEMPERATURE")
 
     # Qdrant Configuration
     qdrant_host: str = Field(default="localhost", env="QDRANT_HOST")
@@ -30,7 +30,7 @@ class Settings(BaseSettings):
 
     # RAG Query Performance Settings
     rag_response_mode: str = Field(default="compact", env="RAG_RESPONSE_MODE")  # compact, tree_summarize, simple
-    rag_similarity_top_k: int = Field(default=3, env="RAG_SIMILARITY_TOP_K")  # Number of similar chunks to retrieve
+    rag_similarity_top_k: int = Field(default=10, env="RAG_SIMILARITY_TOP_K")  # Number of similar chunks to retrieve
     rag_enable_caching: bool = Field(default=True, env="RAG_ENABLE_CACHING")  # Cache embeddings for faster queries
 
     # Enterprise Features

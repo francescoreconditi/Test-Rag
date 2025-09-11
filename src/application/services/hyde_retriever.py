@@ -23,7 +23,7 @@ class HyDEConfig:
 
     num_hypothetical_docs: int = 3
     hypothetical_doc_max_tokens: int = 256
-    temperature: float = 0.7
+    temperature: float = 0.0
     include_original_query: bool = True
     fusion_weight: float = 0.3  # Weight for original query vs hypothetical docs
 
@@ -224,19 +224,19 @@ class AdaptiveHyDERetriever(HyDERetriever):
         if query_type == "factual":
             # For factual queries, use fewer but more precise hypothetical docs
             self.config.num_hypothetical_docs = 2
-            self.config.temperature = 0.3
+            self.config.temperature = 0.0
             self.config.include_original_query = True
 
         elif query_type == "analytical":
             # For analytical queries, generate more diverse perspectives
             self.config.num_hypothetical_docs = 4
-            self.config.temperature = 0.8
+            self.config.temperature = 0.0
             self.config.include_original_query = False
 
         elif query_type == "definition":
             # For definitions, generate comprehensive explanations
             self.config.num_hypothetical_docs = 3
-            self.config.temperature = 0.5
+            self.config.temperature = 0.0
             self.config.hypothetical_doc_max_tokens = 512
 
         return super()._retrieve(query_bundle)

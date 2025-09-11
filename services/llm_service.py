@@ -233,7 +233,7 @@ Usa terminologia aziendale italiana (fatturato, crescita, prestazioni, margini, 
                     },
                     {"role": "user", "content": prompt},
                 ],
-                temperature=self.temperature - 0.2,  # Lower temperature for more focused output
+                temperature=0.0,  # Deterministic output
                 max_tokens=self.max_tokens * 2,  # Allow longer reports
             )
 
@@ -344,7 +344,7 @@ Concentrati su azioni realistiche e implementabili che affrontino direttamente g
                     },
                     {"role": "user", "content": prompt_text},
                 ],
-                temperature=0.2,  # Lower for structured output
+                temperature=0.0,  # Deterministic output
                 max_tokens=1500,
             )
 

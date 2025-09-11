@@ -172,6 +172,13 @@ uploads/
 cache/
 *.xlsx
 *.xls
+
+# Database files (process-specific to avoid conflicts)
+*.duckdb*
+*.sqlite*
+*_streamlit.*
+*_fastapi.*
+*_pid_*.*
 *.pdf
 *.docx
 *.doc

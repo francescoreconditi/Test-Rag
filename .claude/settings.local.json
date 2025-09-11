@@ -57,7 +57,9 @@
       "Bash(celery:*)",
       "Bash(set FLOWER_UNAUTHENTICATED_API=true)",
       "Bash(start_flower.bat)",
-      "Bash(cmd /c:*)"
+      "Bash(cmd /c:*)",
+      "Bash(git clean:*)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []

@@ -49,7 +49,29 @@ class FactTableRepository:
 
     def __init__(self, db_path: str = "data/facts.db", use_duckdb: bool = True):
         """Initialize fact table repository."""
-        self.db_path = Path(db_path)
+        # Create process-specific database to avoid concurrent access conflicts
+        original_path = Path(db_path)
+        
+        # Auto-detect process type to avoid conflicts
+        import sys
+        import os
+        process_suffix = ""
+        
+        if 'streamlit' in sys.modules:
+            process_suffix = "_streamlit"
+        elif any(mod in sys.modules for mod in ['uvicorn', 'fastapi']):
+            process_suffix = "_fastapi"
+        else:
+            # Use PID as fallback
+            process_suffix = f"_pid_{os.getpid()}"
+        
+        # Create process-specific database path
+        if process_suffix:
+            db_name = original_path.stem + process_suffix + original_path.suffix
+            self.db_path = original_path.parent / db_name
+        else:
+            self.db_path = original_path
+            
         self.db_path.parent.mkdir(exist_ok=True)
 
         self.use_duckdb = use_duckdb
@@ -64,6 +86,9 @@ class FactTableRepository:
             if self.use_duckdb:
                 # DuckDB for analytics performance
                 self.conn = duckdb.connect(str(self.db_path))
+                
+                # Test connection with a simple query to ensure it works
+                self.conn.execute("SELECT 1").fetchone()
                 logger.info(f"Connected to DuckDB at {self.db_path}")
             else:
                 # SQLite for simplicity
@@ -71,8 +96,36 @@ class FactTableRepository:
                 self.conn.row_factory = sqlite3.Row  # Enable dict-like access
                 logger.info(f"Connected to SQLite at {self.db_path}")
         except Exception as e:
-            logger.error(f"Failed to initialize database: {e}")
-            raise
+            error_str = str(e).lower()
+            
+            # Check for encoding errors that indicate concurrent access conflicts
+            if ("codec can't decode" in error_str or 
+                "database is locked" in error_str or 
+                "utf-8" in error_str):
+                
+                logger.warning(f"Database conflict detected (likely concurrent access): {e}")
+                logger.info("Falling back to SQLite for better concurrency support")
+                
+                # Fallback to SQLite
+                try:
+                    import sqlite3
+                    sqlite_path = self.db_path.with_suffix('.sqlite')
+                    self.conn = sqlite3.connect(str(sqlite_path), check_same_thread=False)
+                    self.conn.row_factory = sqlite3.Row
+                    
+                    # Enable WAL mode for better concurrency
+                    self.conn.execute("PRAGMA journal_mode=WAL")
+                    self.conn.execute("PRAGMA synchronous=NORMAL")
+                    
+                    self.use_duckdb = False  # Switch to SQLite mode
+                    logger.info(f"Successfully connected to SQLite at {sqlite_path}")
+                    
+                except Exception as sqlite_error:
+                    logger.error(f"SQLite fallback also failed: {sqlite_error}")
+                    raise
+            else:
+                logger.error(f"Failed to initialize database: {e}")
+                raise
 
     def _create_tables(self):
         """Create fact and dimension tables."""

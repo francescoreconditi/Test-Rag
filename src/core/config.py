@@ -27,7 +27,7 @@ class LLMSettings(PydanticBaseSettings):
 
     openai_api_key: str = Field(..., description="OpenAI API key")
     openai_model: str = Field(default="gpt-4-turbo-preview", description="OpenAI model to use")
-    openai_temperature: float = Field(default=0.3, description="Temperature for LLM responses", ge=0.0, le=2.0)
+    openai_temperature: float = Field(default=0.0, description="Temperature for LLM responses", ge=0.0, le=2.0)
     openai_max_tokens: int = Field(default=2000, description="Maximum tokens for LLM responses", gt=0)
     openai_timeout: int = Field(default=60, description="Request timeout in seconds")
 
