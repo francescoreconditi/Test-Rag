@@ -402,7 +402,7 @@ OPENAI_API_KEY=sk-...
 QDRANT_HOST=localhost
 LLM_MODEL=gpt-4-turbo-preview
 CHUNK_SIZE=512
-TEMPERATURE=0.7
+TEMPERATURE=0.0
 ```
 
 #### Pydantic Features:
@@ -523,7 +523,7 @@ QDRANT_HOST=localhost
 QDRANT_PORT=6333
 LLM_MODEL=gpt-4-turbo-preview
 EMBEDDING_MODEL=text-embedding-3-small
-TEMPERATURE=0.7
+TEMPERATURE=0.0
 CHUNK_SIZE=512
 ```
 

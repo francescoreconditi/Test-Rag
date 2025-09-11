@@ -52,6 +52,10 @@ uv pip compile requirements.txt  # Update lock file
 
 # Enterprise components testing
 python -c "from src.application.services.enterprise_orchestrator import EnterpriseOrchestrator; print('✅ Enterprise components OK')"
+
+# Code Quality Rules
+# ALWAYS run ruff format on any Python file after creating or modifying it
+ruff format filename.py            # Auto-format specific file after modification
 ```
 
 ## Enterprise Architecture Overview

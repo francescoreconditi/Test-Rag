@@ -59,7 +59,8 @@
       "Bash(start_flower.bat)",
       "Bash(cmd /c:*)",
       "Bash(git clean:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(ruff format:*)"
     ],
     "deny": [],
     "ask": []
