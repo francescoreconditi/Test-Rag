@@ -244,8 +244,8 @@ class RAGEngine:
                 elif path.suffix.lower() in [".docx", ".doc"]:
                     documents = self._load_docx(file_path, metadata)
                 elif path.suffix.lower() == ".json":
-                    # JSON files are loaded as text documents
-                    documents = self._load_text(file_path, metadata)
+                    # JSON files are loaded with enhanced metadata detection
+                    documents = self._load_json(file_path, metadata)
                 elif path.suffix.lower() == ".csv" and csv_analyzer:
                     # CSV files are analyzed and converted to structured documents
                     documents = self._load_csv_with_analysis(file_path, csv_analyzer, metadata)
@@ -317,8 +317,8 @@ class RAGEngine:
                 elif path.suffix.lower() in [".docx", ".doc"]:
                     documents = self._load_docx(file_path, metadata)
                 elif path.suffix.lower() == ".json":
-                    # JSON files are loaded as text documents
-                    documents = self._load_text(file_path, metadata)
+                    # JSON files are loaded with enhanced metadata detection
+                    documents = self._load_json(file_path, metadata)
                 elif path.suffix.lower() == ".csv" and csv_analyzer:
                     # CSV files are analyzed and converted to structured documents
                     documents = self._load_csv_with_analysis(file_path, csv_analyzer, metadata)
@@ -451,13 +451,6 @@ class RAGEngine:
             )
 
             analysis_result = response.choices[0].message.content
-
-            # Debug logging - temporarily log full response to understand the issue
-            logger.info(f"OpenAI response length: {len(analysis_result) if analysis_result else 0}")
-            if analysis_result:
-                logger.warning(f"FULL OPENAI RESPONSE FOR DEBUG:\n{analysis_result}")
-            else:
-                logger.warning("OpenAI returned empty or None response")
 
             # Add prompt type metadata to result for raw format
             raw_result = f"[Analisi tipo: {prompt_name.upper()}]\n\n{analysis_result}"
@@ -658,6 +651,98 @@ class RAGEngine:
 
         except Exception as e:
             logger.error(f"Error loading text file {file_path}: {str(e)}")
+            raise
+
+    def _load_json(self, file_path: str, metadata: Optional[dict[str, Any]] = None) -> list[Document]:
+        """Load JSON files with enhanced metadata detection."""
+        try:
+            import json
+
+            with open(file_path, encoding="utf-8") as f:
+                content = f.read()
+
+            # Enhanced metadata for JSON files
+            enhanced_metadata = {"source": file_path, "file_type": "json"}
+
+            # Try to detect document type from JSON content
+            try:
+                json_data = json.loads(content)
+                if isinstance(json_data, dict):
+                    # Detect scadenzario/AR documents
+                    scadenzario_keys = [
+                        "aging_bucket",
+                        "past_due",
+                        "dso",
+                        "dpd",
+                        "crediti_lordi",
+                        "crediti_netto",
+                        "fondo_svalutazione",
+                        "totale_scaduto",
+                        "qualita_crediti",
+                        "concentrazione_rischio",
+                        "turnover_crediti",
+                    ]
+
+                    # Count matching keys
+                    key_matches = sum(1 for key in scadenzario_keys if key in str(json_data))
+
+                    if key_matches >= 3:  # If we have 3+ scadenzario keys
+                        enhanced_metadata.update(
+                            {
+                                "document_type": "scadenzario",
+                                "content_category": "accounts_receivable",
+                                "analysis_type": "credit_management",
+                                "scadenzario_keys_detected": key_matches,
+                            }
+                        )
+                        logger.info(f"Detected scadenzario JSON with {key_matches} matching keys: {file_path}")
+
+                    # Detect other financial document types
+                    elif any(key in str(json_data) for key in ["ricavi", "ebitda", "bilancio", "conto_economico"]):
+                        enhanced_metadata.update(
+                            {
+                                "document_type": "bilancio",
+                                "content_category": "financial_statements",
+                                "analysis_type": "financial_analysis",
+                            }
+                        )
+                    elif any(key in str(json_data) for key in ["fatturato", "vendite", "sales"]):
+                        enhanced_metadata.update(
+                            {
+                                "document_type": "fatturato",
+                                "content_category": "sales_revenue",
+                                "analysis_type": "sales_analysis",
+                            }
+                        )
+                    else:
+                        enhanced_metadata.update(
+                            {
+                                "document_type": "general",
+                                "content_category": "structured_data",
+                                "analysis_type": "general_analysis",
+                            }
+                        )
+
+            except json.JSONDecodeError:
+                # If JSON is malformed, treat as general text
+                enhanced_metadata.update(
+                    {
+                        "document_type": "general",
+                        "content_category": "text",
+                        "analysis_type": "general_analysis",
+                        "json_parse_error": True,
+                    }
+                )
+
+            # Apply any additional metadata
+            if metadata:
+                enhanced_metadata.update(metadata)
+
+            doc = Document(text=content, metadata=enhanced_metadata)
+            return [doc]
+
+        except Exception as e:
+            logger.error(f"Error loading JSON file {file_path}: {str(e)}")
             raise
 
     def _load_docx(self, file_path: str, metadata: Optional[dict[str, Any]] = None) -> list[Document]:
@@ -1583,18 +1668,24 @@ class RAGEngine:
                         ]
                     ):
                         sample_texts.append(text_preview)
-                    if "metadata" in doc and "source" in doc["metadata"]:
-                        source = doc["metadata"]["source"].lower()
-                        if "bilancio" in source or "balance" in source:
-                            document_types.add("bilancio")
-                        elif "fatturato" in source or "revenue" in source or "vendite" in source:
-                            document_types.add("fatturato")
-                        elif "contratto" in source or "contract" in source:
-                            document_types.add("contratto")
-                        elif "report" in source:
-                            document_types.add("report")
-                        else:
-                            document_types.add("generale")
+                    if "metadata" in doc:
+                        # FIRST: Check if we have explicit document_type metadata (from JSON detection)
+                        if "document_type" in doc["metadata"]:
+                            doc_type = doc["metadata"]["document_type"]
+                            document_types.add(doc_type)
+                        # FALLBACK: Check filename-based detection
+                        elif "source" in doc["metadata"]:
+                            source = doc["metadata"]["source"].lower()
+                            if "bilancio" in source or "balance" in source:
+                                document_types.add("bilancio")
+                            elif "fatturato" in source or "revenue" in source or "vendite" in source:
+                                document_types.add("fatturato")
+                            elif "contratto" in source or "contract" in source:
+                                document_types.add("contratto")
+                            elif "report" in source:
+                                document_types.add("report")
+                            else:
+                                document_types.add("generale")
 
             # Create context for FAQ generation
             # Use MORE samples (30 instead of 10) for better context

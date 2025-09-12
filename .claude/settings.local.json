@@ -62,7 +62,8 @@
       "WebSearch",
       "Bash(ruff format:*)",
       "Bash(del test_scadenzario_router.py)",
-      "Bash(del test_scadenzario.py test_format_scadenzario.py)"
+      "Bash(del test_scadenzario.py test_format_scadenzario.py)",
+      "Bash(sudo rm:*)"
     ],
     "deny": [],
     "ask": []
