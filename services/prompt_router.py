@@ -314,6 +314,24 @@ Riassunto esecutivo (150-200 parole) che cattura l'essenza della presentazione, 
 
 
 def PROMPT_SCADENZARIO(file_name: str, analysis_text: str) -> str:
+    # Check if the content is already a structured JSON
+    import json
+
+    try:
+        # Try to parse as JSON
+        json_data = json.loads(analysis_text)
+        # If it's valid JSON with expected scadenzario keys, use special prompt
+        if isinstance(json_data, dict) and any(
+            key in json_data for key in ["periodi_coperti", "aging_bucket", "kpi", "totali"]
+        ):
+            from services.prompt_scadenzario_json import PROMPT_SCADENZARIO_JSON
+
+            logger.info(f"Using specialized JSON prompt for scadenzario file {file_name}")
+            return PROMPT_SCADENZARIO_JSON(file_name, analysis_text)
+    except (json.JSONDecodeError, ImportError):
+        # Not JSON or import failed, continue with normal prompt
+        pass
+
     return f"""
 Sei un credit/AR analyst. Analizza lo scadenzario "{file_name}" qui sotto, senza usare fonti esterne.
 Riporta valori solo se presenti e indica sempre la pagina di provenienza.
@@ -813,6 +831,40 @@ def _score_case(rule: CaseRule, file_name: str, analysis_text: str) -> float:
     if any(k in fname for k in rule.keywords[:5]):  # primi 5 keyword più importanti
         score *= rule.boost_if_filename
 
+    # Special handling for JSON files with structured data
+    if rule.name == "scadenzario":
+        # Check if it's a JSON with scadenzario-specific keys
+        import json
+
+        try:
+            json_data = json.loads(analysis_text)
+            if isinstance(json_data, dict):
+                # Strong indicators for scadenzario
+                scadenzario_keys = [
+                    "aging_bucket",
+                    "past_due",
+                    "dso",
+                    "dpd",
+                    "crediti_lordi",
+                    "crediti_netto",
+                    "fondo_svalutazione",
+                    "totale_scaduto",
+                    "dpd_medio_ponderato",
+                    "coverage_fondo_su_scaduto",
+                    "piani_rientro_e_promesse_pagamento",
+                    "qualita_crediti",
+                    "concentrazione_rischio",
+                    "turnover_crediti",
+                ]
+                # Count matching keys
+                key_matches = sum(1 for key in scadenzario_keys if key in str(json_data))
+                if key_matches >= 3:  # If we have 3+ scadenzario keys, it's definitely a scadenzario
+                    score += 100  # Strong boost to ensure it wins
+                    logger.info(f"Detected JSON scadenzario with {key_matches} matching keys")
+        except (json.JSONDecodeError, ValueError):
+            # Not JSON, continue with normal scoring
+            pass
+
     # segnali generici: valute/percentuali/datetime → piccolo boost alla finanza/vendite
     if rule.name in {"bilancio", "fatturato"}:
         generic_signals = _findall(r"[€$£]\s?\d", analysis_text) + _findall(
@@ -839,15 +891,25 @@ def choose_prompt(file_name: str, analysis_text: str) -> tuple[str, str, dict]:
     for name, rule in ROUTER.items():
         scores[name] = _score_case(rule, file_name, analysis_text)
 
+    # Sort scores to see the ranking
+    sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    logger.info(f"Prompt router scores for '{file_name}': {sorted_scores}")
+
     # migliore candidato oltre la soglia minima; altrimenti GENERAL
     best_name = max(scores, key=scores.get) if scores else "generale"
 
     if scores and best_name in ROUTER:
         best_rule = ROUTER[best_name]
+        logger.info(
+            f"Best candidate '{best_name}' with score {scores[best_name]:.2f}, min_score_to_win: {best_rule.min_score_to_win}"
+        )
         if scores[best_name] >= best_rule.min_score_to_win:
             chosen_name = best_name
             builder = best_rule.builder
         else:
+            logger.info(
+                f"Score {scores[best_name]:.2f} below threshold {best_rule.min_score_to_win}, falling back to generale"
+            )
             chosen_name = "generale"
             builder = PROMPT_GENERAL
     else:
@@ -861,9 +923,10 @@ def choose_prompt(file_name: str, analysis_text: str) -> tuple[str, str, dict]:
         "chosen": chosen_name,
         "file_hint": file_name,
         "length_chars": len(analysis_text),
+        "sorted_scores": sorted_scores,
     }
 
-    logger.info(f"Prompt router: scelto '{chosen_name}' per file '{file_name}' (scores: {scores})")
+    logger.info(f"Prompt router: scelto '{chosen_name}' per file '{file_name}'")
 
     return chosen_name, prompt_text, debug
 

@@ -19,9 +19,13 @@ def format_analysis_result(raw_response: str) -> str:
         Una stringa formattata in markdown per Streamlit
     """
     try:
+        # Debug logging
+        logger.debug(f"format_analysis_result called with response length: {len(raw_response) if raw_response else 0}")
+        
         # Estrai il tipo di analisi
         analysis_type_match = re.search(r"\[Analisi tipo: (\w+)\]", raw_response)
         analysis_type = analysis_type_match.group(1) if analysis_type_match else "GENERALE"
+        logger.info(f"Analysis type detected: {analysis_type}")
 
         # Estrai la sezione JSON
         json_match = re.search(r"<(?:KPI_)?JSON>(.*?)</(?:KPI_)?JSON>", raw_response, re.DOTALL)
@@ -30,14 +34,20 @@ def format_analysis_result(raw_response: str) -> str:
             try:
                 # Pulisci il JSON rimuovendo spazi extra e newline
                 json_str = json_match.group(1).strip()
+                logger.debug(f"JSON string length: {len(json_str)}")
                 json_data = json.loads(json_str)
+                logger.info(f"JSON parsed successfully, keys: {list(json_data.keys()) if json_data else []}")
             except json.JSONDecodeError as e:
                 logger.warning(f"Errore parsing JSON: {e}")
+                logger.debug(f"Failed JSON string (first 500 chars): {json_str[:500] if json_str else 'empty'}")
                 json_data = None
+        else:
+            logger.warning("No JSON section found in response")
 
         # Estrai la sintesi
         summary_match = re.search(r"<SINTESI>(.*?)</SINTESI>", raw_response, re.DOTALL)
         summary = summary_match.group(1).strip() if summary_match else ""
+        logger.debug(f"Summary extracted, length: {len(summary)}")
 
         # Costruisci l'output formattato
         formatted_parts = []
@@ -56,6 +66,8 @@ def format_analysis_result(raw_response: str) -> str:
             formatted_parts.append(_format_contratto(json_data))
         elif analysis_type == "PRESENTAZIONE" and json_data:
             formatted_parts.append(_format_presentazione(json_data))
+        elif analysis_type == "SCADENZARIO" and json_data:
+            formatted_parts.append(_format_scadenzario(json_data))
         elif json_data:
             formatted_parts.append(_format_generale(json_data))
 
@@ -129,22 +141,30 @@ def _format_bilancio(data: dict[str, Any]) -> str:
         if ce.get("ricavi"):
             for r in ce["ricavi"]:
                 if r.get("valore"):
-                    parts.append(f"- **Ricavi ({r.get('periodo', 'N/D')}):** {_format_currency(r['valore'])} {r.get('unita', '€')}")
+                    parts.append(
+                        f"- **Ricavi ({r.get('periodo', 'N/D')}):** {_format_currency(r['valore'])} {r.get('unita', '€')}"
+                    )
 
         if ce.get("ebitda"):
             for e in ce["ebitda"]:
                 if e.get("valore"):
-                    parts.append(f"- **EBITDA ({e.get('periodo', 'N/D')}):** {_format_currency(e['valore'])} {e.get('unita', '€')}")
+                    parts.append(
+                        f"- **EBITDA ({e.get('periodo', 'N/D')}):** {_format_currency(e['valore'])} {e.get('unita', '€')}"
+                    )
 
         if ce.get("ebit"):
             for e in ce["ebit"]:
                 if e.get("valore"):
-                    parts.append(f"- **EBIT ({e.get('periodo', 'N/D')}):** {_format_currency(e['valore'])} {e.get('unita', '€')}")
+                    parts.append(
+                        f"- **EBIT ({e.get('periodo', 'N/D')}):** {_format_currency(e['valore'])} {e.get('unita', '€')}"
+                    )
 
         if ce.get("utile_netto"):
             for u in ce["utile_netto"]:
                 if u.get("valore"):
-                    parts.append(f"- **Utile Netto ({u.get('periodo', 'N/D')}):** {_format_currency(u['valore'])} {u.get('unita', '€')}")
+                    parts.append(
+                        f"- **Utile Netto ({u.get('periodo', 'N/D')}):** {_format_currency(u['valore'])} {u.get('unita', '€')}"
+                    )
 
         parts.append("")
 
@@ -158,11 +178,7 @@ def _format_bilancio(data: dict[str, Any]) -> str:
 
     # Stato Patrimoniale (se presente)
     sp = data.get("stato_patrimoniale", {})
-    has_sp_data = any([
-        sp.get("cassa_e_equivalenti"),
-        sp.get("debito_finanziario_totale"),
-        sp.get("patrimonio_netto")
-    ])
+    has_sp_data = any([sp.get("cassa_e_equivalenti"), sp.get("debito_finanziario_totale"), sp.get("patrimonio_netto")])
 
     if has_sp_data:
         parts.append("### Stato Patrimoniale\n")
@@ -224,7 +240,9 @@ def _format_fatturato(data: dict[str, Any]) -> str:
         for f in data["fatturato_totale"]:
             if f.get("valore"):
                 var_yoy = f" ({f['var_yoy']} YoY)" if f.get("var_yoy") else ""
-                parts.append(f"- **{f.get('periodo', 'Totale')}:** {_format_currency(f['valore'])} {f.get('valuta', '€')}{var_yoy}")
+                parts.append(
+                    f"- **{f.get('periodo', 'Totale')}:** {_format_currency(f['valore'])} {f.get('valuta', '€')}{var_yoy}"
+                )
         parts.append("")
 
     # Ripartizione
@@ -236,7 +254,9 @@ def _format_fatturato(data: dict[str, Any]) -> str:
             parts.append("**Per Prodotto:**")
             for p in ripart["per_prodotto"]:
                 if p.get("valore"):
-                    parts.append(f"- {p.get('prodotto', 'N/D')}: {_format_currency(p['valore'])} {p.get('valuta', '€')}")
+                    parts.append(
+                        f"- {p.get('prodotto', 'N/D')}: {_format_currency(p['valore'])} {p.get('valuta', '€')}"
+                    )
 
         if ripart.get("per_cliente"):
             parts.append("\n**Per Cliente:**")
@@ -283,7 +303,9 @@ def _format_magazzino(data: dict[str, Any]) -> str:
         for g in data["giacenze_totali"]:
             if g.get("valore"):
                 giorni = f" ({g['giorni_giacenza']} giorni)" if g.get("giorni_giacenza") else ""
-                parts.append(f"- **{g.get('periodo', 'Totale')}:** {_format_currency(g['valore'])} {g.get('unita', '€')}{giorni}")
+                parts.append(
+                    f"- **{g.get('periodo', 'Totale')}:** {_format_currency(g['valore'])} {g.get('unita', '€')}{giorni}"
+                )
         parts.append("")
 
     # KPI Logistici
@@ -308,7 +330,9 @@ def _format_magazzino(data: dict[str, Any]) -> str:
         for e in data["eccessi_e_obsoleti"]:
             if e.get("valore"):
                 pct = f" ({e['percentuale_su_scorte']}%)" if e.get("percentuale_su_scorte") else ""
-                parts.append(f"- {e.get('sku_o_categoria', 'N/D')}: {_format_currency(e['valore'])} {e.get('valuta', '€')}{pct}")
+                parts.append(
+                    f"- {e.get('sku_o_categoria', 'N/D')}: {_format_currency(e['valore'])} {e.get('valuta', '€')}{pct}"
+                )
         parts.append("")
 
     return "\n".join(parts)
@@ -350,7 +374,9 @@ def _format_contratto(data: dict[str, Any]) -> str:
         parts.append("### Corrispettivi e Pagamenti\n")
         for c in data["corrispettivi_e_pagamenti"]:
             if c.get("importo"):
-                parts.append(f"- {c.get('descrizione', 'N/D')}: {_format_currency(c['importo'])} {c.get('valuta', '€')}")
+                parts.append(
+                    f"- {c.get('descrizione', 'N/D')}: {_format_currency(c['importo'])} {c.get('valuta', '€')}"
+                )
                 if c.get("scadenza"):
                     parts.append(f"  - Scadenza: {c['scadenza']}")
         parts.append("")
@@ -424,6 +450,238 @@ def _format_presentazione(data: dict[str, Any]) -> str:
                 responsabile = f" ({n['responsabile']})" if n.get("responsabile") else ""
                 parts.append(f"- {n['azione']}{timeline}{responsabile}")
         parts.append("")
+
+    return "\n".join(parts)
+
+
+def _format_scadenzario(data: dict[str, Any]) -> str:
+    """Formatta i dati dello scadenzario crediti."""
+    parts = []
+
+    # Periodi coperti
+    if data.get("periodi_coperti"):
+        if data["periodi_coperti"] and isinstance(data["periodi_coperti"][0], dict):
+            periodo_strings = []
+            for p in data["periodi_coperti"]:
+                if isinstance(p, dict):
+                    periodo_str = f"{p.get('mese', '')} {p.get('anno', '')} {p.get('tipo', '')}".strip()
+                    if periodo_str:
+                        periodo_strings.append(periodo_str)
+                else:
+                    periodo_strings.append(str(p))
+            if periodo_strings:
+                parts.append(f"**Periodi analizzati:** {', '.join(periodo_strings)}\n")
+        else:
+            parts.append(f"**Periodi analizzati:** {', '.join(map(str, data['periodi_coperti']))}\n")
+
+    # Perimetro e valute
+    if data.get("perimetro"):
+        parts.append(f"**Perimetro:** {data['perimetro']}\n")
+    if data.get("valute"):
+        parts.append(f"**Valute:** {', '.join(data['valute'])}\n")
+
+    # Totali
+    if data.get("totali"):
+        parts.append("### Totali Crediti\n")
+        totali = data["totali"]
+
+        if totali.get("crediti_lordi"):
+            for c in totali["crediti_lordi"]:
+                if c.get("valore"):
+                    parts.append(
+                        f"- **Crediti Lordi ({c.get('periodo', 'N/D')}):** {_format_currency(c['valore'])} {c.get('unita', 'EUR')}"
+                    )
+
+        if totali.get("fondo_svalutazione"):
+            for f in totali["fondo_svalutazione"]:
+                if f.get("valore"):
+                    parts.append(
+                        f"- **Fondo Svalutazione ({f.get('periodo', 'N/D')}):** {_format_currency(f['valore'])} {f.get('unita', 'EUR')}"
+                    )
+
+        if totali.get("crediti_netto"):
+            for n in totali["crediti_netto"]:
+                if n.get("valore"):
+                    parts.append(
+                        f"- **Crediti Netto ({n.get('periodo', 'N/D')}):** {_format_currency(n['valore'])} {n.get('unita', 'EUR')}"
+                    )
+
+        if totali.get("numero_clienti_attivi"):
+            for n in totali["numero_clienti_attivi"]:
+                if n.get("valore"):
+                    parts.append(f"- **Clienti Attivi:** {n['valore']}")
+        parts.append("")
+
+    # Aging Bucket
+    if data.get("aging_bucket"):
+        parts.append("### Aging Crediti\n")
+        for bucket in data["aging_bucket"]:
+            if bucket.get("valore") or bucket.get("percentuale_su_totale"):
+                valore = (
+                    f"{_format_currency(bucket['valore'])} {bucket.get('unita', 'EUR')}" if bucket.get("valore") else ""
+                )
+                percentuale = (
+                    f" ({bucket['percentuale_su_totale']}{bucket.get('unita_percent', '%')})"
+                    if bucket.get("percentuale_su_totale")
+                    else ""
+                )
+                parts.append(f"- **{bucket.get('bucket', 'N/D')}:** {valore}{percentuale}")
+        parts.append("")
+
+    # Past Due
+    if data.get("past_due"):
+        pd = data["past_due"]
+        if pd.get("totale_scaduto") or pd.get("dpd_medio_ponderato") or pd.get("percentuale_scaduto_su_totale"):
+            parts.append("### Crediti Scaduti\n")
+
+            if pd.get("totale_scaduto"):
+                for t in pd["totale_scaduto"]:
+                    if t.get("valore"):
+                        parts.append(f"- **Totale Scaduto:** {_format_currency(t['valore'])} {t.get('unita', 'EUR')}")
+
+            if pd.get("dpd_medio_ponderato"):
+                for d in pd["dpd_medio_ponderato"]:
+                    if d.get("valore"):
+                        parts.append(f"- **DPD Medio Ponderato:** {d['valore']} giorni")
+
+            if pd.get("percentuale_scaduto_su_totale"):
+                for p in pd["percentuale_scaduto_su_totale"]:
+                    if p.get("valore"):
+                        parts.append(f"- **% Scaduto su Totale:** {p['valore']}%")
+            parts.append("")
+
+    # KPI
+    if data.get("kpi"):
+        kpi = data["kpi"]
+        parts.append("### KPI Principali\n")
+
+        if kpi.get("dso"):
+            for d in kpi["dso"]:
+                if d.get("valore"):
+                    metodo = f" (Metodo: {d['metodo']})" if d.get("metodo") else ""
+                    parts.append(
+                        f"- **DSO ({d.get('periodo', 'N/D')}):** {d['valore']} {d.get('unita', 'giorni')}{metodo}"
+                    )
+
+        if kpi.get("turnover_crediti"):
+            for t in kpi["turnover_crediti"]:
+                if t.get("valore"):
+                    parts.append(f"- **Turnover Crediti:** {t['valore']}x")
+
+        if kpi.get("dpd_>90gg_percent"):
+            for p in kpi["dpd_>90gg_percent"]:
+                if p.get("valore"):
+                    parts.append(f"- **DPD >90gg:** {p['valore']}%")
+        parts.append("")
+
+    # Concentrazione Rischio
+    if data.get("concentrazione_rischio"):
+        conc = data["concentrazione_rischio"]
+        has_concentration = any(
+            [
+                conc.get("top1_percent_su_totale"),
+                conc.get("top5_percent_su_totale"),
+                conc.get("top10_percent_su_totale"),
+                conc.get("primi_clienti"),
+            ]
+        )
+
+        if has_concentration:
+            parts.append("### Concentrazione Rischio\n")
+
+            if conc.get("top1_percent_su_totale"):
+                for t in conc["top1_percent_su_totale"]:
+                    if t.get("valore"):
+                        parts.append(f"- **Top 1 Cliente:** {t['valore']}% del totale")
+
+            if conc.get("top5_percent_su_totale"):
+                for t in conc["top5_percent_su_totale"]:
+                    if t.get("valore"):
+                        parts.append(f"- **Top 5 Clienti:** {t['valore']}% del totale")
+
+            if conc.get("top10_percent_su_totale"):
+                for t in conc["top10_percent_su_totale"]:
+                    if t.get("valore"):
+                        parts.append(f"- **Top 10 Clienti:** {t['valore']}% del totale")
+
+            if conc.get("primi_clienti"):
+                parts.append("\n**Principali Clienti:**")
+                for cliente in conc["primi_clienti"]:
+                    if cliente.get("cliente"):
+                        valore = (
+                            f": {_format_currency(cliente['valore'])} {cliente.get('unita', 'EUR')}"
+                            if cliente.get("valore")
+                            else ""
+                        )
+                        percentuale = (
+                            f" ({cliente['percentuale_su_totale']}{cliente.get('unita_percent', '%')})"
+                            if cliente.get("percentuale_su_totale")
+                            else ""
+                        )
+                        parts.append(f"- {cliente['cliente']}{valore}{percentuale}")
+            parts.append("")
+
+    # Qualità Crediti
+    if data.get("qualita_crediti"):
+        qual = data["qualita_crediti"]
+        has_quality = any(
+            [
+                qual.get("posizioni_in_contenzioso"),
+                qual.get("piani_rientro_e_promesse_pagamento"),
+                qual.get("garanzie_collaterali"),
+                qual.get("write_off"),
+                qual.get("coverage_fondo_su_scaduto"),
+            ]
+        )
+
+        if has_quality:
+            parts.append("### Qualità del Credito\n")
+
+            if qual.get("posizioni_in_contenzioso"):
+                for p in qual["posizioni_in_contenzioso"]:
+                    if p.get("numero") or p.get("valore"):
+                        numero = f"{p['numero']} posizioni" if p.get("numero") else ""
+                        valore = (
+                            f" - {_format_currency(p['valore'])} {p.get('unita', 'EUR')}" if p.get("valore") else ""
+                        )
+                        parts.append(f"- **Contenziosi:** {numero}{valore}")
+
+            if qual.get("piani_rientro_e_promesse_pagamento"):
+                for p in qual["piani_rientro_e_promesse_pagamento"]:
+                    if p.get("numero") or p.get("importo"):
+                        numero = f"{p['numero']} piani" if p.get("numero") else ""
+                        importo = (
+                            f" - {_format_currency(p['importo'])} {p.get('unita', 'EUR')}" if p.get("importo") else ""
+                        )
+                        parts.append(f"- **Piani di Rientro:** {numero}{importo}")
+
+            if qual.get("garanzie_collaterali"):
+                for g in qual["garanzie_collaterali"]:
+                    if g.get("copertura_portafoglio_percentuale"):
+                        parts.append(
+                            f"- **Garanzie Collaterali:** {g['copertura_portafoglio_percentuale']}% del portafoglio"
+                        )
+                    elif g.get("valore"):
+                        parts.append(
+                            f"- **Garanzie Collaterali:** {_format_currency(g['valore'])} {g.get('unita', 'EUR')}"
+                        )
+
+            if qual.get("write_off"):
+                for w in qual["write_off"]:
+                    if w.get("valore"):
+                        parts.append(
+                            f"- **Write-off ({w.get('periodo', 'N/D')}):** {_format_currency(w['valore'])} {w.get('unita', 'EUR')}"
+                        )
+
+            if qual.get("coverage_fondo_su_scaduto"):
+                for c in qual["coverage_fondo_su_scaduto"]:
+                    if c.get("valore"):
+                        parts.append(f"- **Coverage Fondo su Scaduto:** {c['valore']}%")
+            parts.append("")
+
+    # Note
+    if data.get("note"):
+        parts.append(f"### Note\n{data['note']}\n")
 
     return "\n".join(parts)
 
@@ -504,7 +762,7 @@ def _format_currency(value: str) -> str:
 
         # Formatta con separatori di migliaia
         if num >= 1000000:
-            return f"{num/1000000:,.1f}M".replace(",", ".")
+            return f"{num / 1000000:,.1f}M".replace(",", ".")
         elif num >= 1000:
             return f"{num:,.0f}".replace(",", ".")
         else:

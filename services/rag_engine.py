@@ -153,11 +153,36 @@ class RAGEngine:
             else:
                 # Create new collection with proper vector size for OpenAI embeddings
                 vector_size = 1536  # OpenAI text-embedding-3-small dimension
-                self.client.create_collection(
-                    collection_name=self.collection_name,
-                    vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
-                )
-                logger.info(f"Created new collection: {self.collection_name}")
+                try:
+                    self.client.create_collection(
+                        collection_name=self.collection_name,
+                        vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
+                    )
+                    logger.info(f"Created new collection: {self.collection_name}")
+                except Exception as create_error:
+                    # If collection creation fails due to orphaned data, try to delete and recreate
+                    if (
+                        "already exists" in str(create_error).lower()
+                        or "data already exists" in str(create_error).lower()
+                    ):
+                        logger.warning(
+                            f"Collection data exists but not accessible. Attempting to clean and recreate: {create_error}"
+                        )
+                        try:
+                            # Try to delete the collection first
+                            self.client.delete_collection(collection_name=self.collection_name)
+                            logger.info(f"Deleted orphaned collection data for {self.collection_name}")
+                        except Exception as delete_error:
+                            logger.warning(f"Could not delete orphaned collection: {delete_error}")
+
+                        # Now try to create again
+                        self.client.create_collection(
+                            collection_name=self.collection_name,
+                            vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
+                        )
+                        logger.info(f"Successfully recreated collection: {self.collection_name}")
+                    else:
+                        raise create_error
 
         except Exception as e:
             logger.error(f"Error setting up collection: {str(e)}")
@@ -422,10 +447,17 @@ class RAGEngine:
                     {"role": "user", "content": prompt_text},
                 ],
                 temperature=0.0,  # Deterministic output
-                max_tokens=1500,  # Increased for JSON + summary format
+                max_tokens=4000,  # Increased for complex JSON + summary format (especially scadenzario)
             )
 
             analysis_result = response.choices[0].message.content
+
+            # Debug logging - temporarily log full response to understand the issue
+            logger.info(f"OpenAI response length: {len(analysis_result) if analysis_result else 0}")
+            if analysis_result:
+                logger.warning(f"FULL OPENAI RESPONSE FOR DEBUG:\n{analysis_result}")
+            else:
+                logger.warning("OpenAI returned empty or None response")
 
             # Add prompt type metadata to result for raw format
             raw_result = f"[Analisi tipo: {prompt_name.upper()}]\n\n{analysis_result}"
