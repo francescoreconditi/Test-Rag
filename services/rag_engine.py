@@ -2,6 +2,7 @@
 
 from datetime import datetime
 import logging
+from logging import Logger
 from pathlib import Path
 from typing import Any, Optional
 
@@ -24,7 +25,7 @@ try:
 
     ENTERPRISE_AVAILABLE = True
 except ImportError:
-    logging.Logger.warning("Enterprise orchestrator not available")
+    Logger.warning("Enterprise orchestrator not available")
     ENTERPRISE_AVAILABLE = False
     EnterpriseOrchestrator = None
     EnterpriseQuery = None
@@ -35,7 +36,7 @@ try:
 
     ADVANCED_FEATURES_AVAILABLE = True
 except ImportError:
-    logger.warning("Advanced features (Streaming/HyDE) not available")
+    Logger.warning("Advanced features (Streaming/HyDE) not available")
     ADVANCED_FEATURES_AVAILABLE = False
     StreamingRAGEngine = None
     HyDEQueryEngine = None
@@ -183,6 +184,74 @@ class RAGEngine:
             self.index = VectorStoreIndex(
                 [], storage_context=StorageContext.from_defaults(vector_store=self.vector_store)
             )
+
+    def parse_insert_docs(
+        self,
+        file_paths: list[str],
+        metadata: Optional[dict[str, Any]] = None,
+        original_names: Optional[list[str]] = None,
+        permanent_paths: Optional[list[str]] = None,
+    ) -> dict[str, Any]:
+        from services import csv_analyzer
+
+        results = {
+            "uploaded_files": [],
+            "failed_files": [],
+            "total_chunks": 0,
+            "errors": [],
+        }
+
+        for i, file_path in enumerate(file_paths):
+            try:
+                path = Path(file_path)
+                if not path.exists():
+                    results["failed_files"].append(file_path)
+                    results["errors"].append(f"File not found: {file_path}")
+                    continue
+                # use original filename if provided
+                display_name = original_names[i] if original_names and i < len(original_names) else path.name
+
+                # load document based on file type
+                if path.suffix.lower() == ".pdf":
+                    documents = self._load_pdf(file_path, metadata)
+                elif path.suffix.lower() in [".txt", ".md"]:
+                    documents = self._load_text(file_path, metadata)
+                elif path.suffix.lower() in [".docx", ".doc"]:
+                    documents = self._load_docx(file_path, metadata)
+                elif path.suffix.lower() == ".json":
+                    # JSON files are loaded as text documents
+                    documents = self._load_text(file_path, metadata)
+                elif path.suffix.lower() == ".csv" and csv_analyzer:
+                    # CSV files are analyzed and converted to structured documents
+                    documents = self._load_csv_with_analysis(file_path, csv_analyzer, metadata)
+                elif path.suffix.lower() == ".csv":
+                    # Basic CSV loading without analysis
+                    documents = self._load_csv_basic(file_path, metadata)
+                else:
+                    documents = SimpleDirectoryReader(input_files=[file_path]).load_data()
+                for doc in documents:
+                    doc.metadata = doc.metadata or {}
+                    doc.metadata.update(
+                        {
+                            "source": display_name,
+                            "indexed_at": datetime.now().isoformat(),
+                            "file_types": path.suffix.lower(),
+                        }
+                    )
+                    if metadata:
+                        doc.metadata.update(metadata)
+                    parser = SimpleNodeParser.from_defaults()
+                    nodes = parser.get_nodes_from_documents(documents)
+                    self.index.insert_nodes(nodes)
+
+                    results["uploaded_files"].append(file_path)
+                    results["total_chunks"] += len(nodes)
+                    logger.info(f"Uploaded {file_path} : {len(nodes)} chunks")
+            except Exception as e:
+                results["failed_files"].append(file_path)
+                results["errors"].append(f"Error uploading {file_path}:{str(e)}")
+                logger.info(f"Uploaded {file_path} : {str(e)}")
+        return results
 
     def index_documents(
         self,
@@ -1152,6 +1221,7 @@ class RAGEngine:
 
             # Retrieve points with pagination
             # Note: Qdrant doesn't support traditional pagination, so we use scroll
+            # Prende dal db
             points, next_offset = self.client.scroll(
                 collection_name=self.collection_name,
                 limit=limit,

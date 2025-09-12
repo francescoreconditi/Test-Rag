@@ -70,6 +70,7 @@ pdf_processor = None
 calculation_engine = None
 pdf_exporter = None
 
+
 def get_rag_engine() -> RAGEngine:
     """Dependency injection for RAG Engine (default, non-tenant)."""
     global rag_engine
@@ -77,10 +78,11 @@ def get_rag_engine() -> RAGEngine:
         rag_engine = RAGEngine()
     return rag_engine
 
+
 def get_tenant_rag_engine(tenant: TenantContext = Depends(get_current_tenant)) -> RAGEngine:
     """Dependency injection for tenant-specific RAG Engine."""
     # Use a cache for tenant-specific engines
-    if not hasattr(get_tenant_rag_engine, '_tenant_engines'):
+    if not hasattr(get_tenant_rag_engine, "_tenant_engines"):
         get_tenant_rag_engine._tenant_engines = {}
 
     if tenant.tenant_id not in get_tenant_rag_engine._tenant_engines:
@@ -88,11 +90,12 @@ def get_tenant_rag_engine(tenant: TenantContext = Depends(get_current_tenant)) -
 
     return get_tenant_rag_engine._tenant_engines[tenant.tenant_id]
 
+
 def get_optional_rag_engine(tenant: Optional[TenantContext] = Depends(get_optional_tenant)) -> RAGEngine:
     """Dependency injection for RAG Engine with optional tenant support."""
     if tenant:
         # Use a cache for tenant-specific engines
-        if not hasattr(get_optional_rag_engine, '_tenant_engines'):
+        if not hasattr(get_optional_rag_engine, "_tenant_engines"):
             get_optional_rag_engine._tenant_engines = {}
 
         if tenant.tenant_id not in get_optional_rag_engine._tenant_engines:
@@ -106,12 +109,14 @@ def get_optional_rag_engine(tenant: Optional[TenantContext] = Depends(get_option
         rag_engine = RAGEngine()
     return rag_engine
 
+
 def get_csv_analyzer() -> CSVAnalyzer:
     """Dependency injection for CSV Analyzer."""
     global csv_analyzer
     if csv_analyzer is None:
         csv_analyzer = CSVAnalyzer()
     return csv_analyzer
+
 
 def get_pdf_processor() -> PDFProcessor:
     """Dependency injection for PDF Processor."""
@@ -120,12 +125,14 @@ def get_pdf_processor() -> PDFProcessor:
         pdf_processor = PDFProcessor(enable_ocr=True)
     return pdf_processor
 
+
 def get_calculation_engine() -> CalculationEngine:
     """Dependency injection for Calculation Engine."""
     global calculation_engine
     if calculation_engine is None:
         calculation_engine = CalculationEngine()
     return calculation_engine
+
 
 def get_pdf_exporter() -> PDFExporter:
     """Dependency injection for PDF Exporter."""
@@ -138,85 +145,108 @@ def get_pdf_exporter() -> PDFExporter:
 # Pydantic Models
 class HealthCheckResponse(BaseModel):
     """Modello di risposta per controllo stato."""
+
     status: str = Field(..., description="Stato del servizio", example="healthy")
     timestamp: str = Field(..., description="Timestamp del controllo", example="2024-12-07T10:30:00Z")
     version: str = Field(..., description="Versione API", example="1.0.0")
-    services: dict[str, str] = Field(..., description="Stati dei servizi", example={
-        "rag_engine": "healthy",
-        "csv_analyzer": "healthy",
-        "qdrant": "healthy",
-        "openai": "healthy"
-    })
+    services: dict[str, str] = Field(
+        ...,
+        description="Stati dei servizi",
+        example={"rag_engine": "healthy", "csv_analyzer": "healthy", "qdrant": "healthy", "openai": "healthy"},
+    )
+
 
 class ErrorResponse(BaseModel):
     """Modello di risposta per errori."""
+
     error: str = Field(..., description="Messaggio di errore", example="Elaborazione file fallita")
-    detail: Optional[str] = Field(None, description="Informazioni dettagliate errore", example="Formato file non supportato")
+    detail: Optional[str] = Field(
+        None, description="Informazioni dettagliate errore", example="Formato file non supportato"
+    )
     timestamp: str = Field(..., description="Timestamp errore", example="2024-12-07T10:30:00Z")
+
 
 class AnalysisResult(BaseModel):
     """Modello risultato analisi."""
-    analysis: str = Field(..., description="Testo analisi principale", example="L'azienda mostra performance finanziarie solide...")
+
+    analysis: str = Field(
+        ..., description="Testo analisi principale", example="L'azienda mostra performance finanziarie solide..."
+    )
     confidence: float = Field(..., description="Punteggio confidenza analisi", example=0.85)
-    sources: list[dict[str, Any]] = Field(..., description="Documenti sorgente utilizzati", example=[
-        {"source": "report_finanziario.pdf", "page": 1, "confidence": 0.9}
-    ])
-    metadata: dict[str, Any] = Field(..., description="Metadati aggiuntivi", example={
-        "processing_time": 2.5,
-        "document_pages": 15,
-        "tables_found": 3
-    })
+    sources: list[dict[str, Any]] = Field(
+        ...,
+        description="Documenti sorgente utilizzati",
+        example=[{"source": "report_finanziario.pdf", "page": 1, "confidence": 0.9}],
+    )
+    metadata: dict[str, Any] = Field(
+        ...,
+        description="Metadati aggiuntivi",
+        example={"processing_time": 2.5, "document_pages": 15, "tables_found": 3},
+    )
+
 
 class FAQItem(BaseModel):
     """Modello elemento FAQ."""
+
     question: str = Field(..., description="Domanda FAQ", example="Qual è l'EBITDA dell'azienda?")
     answer: str = Field(..., description="Risposta FAQ", example="L'EBITDA è di 2,5 milioni di EUR")
     confidence: float = Field(..., description="Confidenza risposta", example=0.92)
 
+
 class PDFAnalysisResponse(BaseModel):
     """Modello risposta analisi PDF."""
+
     analysis: AnalysisResult = Field(..., description="Risultati analisi documento")
     faqs: list[FAQItem] = Field(..., description="FAQ generate", min_items=10, max_items=10)
     processing_time: float = Field(..., description="Tempo elaborazione in secondi", example=15.2)
-    file_info: dict[str, Any] = Field(..., description="Informazioni file", example={
-        "filename": "report.pdf",
-        "size_bytes": 1048576,
-        "pages": 15,
-        "has_tables": True
-    })
+    file_info: dict[str, Any] = Field(
+        ...,
+        description="Informazioni file",
+        example={"filename": "report.pdf", "size_bytes": 1048576, "pages": 15, "has_tables": True},
+    )
+    pdf_b64: Optional[str] = Field(None, description="PDF Codificato in b64")
+
 
 class ActionItem(BaseModel):
     """Action item model for CSV analysis."""
+
     priority: str = Field(..., description="Action priority", example="HIGH")
     category: str = Field(..., description="Action category", example="FINANCIAL")
     action: str = Field(..., description="Recommended action", example="Review cash flow management")
-    description: str = Field(..., description="Detailed description", example="Current cash flow shows negative trend...")
+    description: str = Field(
+        ..., description="Detailed description", example="Current cash flow shows negative trend..."
+    )
     impact: str = Field(..., description="Expected impact", example="Improve liquidity by 20%")
     timeline: str = Field(..., description="Recommended timeline", example="Within 30 days")
 
+
 class CSVAnalysisResponse(BaseModel):
     """CSV analysis response model."""
+
     summary: str = Field(..., description="Analysis summary", example="The dataset shows concerning trends...")
     actions: list[ActionItem] = Field(..., description="Recommended actions")
-    metrics: dict[str, float] = Field(..., description="Key metrics", example={
-        "total_revenue": 1000000,
-        "growth_rate": 15.5,
-        "risk_score": 0.25
-    })
+    metrics: dict[str, float] = Field(
+        ..., description="Key metrics", example={"total_revenue": 1000000, "growth_rate": 15.5, "risk_score": 0.25}
+    )
     processing_time: float = Field(..., description="Processing time in seconds", example=3.2)
+
 
 class QueryRequest(BaseModel):
     """Query request model."""
+
     question: str = Field(..., description="Question to ask", example="What is the total revenue?")
     context: Optional[str] = Field(None, description="Additional context", example="Focus on 2024 data")
     enterprise_mode: bool = Field(False, description="Use enterprise features")
 
+
 class QueryResponse(BaseModel):
     """Query response model."""
+
     answer: str = Field(..., description="Generated answer", example="The total revenue is 5.2 million EUR")
     confidence: float = Field(..., description="Answer confidence", example=0.87)
     sources: list[dict[str, Any]] = Field(..., description="Source information")
     analysis_type: str = Field(..., description="Type of analysis performed", example="standard")
+
 
 # FastAPI Application
 app = FastAPI(
@@ -243,19 +273,12 @@ app = FastAPI(
     - Endpoint enterprise: 50 richieste/minuto
     """,
     version="1.0.0",
-    contact={
-        "name": "ZCS Company",
-        "url": "https://www.zcscompany.com",
-        "email": "api@zcscompany.com"
-    },
-    license_info={
-        "name": "Proprietary",
-        "url": "https://www.zcscompany.com/license"
-    },
+    contact={"name": "ZCS Company", "url": "https://www.zcscompany.com", "email": "api@zcscompany.com"},
+    license_info={"name": "Proprietary", "url": "https://www.zcscompany.com/license"},
     servers=[
         {"url": "http://localhost:8000", "description": "Server di sviluppo"},
-        {"url": "https://api.zcscompany.com", "description": "Server di produzione"}
-    ]
+        {"url": "https://api.zcscompany.com", "description": "Server di produzione"},
+    ],
 )
 
 # Middleware
@@ -267,6 +290,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 
 # Custom OpenAPI schema for Scalar
 def custom_openapi():
@@ -281,13 +305,11 @@ def custom_openapi():
     )
 
     # Add custom schemas and examples
-    openapi_schema["info"]["x-logo"] = {
-        "url": "https://www.zcscompany.com/logo.png",
-        "altText": "ZCS Company Logo"
-    }
+    openapi_schema["info"]["x-logo"] = {"url": "https://www.zcscompany.com/logo.png", "altText": "ZCS Company Logo"}
 
     app.openapi_schema = openapi_schema
     return app.openapi_schema
+
 
 app.openapi = custom_openapi
 
@@ -312,7 +334,7 @@ add_scalar_docs(app)
          -d '{"email": "admin@company.com", "password": "password123"}'
     ```
     """,
-    tags=["Autenticazione"]
+    tags=["Autenticazione"],
 )
 async def api_login(request: LoginRequest):
     """Login endpoint for multi-tenant authentication."""
@@ -323,7 +345,7 @@ async def api_login(request: LoginRequest):
     "/auth/tenant/info",
     summary="Get Tenant Info",
     description="Get current tenant information and limits.",
-    tags=["Autenticazione"]
+    tags=["Autenticazione"],
 )
 async def get_tenant_info(tenant: TenantContext = Depends(get_current_tenant)):
     """Get current tenant information."""
@@ -337,11 +359,11 @@ async def get_tenant_info(tenant: TenantContext = Depends(get_current_tenant)):
             "max_documents_per_month": tenant.resource_limits.max_documents_per_month,
             "max_storage_gb": tenant.resource_limits.max_storage_gb,
             "max_queries_per_day": tenant.resource_limits.max_queries_per_day,
-            "max_concurrent_users": tenant.resource_limits.max_concurrent_users
+            "max_concurrent_users": tenant.resource_limits.max_concurrent_users,
         },
         "usage": usage,
         "created_at": tenant.created_at.isoformat(),
-        "status": tenant.status.value
+        "status": tenant.status.value,
     }
 
 
@@ -379,7 +401,7 @@ async def get_tenant_info(tenant: TenantContext = Depends(get_current_tenant)):
     }
     ```
     """,
-    tags=["Stato & Monitoraggio"]
+    tags=["Stato & Monitoraggio"],
 )
 async def health_check():
     """
@@ -417,6 +439,7 @@ async def health_check():
     try:
         # Check Qdrant
         import requests
+
         response = requests.get("http://localhost:6333/health", timeout=5)
         services["qdrant"] = "healthy" if response.status_code == 200 else "unhealthy"
     except Exception as e:
@@ -433,11 +456,9 @@ async def health_check():
         services["openai"] = f"error: {str(e)[:50]}"
 
     return HealthCheckResponse(
-        status=overall_status,
-        timestamp=datetime.now(timezone.utc).isoformat(),
-        version="1.0.0",
-        services=services
+        status=overall_status, timestamp=datetime.now(timezone.utc).isoformat(), version="1.0.0", services=services
     )
+
 
 @app.get("/health/ready", summary="Controllo Disponibilità", tags=["Stato & Monitoraggio"])
 async def readiness_check():
@@ -455,6 +476,7 @@ async def readiness_check():
     except Exception:
         raise HTTPException(status_code=503, detail="Service not ready")
 
+
 @app.get("/health/live", summary="Controllo Vitalità", tags=["Stato & Monitoraggio"])
 async def liveness_check():
     """
@@ -463,6 +485,51 @@ async def liveness_check():
     Restituisce 200 se il servizio è attivo, 503 se dovrebbe essere riavviato.
     """
     return {"status": "alive", "timestamp": datetime.now(timezone.utc).isoformat()}
+
+
+@app.post(
+    "/upload/file",
+    summary="Upload documenti sul db",
+    description="""
+    Carica uno o più documenti e li indicizza direttamente nella knowledge base,
+    senza eseguire analisi o generazione di risposte.
+
+    Formati supportati:
+    - PDF
+    - CSV
+    - Excel (.xlsx, .xls)
+    - Testo (.txt, .md)
+    """,
+)
+async def upload_documents(
+    files: list[UploadFile] = File(..., description="Documenti da caricare"),
+):
+    try:
+        temp_files = []
+
+        # Save in /tmp
+        for file in files:
+            suffix = Path(file.filename).suffix
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
+                content = await file.read()
+                tmp_file.write(content)
+                temp_files.append((tmp_file.name, file.filename))
+
+        # Load into DB
+        file_paths = [path for path, _ in temp_files]
+        result = rag_engine.parse_insert_docs(file_paths)
+        # Clear temp files
+        for path, _ in temp_files:
+            if os.path.exists(path):
+                os.unlink(path)
+        return {
+            "message": "Documenti caricati nel DB con successo",
+            "details": result,
+        }
+
+    except Exception as e:
+        logger.error(f"Upload fallito: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}") from e
 
 
 # Core Analysis Endpoints
@@ -506,7 +573,7 @@ async def liveness_check():
          -F "file=@report_finanziario.pdf"
     ```
     """,
-    tags=["Analisi Documenti"]
+    tags=["Analisi Documenti"],
 )
 async def analyze_pdf(
     file: UploadFile = File(..., description="File PDF da analizzare (max 50MB)"),
@@ -515,7 +582,7 @@ async def analyze_pdf(
     tenant: Optional[TenantContext] = Depends(get_optional_tenant),
     rag_engine: RAGEngine = Depends(get_optional_rag_engine),
     pdf_processor: PDFProcessor = Depends(get_pdf_processor),
-    pdf_exporter: PDFExporter = Depends(get_pdf_exporter)
+    pdf_exporter: PDFExporter = Depends(get_pdf_exporter),
 ):
     """
     Analyze PDF document and return comprehensive insights with FAQ generation.
@@ -532,10 +599,11 @@ async def analyze_pdf(
         HTTPException: If file processing fails or unsupported format
     """
     start_time = datetime.now()
+    import base64
 
     # Validate file
-    print (file.filename)
-    if not file.filename.lower().endswith('.pdf'):
+    print(file.filename)
+    if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
 
     if file.size and file.size > 50 * 1024 * 1024:  # 50MB limit
@@ -544,17 +612,14 @@ async def analyze_pdf(
     # Check tenant limits if authenticated
     if tenant:
         if not check_tenant_limits(tenant, "documents", 1):
-            raise HTTPException(
-                status_code=403,
-                detail=f"Document limit exceeded for {tenant.tier.value} tier"
-            )
+            raise HTTPException(status_code=403, detail=f"Document limit exceeded for {tenant.tier.value} tier")
 
         # Track usage
         multi_tenant_manager.track_usage(tenant.tenant_id, "documents", 1)
 
     try:
         # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
             content = await file.read()
             tmp_file.write(content)
             tmp_file_path = tmp_file.name
@@ -588,37 +653,39 @@ async def analyze_pdf(
                 "Come sono le performance rispetto all'anno precedente?",
                 "Qual è la strategia aziendale presentata?",
                 "Quali sono gli investimenti pianificati?",
-                "Qual è l'outlook per il futuro?"
+                "Qual è l'outlook per il futuro?",
             ]
 
             faqs = []
             for question in faq_questions:
                 try:
                     faq_response = rag_engine.query(question)
-                    faqs.append(FAQItem(
-                        question=question,
-                        answer=faq_response['answer'],
-                        confidence=faq_response.get('confidence', 0.8)
-                    ))
+                    faqs.append(
+                        FAQItem(
+                            question=question,
+                            answer=faq_response["answer"],
+                            confidence=faq_response.get("confidence", 0.8),
+                        )
+                    )
                 except Exception as e:
                     logger.warning(f"FAQ generation failed for question: {question}, error: {e}")
-                    faqs.append(FAQItem(
-                        question=question,
-                        answer="Informazione non disponibile nel documento.",
-                        confidence=0.0
-                    ))
+                    faqs.append(
+                        FAQItem(question=question, answer="Informazione non disponibile nel documento.", confidence=0.0)
+                    )
 
             # Create analysis result
             analysis_result = AnalysisResult(
-                analysis=analysis_response['answer'],
-                confidence=analysis_response.get('confidence', 0.8),
-                sources=analysis_response.get('sources', []),
+                analysis=analysis_response["answer"],
+                confidence=analysis_response.get("confidence", 0.8),
+                sources=analysis_response.get("sources", []),
                 metadata={
-                    'processing_time': pdf_result.extraction_time,
-                    'document_pages': pdf_result.page_count,
-                    'tables_found': len(pdf_result.tables),
-                    'extraction_method': 'pdf_processor_with_ocr' if any(t.is_ocr for t in pdf_result.texts) else 'pdf_processor'
-                }
+                    "processing_time": pdf_result.extraction_time,
+                    "document_pages": pdf_result.page_count,
+                    "tables_found": len(pdf_result.tables),
+                    "extraction_method": "pdf_processor_with_ocr"
+                    if any(t.is_ocr for t in pdf_result.texts)
+                    else "pdf_processor",
+                },
             )
 
             processing_time = (datetime.now() - start_time).total_seconds()
@@ -629,47 +696,48 @@ async def analyze_pdf(
                 faqs=faqs,
                 processing_time=processing_time,
                 file_info={
-                    'filename': file.filename,
-                    'size_bytes': len(content),
-                    'pages': pdf_result.page_count,
-                    'has_tables': len(pdf_result.tables) > 0,
-                    'has_ocr': any(t.is_ocr for t in pdf_result.texts)
-                }
+                    "filename": file.filename,
+                    "size_bytes": len(content),
+                    "pages": pdf_result.page_count,
+                    "has_tables": len(pdf_result.tables) > 0,
+                    "has_ocr": any(t.is_ocr for t in pdf_result.texts),
+                },
             )
+            # create analysis report and encode in b64 for json append
+            pdf_bytes = pdf_exporter.export_document_analysis(
+                document_analyses={file.filename: response_data.analysis.analysis},
+                metadata=response_data.file_info,
+                filename=file.filename,
+            ).getvalue()
+            pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
+            response_data.pdf_b64 = pdf_base64
 
             # Handle different output formats
-            if output_format.lower() == 'json':
+            if output_format.lower() == "json":
                 return response_data
-            elif output_format.lower() == 'text':
+            elif output_format.lower() == "text":
                 text_output = f"""
-ANALISI DOCUMENTO: {file.filename}
-{'='*50}
+                                ANALISI DOCUMENTO: {file.filename}
+                                {"=" * 50}
 
-ANALISI PRINCIPALE:
-{response_data.analysis.analysis}
+                                ANALISI PRINCIPALE:
+                                {response_data.analysis.analysis}
 
-DOMANDE FREQUENTI:
-{'='*20}
-"""
+                                DOMANDE FREQUENTI:
+                                {"=" * 20}
+                               """
                 for i, faq in enumerate(response_data.faqs, 1):
                     text_output += f"\n{i}. {faq.question}\n   {faq.answer}\n"
 
                 return Response(content=text_output, media_type="text/plain")
 
-            elif output_format.lower() == 'pdf':
-                # Generate PDF report
-                pdf_data = {
-                    'analysis': response_data.analysis.analysis,
-                    'faqs': [{'question': faq.question, 'answer': faq.answer} for faq in response_data.faqs],
-                    'metadata': response_data.file_info
-                }
-
-                pdf_bytes = pdf_exporter.create_analysis_report(pdf_data)
-
+            elif output_format.lower() == "pdf":
                 return Response(
                     content=pdf_bytes,
                     media_type="application/pdf",
-                    headers={"Content-Disposition": f"attachment; filename=analysis_{file.filename.replace('.pdf', '')}_report.pdf"}
+                    headers={
+                        "Content-Disposition": f"attachment; filename=analysis_{file.filename.replace('.pdf', '')}_report.pdf"
+                    },
                 )
             else:
                 raise HTTPException(status_code=400, detail="Unsupported output format")
@@ -683,7 +751,7 @@ DOMANDE FREQUENTI:
         raise
     except Exception as e:
         logger.error(f"PDF analysis failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}") from e
 
 
 @app.post(
@@ -721,12 +789,12 @@ DOMANDE FREQUENTI:
          -F "file=@dati_vendite.csv"
     ```
     """,
-    tags=["Analisi Dati"]
+    tags=["Analisi Dati"],
 )
 async def analyze_csv(
     file: UploadFile = File(..., description="File CSV da analizzare (max 10MB)"),
     analysis_type: str = Query("general", description="Tipo analisi: financial, sales, operational, general"),
-    csv_analyzer: CSVAnalyzer = Depends(get_csv_analyzer)
+    csv_analyzer: CSVAnalyzer = Depends(get_csv_analyzer),
 ):
     """
     Analyze CSV data and provide actionable business recommendations.
@@ -744,7 +812,7 @@ async def analyze_csv(
     start_time = datetime.now()
 
     # Validate file
-    valid_extensions = ['.csv', '.xlsx', '.xls', '.tsv']
+    valid_extensions = [".csv", ".xlsx", ".xls", ".tsv"]
     if not any(file.filename.lower().endswith(ext) for ext in valid_extensions):
         raise HTTPException(status_code=400, detail="Unsupported file format")
 
@@ -768,76 +836,88 @@ async def analyze_csv(
             actions = []
 
             # Example action generation based on analysis results
-            summary = analysis_result.get('summary', {})
+            summary = analysis_result.get("summary", {})
 
             # Financial health actions
-            if 'negative_trend' in str(summary).lower():
-                actions.append(ActionItem(
-                    priority="HIGH",
-                    category="FINANCIAL",
-                    action="Review cost structure and revenue streams",
-                    description="Data shows concerning negative trends in key financial metrics",
-                    impact="Potential 10-15% improvement in profitability",
-                    timeline="Within 30 days"
-                ))
+            if "negative_trend" in str(summary).lower():
+                actions.append(
+                    ActionItem(
+                        priority="HIGH",
+                        category="FINANCIAL",
+                        action="Review cost structure and revenue streams",
+                        description="Data shows concerning negative trends in key financial metrics",
+                        impact="Potential 10-15% improvement in profitability",
+                        timeline="Within 30 days",
+                    )
+                )
 
             # Cash flow actions
-            if 'cash flow' in str(summary).lower() and 'negative' in str(summary).lower():
-                actions.append(ActionItem(
-                    priority="CRITICAL",
-                    category="LIQUIDITY",
-                    action="Implement cash flow management program",
-                    description="Critical cash flow issues identified requiring immediate attention",
-                    impact="Improve cash position by 20-25%",
-                    timeline="Within 15 days"
-                ))
+            if "cash flow" in str(summary).lower() and "negative" in str(summary).lower():
+                actions.append(
+                    ActionItem(
+                        priority="CRITICAL",
+                        category="LIQUIDITY",
+                        action="Implement cash flow management program",
+                        description="Critical cash flow issues identified requiring immediate attention",
+                        impact="Improve cash position by 20-25%",
+                        timeline="Within 15 days",
+                    )
+                )
 
             # Growth opportunities
-            actions.append(ActionItem(
-                priority="MEDIUM",
-                category="GROWTH",
-                action="Explore market expansion opportunities",
-                description="Based on current performance data, identify new market segments",
-                impact="Potential 12-18% revenue increase",
-                timeline="Within 90 days"
-            ))
+            actions.append(
+                ActionItem(
+                    priority="MEDIUM",
+                    category="GROWTH",
+                    action="Explore market expansion opportunities",
+                    description="Based on current performance data, identify new market segments",
+                    impact="Potential 12-18% revenue increase",
+                    timeline="Within 90 days",
+                )
+            )
 
             # Operational efficiency
-            actions.append(ActionItem(
-                priority="MEDIUM",
-                category="OPERATIONAL",
-                action="Optimize operational processes",
-                description="Data suggests opportunities for process improvement and automation",
-                impact="5-10% reduction in operational costs",
-                timeline="Within 60 days"
-            ))
+            actions.append(
+                ActionItem(
+                    priority="MEDIUM",
+                    category="OPERATIONAL",
+                    action="Optimize operational processes",
+                    description="Data suggests opportunities for process improvement and automation",
+                    impact="5-10% reduction in operational costs",
+                    timeline="Within 60 days",
+                )
+            )
 
             # Risk management
-            actions.append(ActionItem(
-                priority="LOW",
-                category="RISK",
-                action="Implement risk monitoring dashboard",
-                description="Establish early warning systems based on identified risk indicators",
-                impact="Reduce business risk exposure by 15%",
-                timeline="Within 120 days"
-            ))
+            actions.append(
+                ActionItem(
+                    priority="LOW",
+                    category="RISK",
+                    action="Implement risk monitoring dashboard",
+                    description="Establish early warning systems based on identified risk indicators",
+                    impact="Reduce business risk exposure by 15%",
+                    timeline="Within 120 days",
+                )
+            )
 
             # Calculate key metrics
             metrics = {
-                "total_records": analysis_result.get('record_count', 0),
-                "data_quality_score": analysis_result.get('quality_score', 0.8),
+                "total_records": analysis_result.get("record_count", 0),
+                "data_quality_score": analysis_result.get("quality_score", 0.8),
                 "risk_score": 0.3,  # Calculated based on analysis
-                "processing_accuracy": 0.95
+                "processing_accuracy": 0.95,
             }
 
             # Add financial metrics if available
-            if 'financial_summary' in analysis_result:
-                fin_summary = analysis_result['financial_summary']
-                metrics.update({
-                    "total_revenue": fin_summary.get('total_revenue', 0),
-                    "growth_rate": fin_summary.get('growth_rate', 0),
-                    "profit_margin": fin_summary.get('profit_margin', 0)
-                })
+            if "financial_summary" in analysis_result:
+                fin_summary = analysis_result["financial_summary"]
+                metrics.update(
+                    {
+                        "total_revenue": fin_summary.get("total_revenue", 0),
+                        "growth_rate": fin_summary.get("growth_rate", 0),
+                        "profit_margin": fin_summary.get("profit_margin", 0),
+                    }
+                )
 
             processing_time = (datetime.now() - start_time).total_seconds()
 
@@ -845,7 +925,7 @@ async def analyze_csv(
                 summary=f"Analysis of {file.filename} completed. {analysis_result.get('insights', 'Data processed successfully with comprehensive insights generated.')}",
                 actions=actions,
                 metrics=metrics,
-                processing_time=processing_time
+                processing_time=processing_time,
             )
 
         finally:
@@ -857,7 +937,7 @@ async def analyze_csv(
         raise
     except Exception as e:
         logger.error(f"CSV analysis failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}") from e
 
 
 # Additional API Methods for External Applications
@@ -888,12 +968,9 @@ async def analyze_csv(
          -d '{"question": "Qual è il fatturato totale per il 2024?", "enterprise_mode": true}'
     ```
     """,
-    tags=["Base Conoscenza"]
+    tags=["Base Conoscenza"],
 )
-async def query_knowledge_base(
-    request: QueryRequest,
-    rag_engine: RAGEngine = Depends(get_optional_rag_engine)
-):
+async def query_knowledge_base(request: QueryRequest, rag_engine: RAGEngine = Depends(get_optional_rag_engine)):
     """
     Query the knowledge base with natural language questions.
 
@@ -910,15 +987,15 @@ async def query_knowledge_base(
             response = rag_engine.query(request.question)
 
         return QueryResponse(
-            answer=response['answer'],
-            confidence=response.get('confidence', 0.8),
-            sources=response.get('sources', []),
-            analysis_type=response.get('analysis_type', 'standard')
+            answer=response["answer"],
+            confidence=response.get("confidence", 0.8),
+            sources=response.get("sources", []),
+            analysis_type=response.get("analysis_type", "standard"),
         )
 
     except Exception as e:
         logger.error(f"Query failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}") from e
 
 
 @app.get(
@@ -934,7 +1011,7 @@ async def query_knowledge_base(
     - Stati elaborazione attuali
     - Informazioni metadata dettagliate
     """,
-    tags=["Base Conoscenza"]
+    tags=["Base Conoscenza"],
 )
 async def list_documents():
     """
@@ -945,20 +1022,21 @@ async def list_documents():
     """
     try:
         import requests
+
         # Get Qdrant collection info
         response = requests.get("http://localhost:6333/collections/business_documents")
         collection_info = response.json()
 
         return {
-            "total_documents": collection_info['result']['points_count'],
-            "status": collection_info['result']['status'],
-            "indexed_vectors": collection_info['result']['indexed_vectors_count'],
-            "collection_info": collection_info['result']['config']
+            "total_documents": collection_info["result"]["points_count"],
+            "status": collection_info["result"]["status"],
+            "indexed_vectors": collection_info["result"]["indexed_vectors_count"],
+            "collection_info": collection_info["result"]["config"],
         }
 
     except Exception as e:
         logger.error(f"Failed to list documents: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to list documents: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to list documents: {str(e)}") from e
 
 
 @app.delete(
@@ -974,7 +1052,7 @@ async def list_documents():
     - Refresh dati completo
     - Reset ambiente di testing
     """,
-    tags=["Base Conoscenza"]
+    tags=["Base Conoscenza"],
 )
 async def clear_knowledge_base():
     """
@@ -985,6 +1063,7 @@ async def clear_knowledge_base():
     """
     try:
         import requests
+
         # Delete and recreate collection
         requests.delete("http://localhost:6333/collections/business_documents")
 
@@ -996,7 +1075,7 @@ async def clear_knowledge_base():
 
     except Exception as e:
         logger.error(f"Failed to clear knowledge base: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to clear knowledge base: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to clear knowledge base: {str(e)}") from e
 
 
 @app.post(
@@ -1015,12 +1094,12 @@ async def clear_knowledge_base():
     Elaborazione in background:
     I documenti vengono indicizzati in background per prestazioni ottimali.
     """,
-    tags=["Base Conoscenza"]
+    tags=["Base Conoscenza"],
 )
 async def index_documents(
     files: list[UploadFile] = File(..., description="Documenti da indicizzare"),
     background_tasks: BackgroundTasks = BackgroundTasks(),
-    rag_engine: RAGEngine = Depends(get_optional_rag_engine)
+    rag_engine: RAGEngine = Depends(get_optional_rag_engine),
 ):
     """
     Index multiple documents into the knowledge base.
@@ -1060,12 +1139,12 @@ async def index_documents(
         return {
             "message": f"Indexing {len(files)} documents in background",
             "files": [filename for _, filename in temp_files],
-            "status": "processing"
+            "status": "processing",
         }
 
     except Exception as e:
         logger.error(f"Failed to index documents: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to index documents: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to index documents: {str(e)}") from e
 
 
 # Error Handlers
@@ -1074,11 +1153,9 @@ async def http_exception_handler(request, exc):
     """Custom HTTP exception handler."""
     return JSONResponse(
         status_code=exc.status_code,
-        content=ErrorResponse(
-            error=exc.detail,
-            timestamp=datetime.now(timezone.utc).isoformat()
-        ).dict()
+        content=ErrorResponse(error=exc.detail, timestamp=datetime.now(timezone.utc).isoformat()).dict(),
     )
+
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc):
@@ -1087,10 +1164,8 @@ async def general_exception_handler(request, exc):
     return JSONResponse(
         status_code=500,
         content=ErrorResponse(
-            error="Internal server error",
-            detail=str(exc),
-            timestamp=datetime.now(timezone.utc).isoformat()
-        ).dict()
+            error="Internal server error", detail=str(exc), timestamp=datetime.now(timezone.utc).isoformat()
+        ).dict(),
     )
 
 
@@ -1123,11 +1198,4 @@ if __name__ == "__main__":
     import uvicorn
 
     # Configuration for development
-    uvicorn.run(
-        "api_main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info",
-        access_log=True
-    )
+    uvicorn.run("api_main:app", host="0.0.0.0", port=8000, reload=True, log_level="info", access_log=True)
