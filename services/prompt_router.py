@@ -313,6 +313,100 @@ Riassunto esecutivo (150-200 parole) che cattura l'essenza della presentazione, 
 """
 
 
+def PROMPT_SCADENZARIO(file_name: str, analysis_text: str) -> str:
+    return f"""
+Sei un credit/AR analyst. Analizza lo scadenzario "{file_name}" qui sotto, senza usare fonti esterne.
+Riporta valori solo se presenti e indica sempre la pagina di provenienza.
+
+=== DOCUMENTO ===
+{analysis_text}
+=== FINE DOCUMENTO ===
+
+PRODUCI due sezioni nell'ordine:
+1) <KPI_JSON> … </KPI_JSON>
+2) <SINTESI> … </SINTESI>
+
+<KPI_JSON>
+{{
+  "periodi_coperti": [],
+  "perimetro": "",
+  "valute": [],
+  "totali": {{
+    "crediti_lordi": [{{"periodo":"","valore":"","unita":"EUR","fonte_pagina":""}}],
+    "fondo_svalutazione": [],
+    "crediti_netto": [],
+    "numero_clienti_attivi": []
+  }},
+  "aging_bucket": [
+    {{"bucket":"0-30 gg","periodo":"","valore":"","unita":"EUR","percentuale_su_totale":"","unita_percent":"%","fonte_pagina":""}},
+    {{"bucket":"31-60 gg","periodo":"","valore":"","unita":"EUR","percentuale_su_totale":"","unita_percent":"%","fonte_pagina":""}},
+    {{"bucket":"61-90 gg","periodo":"","valore":"","unita":"EUR","percentuale_su_totale":"","unita_percent":"%","fonte_pagina":""}},
+    {{"bucket":">90 gg","periodo":"","valore":"","unita":"EUR","percentuale_su_totale":"","unita_percent":"%","fonte_pagina":""}}
+  ],
+  "past_due": {{
+    "totale_scaduto": [{{"periodo":"","valore":"","unita":"EUR","fonte_pagina":""}}],
+    "dpd_medio_ponderato": [],
+    "percentuale_scaduto_su_totale": []
+  }},
+  "incassi_e_flussi": {{
+    "incassi_periodo": [],
+    "credit_notes_periodo": [],
+    "sconti_pronti_pagamento": []
+  }},
+  "termini_e_pratiche": {{
+    "termini_pagamento_standard": [],
+    "termini_pagamento_median": [],
+    "dilazioni_concesse": []
+  }},
+  "kpi": {{
+    "dso": [
+      {{"periodo":"","valore":"","unita":"giorni","metodo":"","fonte_pagina":""}}
+    ],
+    "turnover_crediti": [],
+    "dpd_>90gg_percent": []
+  }},
+  "concentrazione_rischio": {{
+    "top1_percent_su_totale": [],
+    "top5_percent_su_totale": [],
+    "top10_percent_su_totale": [],
+    "primi_clienti": [
+      {{"cliente":"","periodo":"","valore":"","unita":"EUR","percentuale_su_totale":"","unita_percent":"%","fonte_pagina":""}}
+    ],
+    "related_party_exposure": []
+  }},
+  "qualita_crediti": {{
+    "posizioni_in_contenzioso": [],
+    "piani_rientro_e_promesse_pagamento": [],
+    "garanzie_collaterali": [],
+    "write_off": [],
+    "coverage_fondo_su_scaduto": []
+  }},
+  "disaggregazioni": {{
+    "per_geografia": [],
+    "per_business_unit_o_prodotto": [],
+    "per_valuta": []
+  }},
+  "note": ""
+}}
+</KPI_JSON>
+
+<SINTESI>
+In 150–250 parole, evidenzia: andamento di DSO e scaduto (p. X), bucket critici (p. X), concentrazione clienti (p. X), qualità del credito (accantonamenti, write-off, contenziosi; p. X), termini di pagamento e dilazioni (p. X), incassi recenti e trend (p. X), rischi principali e azioni di mitigazione (p. X).
+Se il documento riporta le grandezze necessarie, puoi calcolare DSO con metodo esplicitato:
+- DSO = (Crediti commerciali medi / Vendite giornaliere) * 365 (p. X, p. Y).
+- Oppure, se il doc specifica un metodo diverso, usa quello e indicane la formula e le pagine.
+Mostra ogni calcolo con numeri e "p. X". Evita inferenze se i dati non sono presenti.
+</SINTESI>
+
+REGOLE
+- Compila solo ciò che è presente. Lascialo vuoto se manca.
+- Indica sempre la pagina di provenienza (campo "fonte_pagina").
+- Non calcolare KPI/ratios se non sono nel testo, a meno che tutte le grandezze per un calcolo semplice siano presenti (in tal caso mostra il calcolo nella SINTESI con p. X e specifica il metodo).
+- Mantieni le unità coerenti (EUR, %, giorni). Non stimare tassi di cambio.
+- Se il documento mescola AR e AP, limita l'analisi ai crediti (AR) o specifica chiaramente il perimetro.
+"""
+
+
 def PROMPT_REPORT_DETTAGLIATO(file_name: str, analysis_text: str) -> str:
     """Prompt per analisi approfondita stile NotebookLM di report finanziari complessi"""
     return f"""
@@ -628,6 +722,77 @@ ROUTER: dict[str, CaseRule] = {
         ],
         min_score_to_win=1.1,
     ),
+    "scadenzario": CaseRule(
+        name="scadenzario",
+        builder=PROMPT_SCADENZARIO,
+        keywords=[
+            "scadenzario",
+            "crediti",
+            "credits",
+            "receivables",
+            "aging",
+            "dso",
+            "days sales outstanding",
+            "overdue",
+            "scaduto",
+            "past due",
+            "dpd",
+            "days past due",
+            "clienti",
+            "customers",
+            "debitori",
+            "debtors",
+            "incassi",
+            "collections",
+            "credit notes",
+            "note di credito",
+            "termini di pagamento",
+            "payment terms",
+            "dilazioni",
+            "deferrals",
+            "contenzioso",
+            "litigation",
+            "write off",
+            "svalutazione",
+            "bad debt",
+            "fondo rischi",
+            "provision",
+            "turnover crediti",
+            "receivables turnover",
+            "concentrazione rischio",
+            "risk concentration",
+            "garanzie",
+            "guarantees",
+            "collaterals",
+            "coverage",
+            "copertura",
+            "bucket",
+            "fasce",
+            "analisi per scadenza",
+            "maturity analysis",
+            "sconti finanziari",
+            "cash discount",
+            "pronto pagamento",
+            "prompt payment",
+        ],
+        patterns=[
+            r"\bDSO\b",
+            r"\bDPD\b",
+            r"\b0-30\b|\b31-60\b|\b61-90\b|\b>90\b",
+            r"\baging\b",
+            r"\bscaduto\b|\boverdue\b|\bpast\s+due\b",
+            r"\bcrediti\s+commerciali\b|\breceivables\b",
+            r"\bfondo\s+svalutazione\b|\bbad\s+debt\b",
+            r"\bturnover\s+crediti\b",
+            r"\bcontenzioso\b|\blitigation\b",
+            r"\bwrite\s*off\b",
+            r"\bincassi\b|\bcollections\b",
+            r"\bgiorni\s+di\s+scadenza\b",
+            r"\btermini\s+di\s+pagamento\b|\bpayment\s+terms\b",
+        ],
+        min_score_to_win=1.3,
+        boost_if_filename=2.0,  # Maggior peso al nome file per scadenzario
+    ),
 }
 
 # ---------------------------------------------------------------------------
@@ -717,5 +882,6 @@ def get_prompt_description(prompt_name: str) -> str:
         "magazzino": "Analisi logistica e gestione scorte",
         "contratto": "Analisi legale e contrattuale",
         "presentazione": "Analisi di presentazioni e slide deck",
+        "scadenzario": "Analisi crediti commerciali e aging receivables",
     }
     return descriptions.get(prompt_name, "Tipo di prompt non riconosciuto")

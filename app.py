@@ -587,13 +587,14 @@ def show_document_rag():
         prompt_options = ["Automatico (raccomandato)"] + [
             f"{prompt_type.capitalize()} - {desc}"
             for prompt_type, desc in zip(
-                ["bilancio", "fatturato", "magazzino", "contratto", "presentazione", "csv", "generale"],
+                ["bilancio", "fatturato", "magazzino", "contratto", "presentazione", "scadenzario", "csv", "generale"],
                 [
                     "Analisi finanziaria per bilanci e report finanziari",
                     "Analisi vendite e ricavi",
                     "Analisi logistica e gestione scorte",
                     "Analisi legale e contrattuale",
                     "Analisi di presentazioni e slide deck",
+                    "Analisi crediti commerciali e aging receivables",
                     "Analisi dati CSV con insights automatici",
                     "Analisi generica per qualsiasi tipo di documento",
                 ],
@@ -760,6 +761,7 @@ def show_document_rag():
             "Magazzino - Analisi logistica e gestione scorte",
             "Contratto - Analisi legale e contrattuale",
             "Presentazione - Analisi di presentazioni e slide deck",
+            "Scadenzario - Analisi crediti commerciali e aging receivables",
         ]
 
         selected_query_analysis = st.selectbox(

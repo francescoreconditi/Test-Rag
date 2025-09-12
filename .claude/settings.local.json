@@ -60,7 +60,8 @@
       "Bash(cmd /c:*)",
       "Bash(git clean:*)",
       "WebSearch",
-      "Bash(ruff format:*)"
+      "Bash(ruff format:*)",
+      "Bash(del test_scadenzario_router.py)"
     ],
     "deny": [],
     "ask": []
