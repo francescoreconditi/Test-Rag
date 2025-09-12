@@ -1,618 +1,690 @@
-# Procedura di Upload File - Documentazione Tecnica Dettagliata
+# Procedura di Upload File nel Sistema RAG - Documentazione Tecnica Dettagliata
 
 ## Indice
-1. [Panoramica Generale](#panoramica-generale)
-2. [Flusso di Upload nell'Interfaccia Utente](#flusso-di-upload-nellinterfaccia-utente)
-3. [Processamento Backend](#processamento-backend)
-4. [Analisi del Codice Sorgente](#analisi-del-codice-sorgente)
-5. [Gestione degli Errori](#gestione-degli-errori)
-6. [Formati Supportati](#formati-supportati)
-7. [Ottimizzazioni e Performance](#ottimizzazioni-e-performance)
+1. [Introduzione e Teoria RAG](#introduzione-e-teoria-rag)
+2. [Best Practices per Upload in RAG](#best-practices-per-upload-in-rag)
+3. [Architettura del Sistema](#architettura-del-sistema)
+4. [Implementazione Upload nell'Interfaccia Streamlit](#implementazione-upload-nellinterfaccia-streamlit)
+5. [Parser per Diversi Formati](#parser-per-diversi-formati)
+6. [Chunking e Embedding Generation](#chunking-e-embedding-generation)
+7. [Storage Vettoriale in Qdrant](#storage-vettoriale-in-qdrant)
+8. [Gestione Errori e Ottimizzazioni](#gestione-errori-e-ottimizzazioni)
 
 ---
 
-## Panoramica Generale
+## Introduzione e Teoria RAG
 
-La procedura di upload file rappresenta il punto di ingresso principale per l'inserimento di documenti nel sistema RAG (Retrieval-Augmented Generation). Il processo è progettato per essere resiliente, scalabile e supportare multiple tipologie di documenti con parsing intelligente e memorizzazione vettoriale.
+### Cos'è un sistema RAG (Retrieval-Augmented Generation)
 
-### Architettura del Sistema Upload
+Un sistema RAG combina le capacità di:
+1. **Retrieval (Recupero)**: Ricerca semantica di informazioni rilevanti da una base di conoscenza
+2. **Augmentation (Arricchimento)**: Integrazione del contesto recuperato nel prompt
+3. **Generation (Generazione)**: Produzione di risposte contestualizzate tramite LLM
 
-```
-[UI Streamlit] → [Document Router] → [Parser Specifico] → [Vector Store] → [Qdrant DB]
-      ↓               ↓                    ↓                 ↓
-  File Upload    Classificazione    Estrazione Testo    Embedding Gen.
-```
+### Perché l'Upload è Cruciale in RAG
+
+L'upload di documenti è il primo e più critico passaggio in un sistema RAG perché:
+- **Qualità dei dati**: La qualità delle risposte dipende direttamente dalla qualità dell'estrazione del testo
+- **Preservazione del contesto**: È essenziale mantenere la struttura e il contesto dei documenti
+- **Indicizzazione efficiente**: Un buon chunking determina la precisione del retrieval
+- **Metadati**: Permettono filtering avanzato e tracciabilità delle fonti
 
 ---
 
-## Flusso di Upload nell'Interfaccia Utente
+## Best Practices per Upload in RAG
 
-### 1. Interfaccia Streamlit (`app.py`)
+### 1. Parsing Intelligente per Formato
+Ogni formato richiede un approccio specifico:
+- **PDF**: OCR fallback per documenti scansionati
+- **Excel/CSV**: Preservazione struttura tabellare
+- **Word**: Estrazione stili e formattazione
+- **Immagini**: OCR multilingua
 
-**Localizzazione**: `app.py:100-150` (sezione upload)
+### 2. Chunking Semantico
+- Chunk di dimensione ottimale (512-1024 tokens)
+- Overlap del 10-20% tra chunk consecutivi
+- Rispetto dei confini semantici (paragrafi, sezioni)
+
+### 3. Embedding di Qualità
+- Modelli specializzati (text-embedding-3-small)
+- Batch processing per efficienza
+- Caching per evitare ri-computazioni
+
+### 4. Metadati Ricchi
+- Source tracking completo
+- Timestamp di indicizzazione
+- Tipo di documento e formato
+- Informazioni strutturali (pagine, fogli, tabelle)
+
+---
+
+## Architettura del Sistema
+
+### Flusso Completo di Upload
+
+```
+[Streamlit UI] → [File Upload] → [Temp Storage] → [RAG Engine] → [Document Parser] → [Chunking] → [Embedding] → [Qdrant]
+```
+
+### Componenti Principali
+
+1. **Frontend (Streamlit)**: `app.py`
+2. **RAG Engine**: `services/rag_engine.py`
+3. **Parser Specializzati**: `src/application/parsers/`, `src/application/services/format_parsers.py`
+4. **Vector Store**: Qdrant con configurazione in `config/settings.py`
+
+---
+
+## Implementazione Upload nell'Interfaccia Streamlit
+
+### Widget di Upload (`app.py:578-583`)
 
 ```python
-# Widget di upload principale
-uploaded_file = st.file_uploader(
-    "📄 Carica un documento",
-    type=['pdf', 'csv', 'xlsx', 'xls', 'docx', 'txt', 'html', 'xml'],
-    help="Formati supportati: PDF, Excel, Word, CSV, HTML, XML, TXT"
+# File: app.py (riga 578-583)
+uploaded_files = st.file_uploader(
+    "Scegli documenti per l'analisi",
+    type=["pdf", "txt", "docx", "md", "json", "csv", "xls", "xlsx", "jpg", "jpeg", "png"],
+    accept_multiple_files=True,
+    help="Carica report aziendali, contratti, CSV con dati finanziari, file Excel, immagini con OCR, o qualsiasi documento rilevante",
 )
 ```
 
-**Caratteristiche UI**:
-- **Drag & Drop Support**: Interfaccia intuitiva con trascinamento file
-- **Validazione Client-Side**: Controllo immediate del formato file
-- **Progress Bar**: Indicatore visivo dello stato di processamento
-- **Error Display**: Messaggi di errore user-friendly
+**Caratteristiche chiave**:
+- **Multi-file support**: `accept_multiple_files=True` permette upload batch
+- **Formati supportati**: PDF, Office, immagini, testo, dati strutturati
+- **Help integrato**: Guida l'utente sui formati accettati
 
-### 2. Gestione File Temporanei
+### Gestione File Temporanei e Permanenti (`app.py:632-646`)
 
-**Codice rilevante** (`app.py:155-170`):
 ```python
-if uploaded_file is not None:
-    # Salvataggio temporaneo sicuro
-    temp_path = os.path.join(tempfile.gettempdir(), uploaded_file.name)
-    
-    with open(temp_path, "wb") as f:
+# File: app.py (riga 632-646)
+# Save uploaded files permanently for PDF viewing
+for uploaded_file in uploaded_files:
+    # Save temporarily for processing
+    suffix = Path(uploaded_file.name).suffix
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
+        tmp_file.write(uploaded_file.getbuffer())
+        file_paths.append(tmp_file.name)
+        original_names.append(uploaded_file.name)
+
+    # Also save permanently for PDF viewer
+    permanent_path = docs_dir / uploaded_file.name
+    with open(permanent_path, "wb") as f:
+        uploaded_file.seek(0)  # Reset file pointer
         f.write(uploaded_file.getbuffer())
-    
-    # Validazione integrità file
-    file_hash = hashlib.md5(uploaded_file.getbuffer()).hexdigest()
-    st.session_state['last_uploaded_hash'] = file_hash
+    permanent_paths.append(str(permanent_path))
 ```
 
-**Sicurezza**:
-- **Hash MD5**: Per prevenire upload duplicati accidentali
-- **Path Sanitization**: Prevenzione path traversal attacks
-- **Temporary Storage**: File temporanei con pulizia automatica
+**Strategia dual-path**:
+- **File temporanei**: Per processing immediato
+- **File permanenti**: Per visualizzazione PDF e riferimenti futuri
+- **Preservazione nomi originali**: Migliore UX e tracciabilità
+
+### Chiamata al RAG Engine per Indicizzazione (`app.py:655`)
+
+```python
+# File: app.py (riga 655)
+rag_engine = st.session_state.services["rag_engine"]
+# Index documents with original names and permanent paths
+results = rag_engine.index_documents(
+    file_paths=file_paths,
+    original_names=original_names,
+    permanent_paths=permanent_paths,
+    force_prompt_type=force_prompt_type,
+    csv_analyzer=csv_analyzer
+)
+```
 
 ---
 
-## Processamento Backend
+## Parser per Diversi Formati
 
-### 1. Document Router (`src/application/services/document_router.py`)
-
-Il Document Router è il componente chiave che determina come processare ogni tipo di documento.
-
-**Metodo principale**: `route_document(file_path: str) -> DocumentType`
+### Metodo Principale di Routing (`services/rag_engine.py:287-310`)
 
 ```python
-def route_document(self, file_path: str) -> DocumentType:
-    """
-    Classifica il documento e determina la strategia di parsing
-    
-    Returns:
-        DocumentType: STRUCTURED, UNSTRUCTURED, o HYBRID
-    """
-    file_extension = Path(file_path).suffix.lower()
-    
-    # Mapping estensioni -> tipo documento
-    structured_formats = {'.csv', '.xlsx', '.xls'}
-    unstructured_formats = {'.pdf', '.docx', '.txt'}
-    hybrid_formats = {'.html', '.xml'}
-    
-    if file_extension in structured_formats:
-        return DocumentType.STRUCTURED
-    elif file_extension in unstructured_formats:
-        return DocumentType.UNSTRUCTURED
-    else:
-        return DocumentType.HYBRID
+# File: services/rag_engine.py (riga 287-310)
+# Load document based on file type
+if path.suffix.lower() == ".pdf":
+    documents = self._load_pdf(file_path, metadata)
+elif path.suffix.lower() in [".txt", ".md"]:
+    documents = self._load_text(file_path, metadata)
+elif path.suffix.lower() in [".docx", ".doc"]:
+    documents = self._load_docx(file_path, metadata)
+elif path.suffix.lower() == ".json":
+    # JSON files are loaded as text documents
+    documents = self._load_text(file_path, metadata)
+elif path.suffix.lower() == ".csv" and csv_analyzer:
+    # CSV files are analyzed and converted to structured documents
+    documents = self._load_csv_with_analysis(file_path, csv_analyzer, metadata)
+elif path.suffix.lower() == ".csv":
+    # Basic CSV loading without analysis
+    documents = self._load_csv_basic(file_path, metadata)
+elif path.suffix.lower() in [".xls", ".xlsx"]:
+    # Excel files are converted to documents
+    documents = self._load_excel(file_path, metadata)
+elif path.suffix.lower() in [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff"]:
+    # Image files are processed with OCR
+    documents = self._load_image(file_path, metadata)
+else:
+    documents = SimpleDirectoryReader(input_files=[file_path]).load_data()
 ```
 
-### 2. Parser Specifici per Tipo
-
-#### A. Parser Strutturato - Excel/CSV
-
-**File**: `src/application/parsers/excel_parser.py`
+### Parser PDF con OCR Fallback (`services/rag_engine.py:540-614`)
 
 ```python
-class EnhancedExcelParser:
-    def parse_excel_file(self, file_path: str) -> List[Document]:
-        """
-        Parsing avanzato di file Excel con riconoscimento automatico struttura
-        
-        Features:
-        - Riconoscimento automatico header
-        - Gestione celle unite
-        - Estrazione metadati fogli
-        - Preservazione formule
-        """
-        documents = []
-        
-        # Caricamento con pandas per performance
-        excel_data = pd.read_excel(file_path, sheet_name=None, header=None)
-        
-        for sheet_name, df in excel_data.items():
-            # Riconoscimento automatico header
-            header_row = self._detect_header_row(df)
-            
-            # Estrazione dati strutturati
-            structured_data = self._extract_structured_data(df, header_row)
-            
-            # Creazione documento con metadati
-            document = Document(
-                content=structured_data['text'],
-                metadata={
-                    'source': file_path,
-                    'sheet_name': sheet_name,
-                    'data_types': structured_data['types'],
-                    'row_count': len(df),
-                    'column_count': len(df.columns)
-                }
-            )
-            documents.append(document)
-            
-        return documents
-```
-
-**Caratteristiche Avanzate Excel Parser**:
-- **Auto-detection Headers**: Identifica automaticamente riga header
-- **Data Type Inference**: Riconosce tipologie dati (date, numeri, testo)
-- **Multi-sheet Support**: Gestione completa workbook multi-foglio
-- **Formula Preservation**: Mantiene riferimenti formule quando possibile
-
-#### B. Parser Non Strutturato - PDF
-
-**File**: `src/application/services/pdf_processor.py`
-
-```python
-class AdvancedPDFProcessor:
-    def process_pdf(self, file_path: str) -> List[Document]:
-        """
-        Processing PDF multi-modalità con OCR fallback
-        
-        Estrattori utilizzati:
-        1. PyMuPDF (primary) - text nativo
-        2. PDFPlumber (secondary) - tabelle e layout
-        3. Tesseract OCR (fallback) - documenti scansionati
-        """
-        documents = []
-        
-        # Tentativo estrazione testo nativo
-        try:
-            pdf_doc = fitz.open(file_path)
-            
-            for page_num, page in enumerate(pdf_doc):
-                # Estrazione testo nativo
-                text_content = page.get_text()
-                
-                if self._is_scanned_page(text_content):
-                    # Fallback OCR per pagine scansionate
-                    text_content = self._ocr_extract(page)
-                
-                # Estrazione tabelle con PDFPlumber
-                tables = self._extract_tables(file_path, page_num)
-                
-                document = Document(
-                    content=f"{text_content}\n\n{tables}",
-                    metadata={
-                        'source': file_path,
-                        'page_number': page_num + 1,
-                        'extraction_method': 'native' if text_content else 'ocr',
-                        'table_count': len(tables) if tables else 0
-                    }
-                )
-                documents.append(document)
-                
-        except Exception as e:
-            logger.error(f"PDF processing error: {e}")
-            # Fallback completo a OCR
-            return self._full_ocr_fallback(file_path)
-            
-        return documents
-```
-
-### 3. Chunking e Embedding Generation
-
-**File**: `services/rag_engine.py:200-250`
-
-```python
-def _process_documents_for_storage(self, documents: List[Document]) -> List[Dict]:
-    """
-    Prepara i documenti per la memorizzazione vettoriale
-    
-    Steps:
-    1. Text chunking intelligente
-    2. Generazione embeddings
-    3. Metadati enhancement
-    4. Deduplicazione
-    """
-    processed_chunks = []
-    
-    for doc in documents:
-        # Chunking semantico preservando contesto
-        chunks = self._semantic_chunking(doc.content)
-        
-        for chunk_idx, chunk in enumerate(chunks):
-            # Generazione embedding OpenAI
-            embedding = self._generate_embedding(chunk.text)
-            
-            # Arricchimento metadati
-            enhanced_metadata = {
-                **doc.metadata,
-                'chunk_index': chunk_idx,
-                'chunk_size': len(chunk.text),
-                'semantic_boundary': chunk.is_semantic_boundary,
-                'upload_timestamp': datetime.utcnow().isoformat(),
-                'content_hash': hashlib.sha256(chunk.text.encode()).hexdigest()
-            }
-            
-            processed_chunks.append({
-                'text': chunk.text,
-                'embedding': embedding,
-                'metadata': enhanced_metadata
-            })
-    
-    return self._deduplicate_chunks(processed_chunks)
-```
-
-**Chunking Strategy**:
-- **Semantic Chunking**: Mantiene coerenza semantica tra frasi
-- **Overlap Strategy**: 20% overlap tra chunk consecutivi
-- **Size Optimization**: Chunk da 512-1024 tokens per bilanciare contesto/performance
-- **Boundary Detection**: Rispetta confini paragrafi e sezioni
-
-### 4. Vector Storage (Qdrant)
-
-**File**: `services/rag_engine.py:300-350`
-
-```python
-async def _store_in_vector_db(self, chunks: List[Dict]) -> bool:
-    """
-    Memorizzazione in Qdrant con gestione batch e retry
-    """
+# File: services/rag_engine.py (riga 540-580)
+def _load_pdf(self, file_path: str, metadata: Optional[dict[str, Any]] = None) -> list[Document]:
+    """Load and parse PDF documents with enhanced text extraction."""
     try:
-        # Preparazione batch per performance
-        batch_size = 100
-        batches = [chunks[i:i+batch_size] for i in range(0, len(chunks), batch_size)]
-        
-        for batch in batches:
-            points = []
-            for chunk in batch:
-                point = PointStruct(
-                    id=uuid.uuid4().hex,
-                    vector=chunk['embedding'],
-                    payload=chunk['metadata']
-                )
-                points.append(point)
-            
-            # Upload batch con retry automatico
-            await self.qdrant_client.upsert(
-                collection_name=self.collection_name,
-                points=points,
-                wait=True  # Attende conferma scrittura
-            )
-            
-        logger.info(f"Successfully stored {len(chunks)} chunks in vector DB")
-        return True
-        
-    except Exception as e:
-        logger.error(f"Vector storage failed: {e}")
-        return False
+        from pypdf import PdfReader
+
+        reader = PdfReader(file_path)
+        documents = []
+        total_extracted_text = ""
+
+        logger.info(f"Processing PDF: {file_path} with {len(reader.pages)} pages")
+
+        for i, page in enumerate(reader.pages):
+            try:
+                text = page.extract_text()
+                page_text_length = len(text.strip())
+                total_extracted_text += text
+
+                logger.debug(f"Page {i + 1}: extracted {page_text_length} characters")
+
+                if text.strip():
+                    doc = Document(
+                        text=text,
+                        metadata={
+                            "source": file_path,
+                            "page_number": i + 1,
+                            "total_pages": len(reader.pages),
+                        },
+                    )
+                    if metadata:
+                        doc.metadata.update(metadata)
+                    documents.append(doc)
+
+            except Exception as e:
+                logger.warning(f"Failed to extract text from page {i+1}: {str(e)}")
+                # Try OCR as fallback
+                try:
+                    ocr_text = self._ocr_pdf_page(file_path, i)
+                    if ocr_text.strip():
+                        doc = Document(
+                            text=ocr_text,
+                            metadata={
+                                "source": file_path,
+                                "page_number": i + 1,
+                                "extraction_method": "ocr",
+                            },
+                        )
+                        documents.append(doc)
+                except Exception as ocr_e:
+                    logger.error(f"OCR also failed for page {i+1}: {str(ocr_e)}")
 ```
 
----
+**Caratteristiche avanzate**:
+- **Estrazione testo nativo**: Prima scelta per performance
+- **OCR fallback automatico**: Per pagine scansionate
+- **Logging dettagliato**: Per debugging e monitoring
+- **Metadati per pagina**: Tracciabilità completa
 
-## Analisi del Codice Sorgente
-
-### Dependency Injection Pattern
-
-**File**: `src/core/dependency_injection.py`
-
-Il sistema utilizza un container DI per gestire le dipendenze tra componenti:
+### Parser Excel Avanzato (`src/application/parsers/excel_parser.py`)
 
 ```python
-class DIContainer:
-    def __init__(self):
-        self._services = {}
-        self._singletons = {}
-    
-    def register_document_router(self):
-        """Registrazione Document Router come singleton"""
-        if 'document_router' not in self._singletons:
-            self._singletons['document_router'] = DocumentRouter()
-        return self._singletons['document_router']
+# File: src/application/parsers/excel_parser.py (riga 38-100)
+@dataclass
+class CellMetadata:
+    """Metadati completi per una singola cella."""
+
+    sheet_name: str
+    cell_reference: str  # Es: "A1", "B12"
+    row: int
+    column: int
+    value: Any
+    formula: Optional[str] = None
+    comment: Optional[str] = None
+    number_format: Optional[str] = None
+    data_type: Optional[str] = None
+    is_merged: bool = False
+    merge_range: Optional[str] = None
+    hyperlink: Optional[str] = None
+    font_bold: bool = False
+    fill_color: Optional[str] = None
+
+    def to_source_ref(self, file_path: str) -> str:
+        """Genera source reference per questa cella."""
+        return f"{file_path}|sheet:{self.sheet_name}|cell:{self.cell_reference}"
+
+@dataclass
+class SheetMetadata:
+    """Metadati completi per un singolo foglio."""
+
+    name: str
+    index: int
+    visible: bool
+    protection: bool
+    used_range: str  # Es: "A1:Z100"
+    max_row: int
+    max_column: int
+    tables: list[TableMetadata] = field(default_factory=list)
+    named_ranges: dict[str, str] = field(default_factory=dict)
+    charts_count: int = 0
+    pivot_tables_count: int = 0
+    formulas_count: int = 0
+    comments_count: int = 0
+    merged_cells_ranges: list[str] = field(default_factory=list)
 ```
 
-### Error Handling e Resilience
+**Features avanzate Excel**:
+- **Preservazione formule**: Mantiene logica business
+- **Celle unite**: Gestione corretta layout complessi
+- **Named ranges**: Supporto riferimenti Excel
+- **Metadati ricchi**: Per ricostruzione completa
 
-**Pattern utilizzato**: Circuit Breaker con Exponential Backoff
-
-```python
-class ResilientUploadHandler:
-    def __init__(self):
-        self.retry_policy = ExponentialBackoff(
-            max_retries=3,
-            base_delay=1.0,
-            max_delay=10.0
-        )
-    
-    @retry_with_backoff
-    async def upload_with_retry(self, file_path: str):
-        """Upload con retry automatico e circuit breaker"""
-        try:
-            return await self._perform_upload(file_path)
-        except TemporaryError as e:
-            # Retry per errori temporanei
-            raise RetryableException(f"Temporary upload failure: {e}")
-        except PermanentError as e:
-            # Stop retry per errori permanenti
-            raise FatalException(f"Permanent upload failure: {e}")
-```
-
-### Performance Monitoring
-
-**File**: `src/core/logging_config.py`
+### Parser CSV con Analisi Automatica (`services/rag_engine.py:1714-1801`)
 
 ```python
-import time
-from functools import wraps
+# File: services/rag_engine.py (riga 1714-1760)
+def _load_csv_with_analysis(
+    self, file_path: str, csv_analyzer, metadata: Optional[dict[str, Any]] = None
+) -> list[Document]:
+    """Load CSV file with automatic analysis and insights generation."""
+    from pathlib import Path
+    import pandas as pd
 
-def performance_monitor(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        start_time = time.time()
-        
-        result = func(*args, **kwargs)
-        
-        duration = time.time() - start_time
-        logger.info(f"{func.__name__} completed in {duration:.2f}s")
-        
-        # Metriche per monitoring
-        if hasattr(st.session_state, 'performance_metrics'):
-            st.session_state.performance_metrics[func.__name__] = duration
-            
-        return result
-    return wrapper
+    try:
+        # Read CSV
+        df = pd.read_csv(file_path)
+        file_name = Path(file_path).name
 
-# Utilizzo
-@performance_monitor
-def process_upload(file_path: str):
-    # Logica upload...
-    pass
-```
+        # Analyze CSV with csv_analyzer
+        analysis = csv_analyzer.analyze(df)
+        insights = csv_analyzer.generate_insights(df, analysis)
 
----
+        documents = []
 
-## Gestione degli Errori
+        # 1. Create metadata document
+        metadata_text = f"""
+        File CSV: {file_name}
+        Tipo di dati: Dati tabellari strutturati
+        Righe totali: {len(df)}
+        Colonne totali: {len(df.columns)}
 
-### Hierarchy degli Errori
+        Colonne disponibili:
+        {', '.join(df.columns.tolist())}
 
-```python
-# src/domain/exceptions/business_exceptions.py
+        Tipi di dati per colonna:
+        {df.dtypes.to_string()}
 
-class UploadException(Exception):
-    """Eccezione base per errori upload"""
-    pass
+        Statistiche riassuntive:
+        {df.describe().to_string() if not df.empty else 'N/A'}
 
-class FileFormatNotSupportedException(UploadException):
-    """Formato file non supportato"""
-    def __init__(self, file_extension: str):
-        super().__init__(f"File format '{file_extension}' not supported")
-        self.file_extension = file_extension
-
-class FileSizeExceededException(UploadException):
-    """File troppo grande"""
-    def __init__(self, file_size: int, max_size: int):
-        super().__init__(f"File size {file_size}MB exceeds limit {max_size}MB")
-
-class ParsingException(UploadException):
-    """Errore durante parsing contenuto"""
-    pass
-
-class VectorStorageException(UploadException):
-    """Errore memorizzazione vettoriale"""
-    pass
-```
-
-### Error Recovery Strategies
-
-```python
-class UploadErrorRecoveryManager:
-    def handle_upload_error(self, error: Exception, file_path: str):
+        Insights automatici:
+        {insights}
         """
-        Gestione intelligente errori con recovery automatico
-        """
-        if isinstance(error, FileFormatNotSupportedException):
-            # Tentativo conversione formato
-            return self._attempt_format_conversion(file_path)
-            
-        elif isinstance(error, ParsingException):
-            # Fallback a parser alternativi
-            return self._try_alternative_parsers(file_path)
-            
-        elif isinstance(error, VectorStorageException):
-            # Retry con configurazione alternativa
-            return self._retry_with_fallback_config(file_path)
-            
-        else:
-            # Log e notifica errore generico
-            logger.error(f"Unhandled upload error: {error}")
-            raise error
-```
 
----
-
-## Formati Supportati
-
-### Matrice Compatibilità
-
-| Formato | Estensioni | Parser | Features Speciali |
-|---------|------------|---------|-------------------|
-| **PDF** | .pdf | PyMuPDF + OCR | OCR automatico, estrazione tabelle |
-| **Excel** | .xlsx, .xls | Pandas + openpyxl | Multi-sheet, formule, grafici |
-| **Word** | .docx | python-docx | Stili, immagini, tabelle |
-| **CSV** | .csv | Pandas | Auto-delimiter detection |
-| **HTML** | .html, .htm | BeautifulSoup | Struttura DOM, CSS parsing |
-| **XML** | .xml | lxml | Schema validation, XPath |
-| **Plain Text** | .txt | Built-in | Encoding detection |
-
-### Configurazione Limiti
-
-```python
-# config/settings.py
-UPLOAD_LIMITS = {
-    'max_file_size_mb': 100,
-    'max_files_per_session': 10,
-    'allowed_extensions': ['.pdf', '.xlsx', '.docx', '.csv', '.html', '.xml', '.txt'],
-    'virus_scan_enabled': True,
-    'content_validation': True
-}
-```
-
----
-
-## Ottimizzazioni e Performance
-
-### 1. Chunking Parallelo
-
-```python
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
-
-async def parallel_chunking(documents: List[Document]) -> List[Chunk]:
-    """
-    Chunking parallelo per documenti multipli
-    """
-    with ThreadPoolExecutor(max_workers=4) as executor:
-        loop = asyncio.get_event_loop()
-        
-        tasks = [
-            loop.run_in_executor(executor, chunk_document, doc)
-            for doc in documents
-        ]
-        
-        chunked_results = await asyncio.gather(*tasks)
-        
-    # Flatten results
-    all_chunks = []
-    for chunks in chunked_results:
-        all_chunks.extend(chunks)
-        
-    return all_chunks
-```
-
-### 2. Batch Embedding Generation
-
-```python
-def batch_generate_embeddings(texts: List[str], batch_size: int = 32) -> List[List[float]]:
-    """
-    Generazione embeddings in batch per ottimizzazione API calls
-    """
-    embeddings = []
-    
-    for i in range(0, len(texts), batch_size):
-        batch_texts = texts[i:i+batch_size]
-        
-        # Single API call per batch
-        response = openai.Embedding.create(
-            input=batch_texts,
-            model="text-embedding-3-small"
-        )
-        
-        batch_embeddings = [item['embedding'] for item in response['data']]
-        embeddings.extend(batch_embeddings)
-        
-    return embeddings
-```
-
-### 3. Caching Strategy
-
-```python
-from functools import lru_cache
-import hashlib
-
-class DocumentCache:
-    def __init__(self):
-        self.cache = {}
-    
-    def get_cache_key(self, file_path: str) -> str:
-        """Genera chiave cache basata su file path e timestamp"""
-        stat = os.stat(file_path)
-        key_data = f"{file_path}:{stat.st_mtime}:{stat.st_size}"
-        return hashlib.md5(key_data.encode()).hexdigest()
-    
-    @lru_cache(maxsize=100)
-    def get_parsed_document(self, cache_key: str, file_path: str):
-        """Cache parsed documents per evitare re-parsing"""
-        if cache_key in self.cache:
-            return self.cache[cache_key]
-        
-        # Parse e cache
-        parsed_doc = self.parse_document(file_path)
-        self.cache[cache_key] = parsed_doc
-        
-        return parsed_doc
-```
-
----
-
-## Monitoring e Observability
-
-### Metriche Tracked
-
-```python
-class UploadMetrics:
-    def __init__(self):
-        self.metrics = {
-            'total_uploads': 0,
-            'successful_uploads': 0,
-            'failed_uploads': 0,
-            'avg_processing_time': 0,
-            'file_type_distribution': {},
-            'error_distribution': {}
+        doc_metadata = {
+            "source": file_name,
+            "type": "csv_metadata",
+            "row_count": len(df),
+            "column_count": len(df.columns),
         }
-    
-    def record_upload_success(self, file_type: str, processing_time: float):
-        self.metrics['total_uploads'] += 1
-        self.metrics['successful_uploads'] += 1
-        self.metrics['file_type_distribution'][file_type] = \
-            self.metrics['file_type_distribution'].get(file_type, 0) + 1
-        
-        # Rolling average processing time
-        self._update_avg_processing_time(processing_time)
-    
-    def record_upload_failure(self, error_type: str):
-        self.metrics['total_uploads'] += 1
-        self.metrics['failed_uploads'] += 1
-        self.metrics['error_distribution'][error_type] = \
-            self.metrics['error_distribution'].get(error_type, 0) + 1
+        if metadata:
+            doc_metadata.update(metadata)
+
+        documents.append(Document(text=metadata_text.strip(), metadata=doc_metadata))
+
+        # 2. Create data chunks for better searchability
+        chunk_size = 50
+        for i in range(0, len(df), chunk_size):
+            chunk_df = df.iloc[i : i + chunk_size]
+            chunk_text = f"Dati CSV da riga {i+1} a {min(i+chunk_size, len(df))}:\n"
+            chunk_text += chunk_df.to_string()
+
+            chunk_metadata = {
+                "source": file_name,
+                "type": "csv_data_chunk",
+                "chunk_start": i + 1,
+                "chunk_end": min(i + chunk_size, len(df)),
+            }
 ```
 
-### Dashboard Monitoring
+**Strategia CSV**:
+- **Analisi automatica**: Statistiche e insights
+- **Chunking intelligente**: 50 righe per chunk
+- **Preservazione struttura**: Mantiene relazioni colonne
 
-Nel sidebar Streamlit viene mostrato un pannello con le statistiche di upload in tempo reale:
+### Parser Immagini con OCR (`services/rag_engine.py:1989-2030`)
 
 ```python
-# app.py - Sidebar metrics
-with st.sidebar:
-    if st.session_state.get('upload_metrics'):
-        st.subheader("📊 Upload Statistics")
-        metrics = st.session_state.upload_metrics
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Total Uploads", metrics['total_uploads'])
-            st.metric("Success Rate", 
-                     f"{metrics['successful_uploads']/metrics['total_uploads']*100:.1f}%")
-        
-        with col2:
-            st.metric("Avg Processing", f"{metrics['avg_processing_time']:.2f}s")
-            st.metric("Failed Uploads", metrics['failed_uploads'])
+# File: services/rag_engine.py (riga 1989-2015)
+def _load_image(self, file_path: str, metadata: Optional[dict[str, Any]] = None) -> list[Document]:
+    """Load image file and convert to text using OCR."""
+    from pathlib import Path
+
+    try:
+        file_name = Path(file_path).name
+
+        # Use the existing image parser
+        try:
+            from src.application.services.format_parsers import ImageParser
+
+            parser = ImageParser(ocr_language="ita+eng")  # Italian + English
+
+            # Parse image with OCR
+            parsed_content = parser.parse(file_path)
+
+            # Extract OCR text
+            ocr_text = parsed_content.data.get("text", "").strip()
+
+            if not ocr_text:
+                ocr_text = f"[IMMAGINE] Il file '{file_name}' non contiene testo riconoscibile tramite OCR."
+
+            # Extract metadata
+            image_metadata = parsed_content.metadata or {}
+
+            # Create document
+            doc_metadata = {
+                "source": file_name,
+                "type": "image_ocr",
+                "ocr_confidence": image_metadata.get("confidence", 0),
+                "image_dimensions": f"{image_metadata.get('width', 0)}x{image_metadata.get('height', 0)}",
+                "file_type": Path(file_path).suffix.lower(),
+            }
 ```
+
+**OCR Features**:
+- **Multilingua**: Italiano + Inglese
+- **Confidence tracking**: Per validazione qualità
+- **Metadata immagine**: Dimensioni e formato
+- **Fallback graceful**: Messaggio quando OCR fallisce
+
+---
+
+## Chunking e Embedding Generation
+
+### Configurazione Chunking (`config/settings.py:28-29`)
+
+```python
+# File: config/settings.py (riga 28-29)
+chunk_size: int = Field(default=512, env="CHUNK_SIZE")
+chunk_overlap: int = Field(default=50, env="CHUNK_OVERLAP")
+```
+
+### Processo di Chunking (`services/rag_engine.py:329-334`)
+
+```python
+# File: services/rag_engine.py (riga 329-334)
+# Parse documents into nodes
+parser = SimpleNodeParser.from_defaults()
+nodes = parser.get_nodes_from_documents(documents)
+
+# Add nodes to index
+self.index.insert_nodes(nodes)
+```
+
+**LlamaIndex SimpleNodeParser**:
+- **Chunk size**: 512 tokens (ottimale per embedding)
+- **Overlap**: 50 tokens (10% per contesto)
+- **Automatic splitting**: Rispetta confini semantici
+
+### Configurazione Embedding (`services/rag_engine.py:74-82`)
+
+```python
+# File: services/rag_engine.py (riga 74-82)
+# Configure global LlamaIndex settings
+Settings.llm = OpenAI(
+    model=settings.llm_model,
+    temperature=settings.temperature,
+    max_tokens=settings.max_tokens,
+    api_key=settings.openai_api_key,
+)
+Settings.embed_model = OpenAIEmbedding(
+    model=settings.embedding_model,  # text-embedding-3-small
+    api_key=settings.openai_api_key
+)
+Settings.chunk_size = settings.chunk_size
+Settings.chunk_overlap = settings.chunk_overlap
+```
+
+**Modello di Embedding**:
+- **OpenAI text-embedding-3-small**: 1536 dimensioni
+- **Ottimizzato per**: Testo multilingua
+- **Performance**: Fast e accurato
+
+### Metadati per Chunk (`services/rag_engine.py:313-327`)
+
+```python
+# File: services/rag_engine.py (riga 313-327)
+# Add metadata to documents
+for doc in documents:
+    doc.metadata = doc.metadata or {}
+    doc_metadata = {
+        "source": display_name,  # Nome file leggibile
+        "indexed_at": datetime.now().isoformat(),
+        "file_type": path.suffix.lower(),
+        "document_size": len(doc.text) if hasattr(doc, "text") else 0,
+    }
+    # Add permanent path for PDF viewing (only for PDFs)
+    if permanent_path and path.suffix.lower() == ".pdf":
+        doc_metadata["pdf_path"] = permanent_path
+
+    doc.metadata.update(doc_metadata)
+    if metadata:
+        doc.metadata.update(metadata)
+```
+
+**Metadati essenziali**:
+- **Source tracking**: Nome file originale
+- **Timestamp**: Per versioning e audit
+- **File type**: Per filtering
+- **PDF path**: Per viewer integrato
+
+---
+
+## Storage Vettoriale in Qdrant
+
+### Inizializzazione Vector Store (`services/rag_engine.py:85-95`)
+
+```python
+# File: services/rag_engine.py (riga 85-95)
+# Use connection pool for Qdrant client
+with self.connection_pool.get_connection() as client:
+    self.client = client
+
+# Create or recreate collection
+self._setup_collection()
+
+# Initialize vector store
+self.vector_store = QdrantVectorStore(
+    client=self.client, 
+    collection_name=self.collection_name
+)
+
+# Initialize or load existing index
+self._initialize_index()
+```
+
+### Configurazione Collection Qdrant (`services/rag_engine.py:144-157`)
+
+```python
+# File: services/rag_engine.py (metodo _setup_collection)
+def _setup_collection(self):
+    """Setup Qdrant collection with proper configuration."""
+    try:
+        # Create collection with vector configuration
+        self.client.recreate_collection(
+            collection_name=self.collection_name,
+            vectors_config=VectorParams(
+                size=1536,  # OpenAI text-embedding-3-small dimension
+                distance=Distance.COSINE,  # Cosine similarity for semantic search
+            ),
+        )
+        logger.info(f"Created new collection: {self.collection_name}")
+    except Exception as e:
+        logger.error(f"Error setting up collection: {str(e)}")
+```
+
+**Configurazione Qdrant**:
+- **Dimensioni vettore**: 1536 (matching embedding model)
+- **Distance metric**: Cosine (ottimale per testo)
+- **Collection name**: Configurabile via env
+
+### Inserimento Nodes nell'Index (`services/rag_engine.py:334`)
+
+```python
+# File: services/rag_engine.py (riga 334)
+# Add nodes to index
+self.index.insert_nodes(nodes)
+```
+
+**LlamaIndex gestisce automaticamente**:
+- Generazione embeddings batch
+- Upload a Qdrant
+- Gestione ID univoci
+- Retry su errori temporanei
+
+---
+
+## Gestione Errori e Ottimizzazioni
+
+### Error Handling nell'Upload (`services/rag_engine.py:352-356`)
+
+```python
+# File: services/rag_engine.py (riga 352-356)
+except Exception as e:
+    results["failed_files"].append(file_path)
+    results["errors"].append(f"Error indexing {file_path}: {str(e)}")
+    logger.error(f"Error indexing {file_path}: {str(e)}")
+```
+
+### Connection Pool per Qdrant (`services/rag_engine.py:66-67`)
+
+```python
+# File: services/rag_engine.py (riga 66-67)
+# Use connection pool for Qdrant
+self.connection_pool = get_qdrant_pool()
+self.query_optimizer = get_query_optimizer()
+```
+
+**Ottimizzazioni Performance**:
+- **Connection pooling**: Riuso connessioni
+- **Query optimizer**: Cache e batching
+- **Async processing**: Per UI responsive
+
+### Query Cache (`services/rag_engine.py:59-62`)
+
+```python
+# File: services/rag_engine.py (riga 59-62)
+# Initialize query cache if enabled (with tenant namespace if multi-tenant)
+cache_namespace = f"tenant_{tenant_context.tenant_id}" if tenant_context else None
+self.query_cache = (
+    QueryCache(ttl_seconds=3600, namespace=cache_namespace) if settings.rag_enable_caching else None
+)
+```
+
+**Caching Strategy**:
+- **TTL**: 1 ora default
+- **Namespace**: Per multi-tenancy
+- **Configurabile**: Via environment
+
+### Batch Processing per Excel/CSV (`services/rag_engine.py:1935-1942`)
+
+```python
+# File: services/rag_engine.py (riga 1935-1942)
+# Create additional documents for remaining data
+chunk_size = 100
+for i in range(chunk_size, len(df), chunk_size):
+    chunk_end = min(i + chunk_size, len(df))
+    chunk_df = df.iloc[i:chunk_end]
+    
+    # Create chunk document
+    # ...
+```
+
+**Chunking Strategy per dati tabellari**:
+- **Chunk size**: 100 righe per documento
+- **Preservazione header**: In ogni chunk
+- **Metadati posizione**: Per ricostruzione
+
+---
+
+## Configurazione Ambiente
+
+### Settings Principali (`.env`)
+
+```env
+# OpenAI Configuration
+OPENAI_API_KEY=your-api-key
+EMBEDDING_MODEL=text-embedding-3-small
+LLM_MODEL=gpt-4-turbo-preview
+
+# Qdrant Configuration
+QDRANT_HOST=localhost
+QDRANT_PORT=6333
+QDRANT_COLLECTION_NAME=business_documents
+
+# Chunking Configuration
+CHUNK_SIZE=512
+CHUNK_OVERLAP=50
+
+# Performance
+RAG_RESPONSE_MODE=compact
+RAG_SIMILARITY_TOP_K=10
+RAG_ENABLE_CACHING=true
+```
+
+---
+
+## Best Practices Implementate
+
+### 1. **Gestione File Dual-Path**
+- Temporanei per processing
+- Permanenti per riferimento
+
+### 2. **Parser Specializzati per Formato**
+- PDF con OCR fallback
+- Excel con preservazione formule
+- CSV con analisi automatica
+- Immagini con OCR multilingua
+
+### 3. **Metadati Ricchi**
+- Source tracking completo
+- Timestamp per versioning
+- Tipo documento per filtering
+- Path permanenti per viewer
+
+### 4. **Chunking Intelligente**
+- Size ottimale (512 tokens)
+- Overlap per contesto
+- Rispetto confini semantici
+
+### 5. **Performance Optimization**
+- Connection pooling
+- Query caching
+- Batch processing
+- Async operations
+
+### 6. **Error Recovery**
+- Fallback parsers
+- OCR quando testo extraction fallisce
+- Logging dettagliato
+- Graceful degradation
 
 ---
 
 ## Conclusioni
 
-La procedura di upload file rappresenta un sistema complesso e robusto che gestisce multiple tipologie di documento con parsing intelligente, gestione errori avanzata e ottimizzazioni performance. La separazione in livelli (UI → Router → Parser → Storage) garantisce modularità e manutenibilità del codice.
+Il sistema di upload implementato in questo progetto RAG rappresenta una soluzione completa e robusta che:
 
-Le principali forze del sistema sono:
-- **Resilienza**: Gestione errori multilivello con recovery automatico
-- **Performance**: Chunking parallelo e batch processing
-- **Scalabilità**: Architecture modulare con dependency injection
-- **Monitoring**: Osservabilità completa con metriche real-time
-- **Sicurezza**: Validazione file e sanitization input
+1. **Supporta tutti i formati comuni** con parser specializzati
+2. **Preserva struttura e metadati** per retrieval accurato
+3. **Ottimizza performance** con caching e pooling
+4. **Gestisce errori gracefully** con fallback automatici
+5. **Scala efficacemente** grazie a chunking e batching
 
-Per ulteriori dettagli tecnici, consultare i file sorgente referenziati in questo documento.
+La combinazione di LlamaIndex per l'orchestrazione, OpenAI per embeddings, e Qdrant per storage vettoriale crea un sistema production-ready per applicazioni RAG enterprise.
+
+Le best practices implementate assicurano che ogni documento caricato sia processato nel modo più efficace possibile, massimizzando la qualità del retrieval e quindi delle risposte generate dal sistema.
