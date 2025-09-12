@@ -577,9 +577,9 @@ def show_document_rag():
         st.subheader("📄 Carica Documenti")
         uploaded_files = st.file_uploader(
             "Scegli documenti per l'analisi",
-            type=["pdf", "txt", "docx", "md", "json", "csv"],
+            type=["pdf", "txt", "docx", "md", "json", "csv", "xls", "xlsx", "jpg", "jpeg", "png"],
             accept_multiple_files=True,
-            help="Carica report aziendali, contratti, CSV con dati finanziari, o qualsiasi documento rilevante",
+            help="Carica report aziendali, contratti, CSV con dati finanziari, file Excel, immagini con OCR, o qualsiasi documento rilevante",
         )
 
         # Prompt selection
@@ -701,7 +701,11 @@ def show_document_rag():
 
                     # Cleanup
                     for path in file_paths:
-                        os.unlink(path)
+                        try:
+                            os.unlink(path)
+                        except PermissionError:
+                            # File might still be in use, skip cleanup
+                            pass
 
             elif reanalyze_button and selected_prompt != "Automatico (raccomandato)":
                 # Re-analyze existing documents with the selected prompt
@@ -1795,7 +1799,7 @@ def show_settings():
     ### Configurazione Opzionale:
     - `LLM_MODEL`: Modello OpenAI da usare (default: gpt-4-turbo-preview)
     - `CHUNK_SIZE`: Dimensione blocchi documenti (default: 512)
-    - `TEMPERATURE`: Temperatura LLM (default: 0.7)
+    - `TEMPERATURE`: Temperatura LLM (default: 0.0)
     """)
 
     st.divider()

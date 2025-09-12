@@ -477,6 +477,19 @@ class ImageParser:
         errors = []
 
         try:
+            # Configure Tesseract path for Windows
+            import os
+            if os.name == 'nt':  # Windows
+                tesseract_paths = [
+                    r'C:\Program Files\Tesseract-OCR\tesseract.exe',
+                    r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe',
+                    r'C:\Tesseract-OCR\tesseract.exe'
+                ]
+                for path in tesseract_paths:
+                    if os.path.exists(path):
+                        pytesseract.pytesseract.tesseract_cmd = path
+                        break
+            
             # Open image
             image = Image.open(file_path)
 

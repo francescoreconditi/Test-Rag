@@ -107,7 +107,7 @@ class RAGEngine:
                     )
 
                     # Initialize HyDE engine
-                    hyde_config = HyDEConfig(num_hypothetical_docs=3, temperature=0.7, include_original_query=True)
+                    hyde_config = HyDEConfig(num_hypothetical_docs=3, temperature=0.0, include_original_query=True)
                     self.hyde_engine = HyDEQueryEngine(
                         index=self.index,
                         llm=Settings.llm,
@@ -300,6 +300,12 @@ class RAGEngine:
                 elif path.suffix.lower() == ".csv":
                     # Basic CSV loading without analysis
                     documents = self._load_csv_basic(file_path, metadata)
+                elif path.suffix.lower() in [".xls", ".xlsx"]:
+                    # Excel files are converted to documents
+                    documents = self._load_excel(file_path, metadata)
+                elif path.suffix.lower() in [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff"]:
+                    # Image files are processed with OCR
+                    documents = self._load_image(file_path, metadata)
                 else:
                     documents = SimpleDirectoryReader(input_files=[file_path]).load_data()
 
@@ -415,7 +421,7 @@ class RAGEngine:
                     },
                     {"role": "user", "content": prompt_text},
                 ],
-                temperature=0.2,  # Lower temperature for more structured output
+                temperature=0.0,  # Deterministic output
                 max_tokens=1500,  # Increased for JSON + summary format
             )
 
@@ -1004,7 +1010,7 @@ class RAGEngine:
                     },
                     {"role": "user", "content": prompt},
                 ],
-                temperature=0.3,
+                temperature=0.0,
                 max_tokens=1000,
             )
 
@@ -1834,3 +1840,268 @@ Genera SOLO le domande, una per riga, numerate da 1 a {num_questions}:
             logger.error(f"Error loading CSV {file_path}: {e}")
             # Ultimate fallback - treat as text file
             return self._load_text(file_path, metadata)
+
+    def _load_excel(self, file_path: str, metadata: Optional[dict[str, Any]] = None) -> list[Document]:
+        """Load Excel file and convert to documents."""
+        from pathlib import Path
+
+        import pandas as pd
+
+        try:
+            file_name = Path(file_path).name
+            documents = []
+
+            # Try to use the custom Excel parser if available
+            try:
+                from src.application.parsers.excel_parser import ExcelParser
+
+                parser = ExcelParser()
+                extracted_data = parser.parse(file_path)
+
+                # Create document from parsed data
+                excel_text = f"""
+                File Excel: {file_name}
+                Fogli: {len(extracted_data.workbook_metadata.sheets)}
+                Autore: {extracted_data.workbook_metadata.author or "N/A"}
+                Ultima modifica: {extracted_data.workbook_metadata.modified or "N/A"}
+                
+                """
+
+                # Add information about each sheet
+                for sheet in extracted_data.workbook_metadata.sheets:
+                    excel_text += f"\nFoglio: {sheet.name}\n"
+                    excel_text += f"Righe: {sheet.max_row}, Colonne: {sheet.max_column}\n"
+                    if sheet.tables:
+                        excel_text += f"Tabelle trovate: {len(sheet.tables)}\n"
+                        for table in sheet.tables:
+                            excel_text += f"  - Tabella {table.start_cell}:{table.end_cell} con headers: {', '.join(table.headers[:5])}\n"
+
+                # Add parsed data from dataframes
+                for sheet_name, df in extracted_data.data_frames.items():
+                    if df is not None and not df.empty:
+                        excel_text += f"\n--- Dati dal foglio {sheet_name} ---\n"
+                        excel_text += f"Dimensioni: {len(df)} righe x {len(df.columns)} colonne\n"
+                        excel_text += df.to_string()  # Load ALL rows, not just head(20)
+                        excel_text += "\n"
+
+                doc_metadata = {
+                    "source": file_name,
+                    "type": "excel_parsed",
+                    "file_type": Path(file_path).suffix.lower(),
+                    "sheets_count": len(extracted_data.workbook_metadata.sheets),
+                }
+                if metadata:
+                    doc_metadata.update(metadata)
+
+                documents.append(Document(text=excel_text.strip(), metadata=doc_metadata))
+                logger.info(f"Excel '{file_name}' loaded with custom parser")
+
+            except (ImportError, Exception) as e:
+                # Fallback to pandas if custom parser not available or fails
+                logger.info(f"Custom Excel parser failed ({str(e)}), using pandas fallback")
+
+                # Initialize documents list for pandas fallback
+                documents = []
+
+                # Read all sheets
+                excel_file = pd.ExcelFile(file_path)
+                excel_text = f"""
+                File Excel: {file_name}
+                Fogli: {len(excel_file.sheet_names)}
+                Fogli disponibili: {", ".join(excel_file.sheet_names)}
+                
+                """
+
+                # Process each sheet - ALL sheets, not just first 5
+                for sheet_name in excel_file.sheet_names:
+                    df = pd.read_excel(file_path, sheet_name=sheet_name)
+                    excel_text += f"\n--- Foglio: {sheet_name} ---\n"
+                    excel_text += f"Righe: {len(df)}, Colonne: {len(df.columns)}\n"
+                    # Convert column names to strings to handle numeric columns
+                    col_names = [str(col) for col in df.columns]
+                    excel_text += f"Colonne: {', '.join(col_names)}\n\n"
+
+                    # Add data - if small dataset, include all; if large, create chunks
+                    if len(df) <= 100:
+                        # For small datasets (<=100 rows), include all data
+                        excel_text += "Dati completi:\n"
+                        excel_text += df.to_string()
+                        excel_text += "\n\n"
+                    else:
+                        # For larger datasets, split into chunks for better indexing
+                        excel_text += f"Dataset grande ({len(df)} righe) - Dividendo in chunks...\n\n"
+
+                        # Add first chunk with ALL data from first chunk, not just head(50)
+                        chunk_size = 100
+                        excel_text += f"Prime {chunk_size} righe:\n"
+                        excel_text += df.head(chunk_size).to_string()
+                        excel_text += "\n\n"
+
+                        # Create additional documents for remaining data
+                        for i in range(chunk_size, len(df), chunk_size):
+                            chunk_end = min(i + chunk_size, len(df))
+                            chunk_df = df.iloc[i:chunk_end]
+
+                            chunk_text = f"""
+                            File Excel: {file_name}
+                            Foglio: {sheet_name}
+                            Righe {i + 1} a {chunk_end} di {len(df)}
+                            
+                            Dati:
+                            {chunk_df.to_string()}
+                            """
+
+                            chunk_metadata = {
+                                "source": file_name,
+                                "type": "excel_chunk",
+                                "file_type": Path(file_path).suffix.lower(),
+                                "sheet_name": sheet_name,
+                                "chunk_start": i + 1,
+                                "chunk_end": chunk_end,
+                                "total_rows": len(df),
+                            }
+                            if metadata:
+                                chunk_metadata.update(metadata)
+
+                            documents.append(Document(text=chunk_text.strip(), metadata=chunk_metadata))
+
+                        excel_text += f"Creati {len(range(chunk_size, len(df), chunk_size))} documenti aggiuntivi per i dati rimanenti.\n"
+
+                doc_metadata = {
+                    "source": file_name,
+                    "type": "excel_basic",
+                    "file_type": Path(file_path).suffix.lower(),
+                    "sheets_count": len(excel_file.sheet_names),
+                }
+                if metadata:
+                    doc_metadata.update(metadata)
+
+                documents.append(Document(text=excel_text.strip(), metadata=doc_metadata))
+                logger.info(f"Excel '{file_name}' loaded with pandas")
+
+            return documents
+
+        except Exception as e:
+            logger.error(f"Error loading Excel {file_path}: {e}")
+            # Fallback - treat as text file
+            return self._load_text(file_path, metadata)
+
+    def _load_image(self, file_path: str, metadata: Optional[dict[str, Any]] = None) -> list[Document]:
+        """Load image file and convert to text using OCR."""
+        from pathlib import Path
+
+        try:
+            file_name = Path(file_path).name
+
+            # Use the existing image parser
+            try:
+                from src.application.services.format_parsers import ImageParser
+
+                parser = ImageParser(ocr_language="ita+eng")  # Italian + English
+
+                # Parse image with OCR
+                parsed_content = parser.parse(file_path)
+
+                # Extract OCR text
+                ocr_text = parsed_content.data.get("text", "").strip()
+
+                if not ocr_text:
+                    ocr_text = f"[IMMAGINE] Il file '{file_name}' non contiene testo riconoscibile tramite OCR."
+
+                # Create document with OCR text
+                image_text = f"""
+                Immagine: {file_name}
+                Formato: {parsed_content.metadata.get("format", "N/A")}
+                Dimensioni: {parsed_content.metadata.get("width", 0)}x{parsed_content.metadata.get("height", 0)} px
+                
+                Testo estratto con OCR:
+                {ocr_text}
+                """
+
+                # Add table information if found
+                if parsed_content.tables:
+                    image_text += f"\n\nTabelle rilevate: {len(parsed_content.tables)}\n"
+                    for i, table in enumerate(parsed_content.tables[:3], 1):  # Max 3 tables
+                        image_text += f"Tabella {i}: {table.get('summary', 'Dati tabulari rilevati')}\n"
+
+                doc_metadata = {
+                    "source": file_name,
+                    "type": "image_ocr",
+                    "file_type": Path(file_path).suffix.lower(),
+                    "image_format": parsed_content.metadata.get("format"),
+                    "image_size": f"{parsed_content.metadata.get('width', 0)}x{parsed_content.metadata.get('height', 0)}",
+                    "ocr_language": "ita+eng",
+                    "extraction_time": parsed_content.extraction_time,
+                }
+                if metadata:
+                    doc_metadata.update(metadata)
+
+                document = Document(text=image_text.strip(), metadata=doc_metadata)
+
+                logger.info(f"Image '{file_name}' processed with OCR: {len(ocr_text)} characters extracted")
+                return [document]
+
+            except ImportError:
+                # Fallback to basic OCR if custom parser not available
+                logger.info("Custom image parser not available, using basic pytesseract")
+
+                # Configure Tesseract path for Windows
+                import os
+
+                from PIL import Image
+                import pytesseract
+
+                if os.name == "nt":  # Windows
+                    tesseract_paths = [
+                        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+                        r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+                        r"C:\Tesseract-OCR\tesseract.exe",
+                    ]
+                    for path in tesseract_paths:
+                        if os.path.exists(path):
+                            pytesseract.pytesseract.tesseract_cmd = path
+                            break
+
+                # Open image
+                image = Image.open(file_path)
+
+                # Extract text using OCR
+                ocr_text = pytesseract.image_to_string(image, lang="ita+eng")
+
+                if not ocr_text.strip():
+                    ocr_text = f"[IMMAGINE] Il file '{file_name}' non contiene testo riconoscibile tramite OCR."
+
+                image_text = f"""
+                Immagine: {file_name}
+                Formato: {image.format}
+                Dimensioni: {image.width}x{image.height} px
+                
+                Testo estratto con OCR:
+                {ocr_text}
+                """
+
+                doc_metadata = {
+                    "source": file_name,
+                    "type": "image_ocr_basic",
+                    "file_type": Path(file_path).suffix.lower(),
+                    "image_format": image.format,
+                    "image_size": f"{image.width}x{image.height}",
+                    "ocr_language": "ita+eng",
+                }
+                if metadata:
+                    doc_metadata.update(metadata)
+
+                document = Document(text=image_text.strip(), metadata=doc_metadata)
+
+                logger.info(f"Image '{file_name}' processed with basic OCR: {len(ocr_text)} characters extracted")
+                return [document]
+
+        except Exception as e:
+            logger.error(f"Error processing image {file_path}: {e}")
+            # Fallback - create document with error info
+            return [
+                Document(
+                    text=f"Errore nel processamento dell'immagine '{Path(file_path).name}': {str(e)}",
+                    metadata={"source": Path(file_path).name, "type": "image_error", "error": str(e)},
+                )
+            ]

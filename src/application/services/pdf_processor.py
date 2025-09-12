@@ -25,12 +25,23 @@ try:
 except ImportError:
     TABULA_AVAILABLE = False
 
+# Import OCR libraries separately
 try:
     import ocrmypdf
-    import pytesseract
-    OCR_AVAILABLE = True
+    OCRMYPDF_AVAILABLE = True
 except ImportError:
-    OCR_AVAILABLE = False
+    OCRMYPDF_AVAILABLE = False
+    ocrmypdf = None
+
+try:
+    import pytesseract
+    PYTESSERACT_AVAILABLE = True
+except ImportError:
+    PYTESSERACT_AVAILABLE = False
+    pytesseract = None
+
+# OCR is available if at least pytesseract is available
+OCR_AVAILABLE = PYTESSERACT_AVAILABLE
 
 from src.domain.value_objects.source_reference import SourceReference
 
@@ -125,7 +136,7 @@ class PDFProcessor:
         self.table_extraction_method = table_extraction_method
 
         # Check Tesseract availability
-        if enable_ocr:
+        if enable_ocr and OCR_AVAILABLE and pytesseract is not None:
             try:
                 # Try default path first
                 pytesseract.get_tesseract_version()
@@ -139,6 +150,10 @@ class PDFProcessor:
                 except Exception as e:
                     logger.warning(f"Tesseract not available: {e}. OCR will be disabled.")
                     self.enable_ocr = False
+        elif enable_ocr:
+            # pytesseract not imported or not available
+            logger.warning("Tesseract not available: pytesseract module not imported. OCR will be disabled.")
+            self.enable_ocr = False
 
     def process_pdf(self, file_path: str) -> PDFExtractionResult:
         """
@@ -226,6 +241,10 @@ class PDFProcessor:
             # Run OCR
             if not OCR_AVAILABLE:
                 logger.warning("OCR libraries not available, skipping OCR")
+                return file_path
+
+            if not OCRMYPDF_AVAILABLE:
+                logger.warning("ocrmypdf not available, skipping PDF OCR processing")
                 return file_path
 
             ocrmypdf.ocr(
