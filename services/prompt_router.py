@@ -517,6 +517,137 @@ GENERA UN REPORT COMPLETO IN FORMATO PROFESSIONALE:
 """
 
 
+def PROMPT_CDC(file_name: str, analysis_text: str) -> str:
+    """Prompt per analisi Centri di Costo (CDC)"""
+    return f"""
+Sei un analista di Controllo di Gestione specializzato in Centri di Costo (CDC). Analizza esclusivamente il documento "{file_name}" incluso di seguito, senza usare fonti esterne né inferenze oltre il testo.
+
+=== DOCUMENTO (testo estratto) ===
+{analysis_text}
+=== FINE DOCUMENTO ===
+
+OBIETTIVO
+1) Restituisci un JSON strutturato con i dati chiave di analisi CDC (perimetro, totali, dettagli per CDC, scostamenti, driver, allocazioni, rischi).
+2) Subito dopo il JSON, fornisci una sintesi esecutiva in italiano.
+
+REGOLE
+- Cita SEMPRE le pagine per numeri/date/percentuali: usa "p. X".
+- Se un'informazione non è presente, usa null/"" e spiega in "note".
+- Mantieni toni professionali, analitici e neutri.
+- Non aggiungere conoscenze esterne o stime: usa solo il testo fornito.
+- Standard numerici: usa valori numerici grezzi (es. 12345.67), separa l'unità in "unita" (es. "EUR", "%", "FTE").
+- Date in formato ISO (DD.MM.YYYY). Periodi come intervalli "DD.MM.YYYY/DD.MM.YYYY".
+- Se il documento riporta più CDC, riporta sia il quadro totale sia il dettaglio per singolo CDC.
+- Esegui verifiche di coerenza (es. somma delle righe = totale; budget/consuntivo/forecast coerenti con periodi); segnala esiti in "riconciliazioni_e_controlli".
+- Output SOLO nei due blocchi indicati (<JSON> e <SINTESI>), senza testo aggiuntivo.
+
+<JSON>
+{{
+  "tipo_documento": "",
+  "oggetto_principale": "",
+  "perimetro": {{
+    "azienda": "",
+    "business_unit": "",
+    "periodo_da": "",
+    "periodo_a": "",
+    "valuta": "",
+    "fonte_pagina": ""
+  }},
+  "quadro_sintetico": [
+    {{
+      "indicatore": "Totale costi CDC",
+      "budget": "",
+      "consuntivo": "",
+      "forecast": "",
+      "scostamento_budget_consuntivo": "",
+      "scostamento_budget_consuntivo_perc": "",
+      "scostamento_consuntivo_forecast": "",
+      "scostamento_consuntivo_forecast_perc": "",
+      "periodo_riferimento": "",
+      "fonte_pagina": ""
+    }}
+  ],
+  "cdc": [
+    {{
+      "nome_cdc": "",
+      "codice_cdc": "",
+      "responsabile": "",
+      "fonte_pagina": "",
+      "classificazione_costi": [
+        {{"categoria": "Personale/Servizi/IT/Logistica/Altri/Intercompany",
+          "budget": "", "consuntivo": "", "forecast": "",
+          "scostamento_budget_consuntivo": "", "scostamento_budget_consuntivo_perc": "",
+          "fonte_pagina": ""}}
+      ],
+      "kpi": [
+        {{"nome": "Costo/FTE", "valore": "", "unita": "EUR/FTE", "periodo_riferimento": "", "fonte_pagina": ""}},
+        {{"nome": "Run-rate mensile", "valore": "", "unita": "EUR/mese", "periodo_riferimento": "", "fonte_pagina": ""}}
+      ],
+      "fte": [
+        {{"tipologia": "Interni/Esterni", "valore": "", "periodo_riferimento": "", "fonte_pagina": ""}}
+      ],
+      "volumi_attivita": [
+        {{"metrica": "ordini/ticket/ore/macchinari", "valore": "", "periodo_riferimento": "", "fonte_pagina": ""}}
+      ],
+      "driver_allocazione": [
+        {{"driver": "m2/FTE/ore macchina/ricavi", "base": "", "coefficiente": "", "fonte_pagina": ""}}
+      ],
+      "natura_costi": [
+        {{"tipo": "Fissi/Variabili/Direct/Indirect", "importo_consuntivo": "", "fonte_pagina": ""}}
+      ],
+      "note_cdc": ""
+    }}
+  ],
+  "ribaltamenti_e_allocazioni": [
+    {{"da_cdc": "", "a_cdc": "", "criterio": "", "base": "", "importo": "", "periodo_riferimento": "", "fonte_pagina": ""}}
+  ],
+  "scomposizione_scostamenti": [
+    {{"cdc": "", "tipo": "Prezzo/Volume/Mix/Efficienza", "importo": "", "percentuale": "", "periodo_riferimento": "", "fonte_pagina": ""}}
+  ],
+  "impegni_contrattuali_e_PO_aperti": [
+    {{"fornitore": "", "descrizione": "", "impegno_residuo": "", "scadenza_iso": "", "fonte_pagina": ""}}
+  ],
+  "capex_e_ammortamenti": [
+    {{"progetto": "", "stato": "", "capex": "", "avvio_iso": "", "ammortamento_periodo": "", "fonte_pagina": ""}}
+  ],
+  "accantonamenti_ratei_risconti": [
+    {{"descrizione": "", "importo": "", "competenza_periodo": "", "fonte_pagina": ""}}
+  ],
+  "riconciliazioni_e_controlli": [
+    {{"test": "Somma CDC = totale riportato", "esito": "OK/KO", "scostamento": "", "fonte_pagina": ""}},
+    {{"test": "Coerenza periodo (budget/consuntivo/forecast)", "esito": "OK/KO", "dettaglio": "", "fonte_pagina": ""}}
+  ],
+  "dati_quantitativi": [
+    {{"descrizione": "Costo medio FTE", "valore": "", "unita": "EUR/FTE", "periodo_riferimento": "", "fonte_pagina": ""}},
+    {{"descrizione": "Tasso di assorbimento overhead", "valore": "", "unita": "%", "periodo_riferimento": "", "fonte_pagina": ""}}
+  ],
+  "date_rilevanti": [
+    {{"evento": "Approvazione budget CDC", "data_iso": "", "fonte_pagina": ""}}
+  ],
+  "stakeholder_menzionati": [
+    {{"nome": "", "ruolo": "Responsabile CDC/Controller/Approvatore", "fonte_pagina": ""}}
+  ],
+  "rischi_o_issue": [
+    {{"descrizione": "Sforamento budget/criteri di ribaltamento non aggiornati/accantonamenti insufficienti",
+      "impatto": "Basso/Medio/Alto", "probabilita": "Bassa/Media/Alta", "fonte_pagina": ""}}
+  ],
+  "conclusioni_o_raccomandazioni": [
+    {{"testo": "", "fonte_pagina": ""}}
+  ],
+  "lacune_e_incertezze": [
+    {{"tema": "Dati mancanti/criteri non specificati", "motivo_mancanza": "Non presente nel documento/ambiguità",
+      "fonte_pagina": ""}}
+  ],
+  "note": ""
+}}
+</JSON>
+
+<SINTESI>
+Scrivi 120–200 parole con tono da analista di Controllo di Gestione. Evidenzia quadro sintetico (budget, consuntivo, forecast), principali scostamenti e driver, eventuali ribaltamenti, rischi e raccomandazioni, richiamando le fonti con "p. X" dopo i numeri chiave.
+</SINTESI>
+"""
+
+
 # ---------------------------------------------------------------------------
 # Router configuration: parole-chiave e pesi
 # ---------------------------------------------------------------------------
@@ -810,6 +941,92 @@ ROUTER: dict[str, CaseRule] = {
         ],
         min_score_to_win=1.3,
         boost_if_filename=2.0,  # Maggior peso al nome file per scadenzario
+    ),
+    "cdc": CaseRule(
+        name="cdc",
+        builder=PROMPT_CDC,
+        keywords=[
+            "centri di costo",
+            "centro di costo", 
+            "cdc",
+            "cost center",
+            "cost centres",
+            "controllo di gestione",
+            "management control",
+            "budgets centri",
+            "budget cdc",
+            "consuntivo cdc",
+            "forecast cdc",
+            "scostamenti budget",
+            "variance analysis",
+            "allocazioni costi",
+            "cost allocation",
+            "ribaltamenti",
+            "ripartizioni",
+            "driver allocazione",
+            "allocation drivers",
+            "responsabile centro",
+            "center manager",
+            "overhead",
+            "costi indiretti",
+            "indirect costs",
+            "costi diretti", 
+            "direct costs",
+            "fte",
+            "full time equivalent",
+            "personale equivalente",
+            "run rate",
+            "costo per fte",
+            "cost per fte",
+            "costi fissi",
+            "fixed costs",
+            "costi variabili",
+            "variable costs",
+            "costi del personale",
+            "personnel costs",
+            "costi servizi",
+            "service costs",
+            "costi it",
+            "it costs",
+            "logistica costs",
+            "logistics costs",
+            "intercompany",
+            "inter-company",
+            "capex",
+            "capital expenditure",
+            "ammortamenti",
+            "depreciation",
+            "accantonamenti",
+            "provisions",
+            "ratei",
+            "accruals",
+            "risconti",
+            "deferrals"
+        ],
+        patterns=[
+            r"\bCDC[\s\-_]*\d+",  # CDC001, CDC-001, CDC_001
+            r"\bC[\.\s]?C[\.\s]?\d+",  # C.C.001, CC001, C C 001
+            r"\bCentro[\s]+\d+",  # Centro 001
+            r"\b[A-Z]{2,4}[\-_]\d{3,4}\b",  # IT-001, HR_002
+            r"\bbudget\s+vs\s+consuntivo\b",
+            r"\bbudget\s+vs\s+actual\b", 
+            r"\bvariance\s+analysis\b",
+            r"\bscostamento\s+\d+",
+            r"\balloca(zione|tion)\s+\d+",
+            r"\bribalta(mento|ments?)\b",
+            r"\bFTE\s*[:=]\s*\d+",
+            r"\bcosto\s*/\s*FTE\b",
+            r"\brun[\s\-]?rate\b",
+            r"\boverhead\s+rate\b",
+            r"\btasso\s+assorbimento\b",
+            r"\bcosti\s+(fissi|variabili|diretti|indiretti)\b",
+            r"\b(fixed|variable|direct|indirect)\s+costs?\b",
+            r"\bresponsabile\s+centro\b",
+            r"\bcenter\s+manager\b",
+            r"\bcontroller\s+gestionale\b"
+        ],
+        min_score_to_win=1.2,
+        boost_if_filename=1.8,
     ),
 }
 

@@ -21,7 +21,7 @@ def format_analysis_result(raw_response: str) -> str:
     try:
         # Debug logging
         logger.debug(f"format_analysis_result called with response length: {len(raw_response) if raw_response else 0}")
-        
+
         # Estrai il tipo di analisi
         analysis_type_match = re.search(r"\[Analisi tipo: (\w+)\]", raw_response)
         analysis_type = analysis_type_match.group(1) if analysis_type_match else "GENERALE"
@@ -68,6 +68,8 @@ def format_analysis_result(raw_response: str) -> str:
             formatted_parts.append(_format_presentazione(json_data))
         elif analysis_type == "SCADENZARIO" and json_data:
             formatted_parts.append(_format_scadenzario(json_data))
+        elif analysis_type == "CDC" and json_data:
+            formatted_parts.append(_format_cdc(json_data))
         elif json_data:
             formatted_parts.append(_format_generale(json_data))
 
@@ -682,6 +684,245 @@ def _format_scadenzario(data: dict[str, Any]) -> str:
     # Note
     if data.get("note"):
         parts.append(f"### Note\n{data['note']}\n")
+
+    return "\n".join(parts)
+
+
+def _format_cdc(data: dict[str, Any]) -> str:
+    """Formatta i dati di analisi dei centri di costo."""
+    parts = []
+
+    # Periodi coperti
+    if data.get("periodi_coperti"):
+        if data["periodi_coperti"] and isinstance(data["periodi_coperti"][0], dict):
+            periodo_strings = []
+            for p in data["periodi_coperti"]:
+                if isinstance(p, dict):
+                    periodo_str = f"{p.get('mese', '')} {p.get('anno', '')} {p.get('tipo', '')}".strip()
+                    if periodo_str:
+                        periodo_strings.append(periodo_str)
+                else:
+                    periodo_strings.append(str(p))
+            if periodo_strings:
+                parts.append(f"**Periodi analizzati:** {', '.join(periodo_strings)}\n")
+        else:
+            parts.append(f"**Periodi analizzati:** {', '.join(map(str, data['periodi_coperti']))}\n")
+
+    # Perimetro di Analisi
+    if data.get("perimetro"):
+        parts.append("### Perimetro di Analisi\n")
+        perimetro = data["perimetro"]
+
+        if perimetro.get("societa"):
+            parts.append(f"**Società:** {', '.join(perimetro['societa'])}")
+
+        if perimetro.get("divisioni"):
+            parts.append(f"**Divisioni:** {', '.join(perimetro['divisioni'])}")
+
+        if perimetro.get("cdc_inclusi"):
+            parts.append(f"**CDC Inclusi:** {perimetro['cdc_inclusi']}")
+
+        if perimetro.get("cdc_esclusi"):
+            parts.append(f"**CDC Esclusi:** {perimetro['cdc_esclusi']}")
+
+        if perimetro.get("valuta"):
+            parts.append(f"**Valuta:** {perimetro['valuta']}")
+
+        parts.append("")
+
+    # Quadro Sintetico
+    if data.get("quadro_sintetico"):
+        parts.append("### Quadro Sintetico\n")
+        qs = data["quadro_sintetico"]
+
+        if qs.get("budget"):
+            for b in qs["budget"]:
+                if b.get("valore"):
+                    parts.append(
+                        f"- **Budget ({b.get('periodo', 'N/D')}):** {_format_currency(b['valore'])} {b.get('unita', 'EUR')}"
+                    )
+
+        if qs.get("consuntivo"):
+            for c in qs["consuntivo"]:
+                if c.get("valore"):
+                    parts.append(
+                        f"- **Consuntivo ({c.get('periodo', 'N/D')}):** {_format_currency(c['valore'])} {c.get('unita', 'EUR')}"
+                    )
+
+        if qs.get("forecast"):
+            for f in qs["forecast"]:
+                if f.get("valore"):
+                    parts.append(
+                        f"- **Forecast ({f.get('periodo', 'N/D')}):** {_format_currency(f['valore'])} {f.get('unita', 'EUR')}"
+                    )
+
+        if qs.get("scostamento_budget_vs_consuntivo"):
+            for s in qs["scostamento_budget_vs_consuntivo"]:
+                if s.get("valore_assoluto") or s.get("valore_percentuale"):
+                    assoluto = (
+                        f"{_format_currency(s['valore_assoluto'])} {s.get('unita', 'EUR')}"
+                        if s.get("valore_assoluto")
+                        else ""
+                    )
+                    percentuale = f" ({s['valore_percentuale']}%)" if s.get("valore_percentuale") else ""
+                    parts.append(f"- **Scostamento Budget vs Consuntivo:** {assoluto}{percentuale}")
+
+        if qs.get("scostamento_forecast_vs_consuntivo"):
+            for s in qs["scostamento_forecast_vs_consuntivo"]:
+                if s.get("valore_assoluto") or s.get("valore_percentuale"):
+                    assoluto = (
+                        f"{_format_currency(s['valore_assoluto'])} {s.get('unita', 'EUR')}"
+                        if s.get("valore_assoluto")
+                        else ""
+                    )
+                    percentuale = f" ({s['valore_percentuale']}%)" if s.get("valore_percentuale") else ""
+                    parts.append(f"- **Scostamento Forecast vs Consuntivo:** {assoluto}{percentuale}")
+
+        parts.append("")
+
+    # Dettaglio per Centro di Costo
+    if data.get("cdc"):
+        parts.append("### Dettaglio per Centro di Costo\n")
+        for cdc in data["cdc"]:
+            if cdc.get("codice_cdc") or cdc.get("nome_cdc"):
+                nome_completo = f"CDC {cdc.get('codice_cdc', '')} - {cdc.get('nome_cdc', '')}".strip(" - ")
+                parts.append(f"**{nome_completo}**")
+
+                if cdc.get("responsabile"):
+                    parts.append(f"- Responsabile: {cdc['responsabile']}")
+
+                if cdc.get("budget"):
+                    for b in cdc["budget"]:
+                        if b.get("valore"):
+                            parts.append(f"- Budget: {_format_currency(b['valore'])} {b.get('unita', 'EUR')}")
+
+                if cdc.get("consuntivo"):
+                    for c in cdc["consuntivo"]:
+                        if c.get("valore"):
+                            parts.append(f"- Consuntivo: {_format_currency(c['valore'])} {c.get('unita', 'EUR')}")
+
+                if cdc.get("scostamento"):
+                    for s in cdc["scostamento"]:
+                        if s.get("valore_assoluto") or s.get("valore_percentuale"):
+                            assoluto = (
+                                f"{_format_currency(s['valore_assoluto'])} {s.get('unita', 'EUR')}"
+                                if s.get("valore_assoluto")
+                                else ""
+                            )
+                            percentuale = f" ({s['valore_percentuale']}%)" if s.get("valore_percentuale") else ""
+                            parts.append(f"- Scostamento: {assoluto}{percentuale}")
+
+                if cdc.get("costi_diretti"):
+                    for cd in cdc["costi_diretti"]:
+                        if cd.get("valore"):
+                            parts.append(f"- Costi Diretti: {_format_currency(cd['valore'])} {cd.get('unita', 'EUR')}")
+
+                if cdc.get("costi_allocati"):
+                    for ca in cdc["costi_allocati"]:
+                        if ca.get("valore"):
+                            parts.append(f"- Costi Allocati: {_format_currency(ca['valore'])} {ca.get('unita', 'EUR')}")
+
+                if cdc.get("ricavi"):
+                    for r in cdc["ricavi"]:
+                        if r.get("valore"):
+                            parts.append(f"- Ricavi: {_format_currency(r['valore'])} {r.get('unita', 'EUR')}")
+
+                if cdc.get("margine"):
+                    for m in cdc["margine"]:
+                        if m.get("valore"):
+                            parts.append(f"- Margine: {_format_currency(m['valore'])} {m.get('unita', 'EUR')}")
+
+                if cdc.get("fte"):
+                    for f in cdc["fte"]:
+                        if f.get("numero"):
+                            parts.append(f"- FTE: {f['numero']}")
+
+                parts.append("")
+
+    # Ribaltamenti e Allocazioni
+    if data.get("ribaltamenti_e_allocazioni"):
+        parts.append("### Ribaltamenti e Allocazioni\n")
+        for rib in data["ribaltamenti_e_allocazioni"]:
+            if rib.get("tipo_allocazione") or rib.get("importo"):
+                tipo = rib.get("tipo_allocazione", "N/D")
+                parts.append(f"**{tipo}**")
+
+                if rib.get("cdc_origine"):
+                    parts.append(f"- Da: {rib['cdc_origine']}")
+
+                if rib.get("cdc_destinazione"):
+                    parts.append(f"- A: {rib['cdc_destinazione']}")
+
+                if rib.get("importo"):
+                    parts.append(f"- Importo: {_format_currency(rib['importo'])} {rib.get('unita', 'EUR')}")
+
+                if rib.get("criterio_allocazione"):
+                    parts.append(f"- Criterio: {rib['criterio_allocazione']}")
+
+                if rib.get("percentuale"):
+                    parts.append(f"- Percentuale: {rib['percentuale']}%")
+
+                parts.append("")
+
+    # Scomposizione Scostamenti
+    if data.get("scomposizione_scostamenti"):
+        parts.append("### Scomposizione Scostamenti\n")
+        for sc in data["scomposizione_scostamenti"]:
+            if sc.get("driver") or sc.get("impatto"):
+                driver = sc.get("driver", "N/D")
+                parts.append(f"**{driver}**")
+
+                if sc.get("impatto"):
+                    parts.append(f"- Impatto: {_format_currency(sc['impatto'])} {sc.get('unita', 'EUR')}")
+
+                if sc.get("percentuale_impatto"):
+                    parts.append(f"- % Impatto: {sc['percentuale_impatto']}%")
+
+                if sc.get("spiegazione"):
+                    parts.append(f"- Spiegazione: {sc['spiegazione']}")
+
+                parts.append("")
+
+    # KPI Controllo di Gestione
+    if data.get("kpi_controllo_gestione"):
+        parts.append("### KPI Controllo di Gestione\n")
+        for kpi in data["kpi_controllo_gestione"]:
+            if kpi.get("nome") and kpi.get("valore"):
+                parts.append(f"- **{kpi['nome']}:** {kpi['valore']} {kpi.get('unita', '')}")
+        parts.append("")
+
+    # Controlli di Coerenza
+    if data.get("controlli_coerenza"):
+        parts.append("### Controlli di Coerenza\n")
+        for controllo in data["controlli_coerenza"]:
+            if controllo.get("controllo"):
+                esito = f" - {controllo['esito']}" if controllo.get("esito") else ""
+                note = f" ({controllo['note']})" if controllo.get("note") else ""
+                parts.append(f"- {controllo['controllo']}{esito}{note}")
+        parts.append("")
+
+    # Rischi e Issue
+    if data.get("rischi_e_issue"):
+        parts.append("### Rischi e Issue\n")
+        for rischio in data["rischi_e_issue"]:
+            if rischio.get("descrizione"):
+                priorita = f" [{rischio['priorita']}]" if rischio.get("priorita") else ""
+                impatto = f" - Impatto: {rischio['impatto_stimato']}" if rischio.get("impatto_stimato") else ""
+                parts.append(f"- {rischio['descrizione']}{priorita}{impatto}")
+
+                if rischio.get("azioni_correttive"):
+                    parts.append(f"  - Azioni: {rischio['azioni_correttive']}")
+        parts.append("")
+
+    # Conclusioni e Raccomandazioni
+    if data.get("conclusioni_e_raccomandazioni"):
+        parts.append("### Conclusioni e Raccomandazioni\n")
+        for conclusione in data["conclusioni_e_raccomandazioni"]:
+            if conclusione.get("testo"):
+                priorita = f" [{conclusione['priorita']}]" if conclusione.get("priorita") else ""
+                timeline = f" - Timeline: {conclusione['timeline']}" if conclusione.get("timeline") else ""
+                parts.append(f"- {conclusione['testo']}{priorita}{timeline}")
+        parts.append("")
 
     return "\n".join(parts)
 
