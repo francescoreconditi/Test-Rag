@@ -4,14 +4,15 @@ from datetime import datetime
 import logging
 from logging import Logger
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, List, Optional, Tuple
 
+import numpy as np
 from llama_index.core import Document, Settings, SimpleDirectoryReader, StorageContext, VectorStoreIndex
 from llama_index.core.node_parser import SimpleNodeParser
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
 from llama_index.vector_stores.qdrant import QdrantVectorStore
-from qdrant_client.models import Distance, VectorParams
+from qdrant_client.models import Distance, Filter, FieldCondition, DatetimeRange, VectorParams
 
 from config.settings import settings
 from services.format_helper import format_analysis_result
@@ -1332,8 +1333,26 @@ class RAGEngine:
             logger.error(f"Error getting index stats: {str(e)}")
             return {"total_vectors": 0, "error": str(e)}
 
-    def explore_database(self, limit: int = 100, offset: int = 0, search_text: Optional[str] = None) -> dict[str, Any]:
-        """Explore documents in the vector database with pagination and search."""
+    def explore_database(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        search_text: Optional[str] = None,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+    ) -> dict[str, Any]:
+        """Explore documents in the vector database with pagination, search, and date filtering.
+
+        Args:
+            limit: Maximum number of points to retrieve
+            offset: Starting offset for pagination
+            search_text: Optional text to search for
+            date_from: Optional start date filter
+            date_to: Optional end date filter
+
+        Returns:
+            Dictionary containing documents and statistics
+        """
         try:
             # Get collection info
             collection_info = self.client.get_collection(self.collection_name)
@@ -1342,13 +1361,38 @@ class RAGEngine:
             if total_points == 0:
                 return {"documents": [], "total_count": 0, "unique_sources": [], "stats": {}}
 
-            # Retrieve points with pagination
+            # Build filter conditions for date range
+            filter_conditions = []
+
+            if date_from or date_to:
+                # Create date range filter
+                date_filter_conditions = []
+
+                if date_from:
+                    date_filter_conditions.append(
+                        FieldCondition(key="metadata.indexed_at", range=DatetimeRange(gte=date_from.isoformat()))
+                    )
+
+                if date_to:
+                    date_filter_conditions.append(
+                        FieldCondition(key="metadata.indexed_at", range=DatetimeRange(lte=date_to.isoformat()))
+                    )
+
+                filter_conditions.extend(date_filter_conditions)
+
+            # Create scroll filter if we have conditions
+            scroll_filter = None
+            if filter_conditions:
+                scroll_filter = Filter(must=filter_conditions)
+
+            # Retrieve points with pagination and filters
             # Note: Qdrant doesn't support traditional pagination, so we use scroll
             # Prende dal db
             points, next_offset = self.client.scroll(
                 collection_name=self.collection_name,
                 limit=limit,
                 offset=offset,
+                scroll_filter=scroll_filter,
                 with_payload=True,
                 with_vectors=False,  # Don't need vectors for exploration
             )
@@ -2228,3 +2272,294 @@ Genera SOLO le domande, una per riga, numerate da 1 a {num_questions}:
                     metadata={"source": Path(file_path).name, "type": "image_error", "error": str(e)},
                 )
             ]
+
+    def get_embeddings_statistics(self, sample_size: int = 100) -> dict[str, Any]:
+        """Get real embedding statistics from Qdrant.
+
+        Args:
+            sample_size: Number of vectors to sample for statistics
+
+        Returns:
+            Dictionary with embedding statistics
+        """
+        try:
+            # Get sample points with vectors
+            result = self.client.scroll(
+                collection_name=self.collection_name, limit=min(sample_size, 1000), with_vectors=True
+            )
+
+            if not result or not result[0]:
+                return {
+                    "error": "No vectors found",
+                    "mean": 0,
+                    "std": 0,
+                    "sparsity": 0,
+                    "density": 0,
+                    "dimension": settings.embedding_dimension,
+                }
+
+            points = result[0]
+            vectors = np.array([point.vector for point in points if point.vector])
+
+            if len(vectors) == 0:
+                return {
+                    "error": "No valid vectors found",
+                    "mean": 0,
+                    "std": 0,
+                    "sparsity": 0,
+                    "density": 0,
+                    "dimension": settings.embedding_dimension,
+                }
+
+            # Calculate statistics
+            mean_val = float(np.mean(vectors))
+            std_val = float(np.std(vectors))
+            sparsity = float(np.mean(vectors == 0))
+            density = float(np.mean(vectors != 0))
+
+            # Additional statistics
+            min_val = float(np.min(vectors))
+            max_val = float(np.max(vectors))
+            median_val = float(np.median(vectors))
+
+            return {
+                "mean": mean_val,
+                "std": std_val,
+                "sparsity": sparsity,
+                "density": density,
+                "min": min_val,
+                "max": max_val,
+                "median": median_val,
+                "dimension": vectors.shape[1] if len(vectors.shape) > 1 else settings.embedding_dimension,
+                "sample_size": len(vectors),
+                "distribution_data": vectors.flatten().tolist()[:1000],  # First 1000 values for histogram
+            }
+
+        except Exception as e:
+            logger.error(f"Error getting embeddings statistics: {str(e)}")
+            return {
+                "error": str(e),
+                "mean": 0,
+                "std": 0,
+                "sparsity": 0,
+                "density": 0,
+                "dimension": settings.embedding_dimension,
+            }
+
+    def calculate_document_similarity(self, doc1_name: str, doc2_name: str) -> float:
+        """Calculate cosine similarity between two documents using their embeddings.
+
+        Args:
+            doc1_name: Name of first document
+            doc2_name: Name of second document
+
+        Returns:
+            Cosine similarity score between 0 and 1
+        """
+        try:
+            # Get chunks for both documents
+            doc1_vectors = self._get_document_embeddings(doc1_name)
+            doc2_vectors = self._get_document_embeddings(doc2_name)
+
+            if doc1_vectors is None or doc2_vectors is None:
+                return 0.0
+
+            # Average the embeddings for each document
+            doc1_avg = np.mean(doc1_vectors, axis=0)
+            doc2_avg = np.mean(doc2_vectors, axis=0)
+
+            # Calculate cosine similarity
+            dot_product = np.dot(doc1_avg, doc2_avg)
+            norm1 = np.linalg.norm(doc1_avg)
+            norm2 = np.linalg.norm(doc2_avg)
+
+            if norm1 == 0 or norm2 == 0:
+                return 0.0
+
+            similarity = dot_product / (norm1 * norm2)
+            return float(similarity)
+
+        except Exception as e:
+            logger.error(f"Error calculating document similarity: {str(e)}")
+            return 0.0
+
+    def _get_document_embeddings(self, doc_name: str) -> Optional[np.ndarray]:
+        """Get all embeddings for a document.
+
+        Args:
+            doc_name: Document name
+
+        Returns:
+            Numpy array of embeddings or None
+        """
+        try:
+            # Search for all points belonging to this document
+            result = self.client.scroll(
+                collection_name=self.collection_name,
+                scroll_filter=Filter(must=[FieldCondition(key="metadata.source", match={"value": doc_name})]),
+                limit=1000,
+                with_vectors=True,
+            )
+
+            if not result or not result[0]:
+                return None
+
+            points = result[0]
+            vectors = [point.vector for point in points if point.vector]
+
+            if not vectors:
+                return None
+
+            return np.array(vectors)
+
+        except Exception as e:
+            logger.error(f"Error getting document embeddings: {str(e)}")
+            return None
+
+    def find_similar_documents(self, source_name: str, top_k: int = 5) -> List[Tuple[str, float]]:
+        """Find documents most similar to the given document.
+
+        Args:
+            source_name: Name of the source document
+            top_k: Number of similar documents to return
+
+        Returns:
+            List of tuples (document_name, similarity_score)
+        """
+        try:
+            # Get embeddings for source document
+            source_vectors = self._get_document_embeddings(source_name)
+
+            if source_vectors is None:
+                return []
+
+            # Average the embeddings
+            avg_embedding = np.mean(source_vectors, axis=0)
+
+            # Search for similar vectors
+            search_result = self.client.search(
+                collection_name=self.collection_name,
+                query_vector=avg_embedding.tolist(),
+                limit=top_k * 10,  # Get more to filter out same document
+            )
+
+            # Group by document and calculate similarities
+            doc_scores = {}
+            for point in search_result:
+                if point.payload and "metadata" in point.payload:
+                    doc_name = point.payload["metadata"].get("source", "Unknown")
+                    if doc_name != source_name:  # Exclude the source document itself
+                        if doc_name not in doc_scores:
+                            doc_scores[doc_name] = []
+                        doc_scores[doc_name].append(point.score)
+
+            # Average scores per document
+            doc_avg_scores = [(doc, np.mean(scores)) for doc, scores in doc_scores.items()]
+
+            # Sort by score and return top_k
+            doc_avg_scores.sort(key=lambda x: x[1], reverse=True)
+            return doc_avg_scores[:top_k]
+
+        except Exception as e:
+            logger.error(f"Error finding similar documents: {str(e)}")
+            return []
+
+    def get_document_similarity_matrix(
+        self, doc_names: Optional[List[str]] = None, max_docs: int = 10
+    ) -> Tuple[np.ndarray, List[str]]:
+        """Calculate similarity matrix between documents.
+
+        Args:
+            doc_names: List of document names (if None, use first max_docs)
+            max_docs: Maximum number of documents to compare
+
+        Returns:
+            Tuple of (similarity_matrix, document_names)
+        """
+        try:
+            # Get document list if not provided
+            if doc_names is None:
+                exploration = self.explore_database(limit=max_docs)
+                if not exploration.get("unique_sources"):
+                    return np.array([]), []
+                doc_names = [doc["name"] for doc in exploration["unique_sources"][:max_docs]]
+
+            n = len(doc_names)
+            similarity_matrix = np.zeros((n, n))
+
+            # Calculate pairwise similarities
+            for i in range(n):
+                for j in range(i, n):
+                    if i == j:
+                        similarity_matrix[i, j] = 1.0
+                    else:
+                        sim = self.calculate_document_similarity(doc_names[i], doc_names[j])
+                        similarity_matrix[i, j] = sim
+                        similarity_matrix[j, i] = sim  # Matrix is symmetric
+
+            return similarity_matrix, doc_names
+
+        except Exception as e:
+            logger.error(f"Error creating similarity matrix: {str(e)}")
+            return np.array([]), []
+
+    def reindex_documents_batch(
+        self, source_names: List[str], force_reindex: bool = True, progress_callback=None
+    ) -> dict[str, Any]:
+        """Reindex multiple documents in batch.
+
+        Args:
+            source_names: List of document source names to reindex
+            force_reindex: Whether to force reindexing even if document exists
+            progress_callback: Optional callback function for progress updates
+
+        Returns:
+            Dictionary with success and failed documents
+        """
+        results = {"success": [], "failed": [], "skipped": [], "total": len(source_names)}
+
+        for idx, source_name in enumerate(source_names):
+            try:
+                if progress_callback:
+                    progress_callback(idx / len(source_names), f"Processing {source_name}")
+
+                # Check if document exists
+                existing_chunks = self.get_document_chunks(source_name)
+
+                if not existing_chunks and not force_reindex:
+                    results["skipped"].append({"name": source_name, "reason": "Document not found"})
+                    continue
+
+                # If document exists and force_reindex is True, delete it first
+                if existing_chunks and force_reindex:
+                    # Backup metadata from first chunk
+                    metadata_backup = existing_chunks[0].get("metadata", {}) if existing_chunks else {}
+
+                    # Delete existing document
+                    delete_success = self.delete_document_by_source(source_name)
+
+                    if not delete_success:
+                        results["failed"].append({"name": source_name, "error": "Failed to delete existing document"})
+                        continue
+
+                    logger.info(f"Deleted existing document: {source_name}")
+
+                # Find the original file path (if available)
+                # This would need to be stored in metadata or provided separately
+                # For now, we'll mark it as needing manual re-upload
+                results["success"].append(
+                    {
+                        "name": source_name,
+                        "action": "deleted_for_reindex",
+                        "message": "Document deleted. Please re-upload the file.",
+                    }
+                )
+
+            except Exception as e:
+                logger.error(f"Error reindexing {source_name}: {str(e)}")
+                results["failed"].append({"name": source_name, "error": str(e)})
+
+        if progress_callback:
+            progress_callback(1.0, "Reindexing complete")
+
+        return results
