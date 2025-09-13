@@ -2094,36 +2094,53 @@ def show_database_explorer():
             if st.button("📈 Analizza Distribuzione Embeddings", key="analyze_distribution"):
                 with st.spinner("Analizzando distribuzione embeddings..."):
                     try:
-                        # Get sample embeddings for analysis
-                        exploration_data = rag_engine.explore_database(limit=100)
+                        # Get real embeddings statistics from Qdrant
+                        embedding_stats = rag_engine.get_embeddings_statistics(sample_size=200)
 
-                        if exploration_data.get("unique_sources"):
+                        if not embedding_stats.get("error"):
                             st.success("✅ Analisi completata")
 
-                            # Create mock distribution data (in real implementation, you'd calculate from actual embeddings)
-                            st.subheader("📊 Statistiche Embeddings")
+                            st.subheader("📊 Statistiche Embeddings Reali")
 
                             metrics_col1, metrics_col2, metrics_col3, metrics_col4 = st.columns(4)
                             with metrics_col1:
-                                st.metric("Dimensionalità", stats.get("vector_dimension", 1536))
+                                st.metric("Dimensionalità", embedding_stats.get("dimension", 0))
                             with metrics_col2:
-                                st.metric("Densità Media", f"{np.random.uniform(0.3, 0.7):.2%}")
+                                st.metric("Densità Media", f"{embedding_stats.get('density', 0):.2%}")
                             with metrics_col3:
-                                st.metric("Deviazione Std", f"{np.random.uniform(0.1, 0.3):.3f}")
+                                st.metric("Deviazione Std", f"{embedding_stats.get('std', 0):.3f}")
                             with metrics_col4:
-                                st.metric("Sparsità", f"{np.random.uniform(0.05, 0.15):.2%}")
+                                st.metric("Sparsità", f"{embedding_stats.get('sparsity', 0):.2%}")
 
-                            # Plot distribution histogram
+                            # Additional metrics
+                            st.subheader("📈 Metriche Avanzate")
+                            metrics_col1, metrics_col2, metrics_col3, metrics_col4 = st.columns(4)
+                            with metrics_col1:
+                                st.metric("Media", f"{embedding_stats.get('mean', 0):.4f}")
+                            with metrics_col2:
+                                st.metric("Mediana", f"{embedding_stats.get('median', 0):.4f}")
+                            with metrics_col3:
+                                st.metric("Min", f"{embedding_stats.get('min', 0):.4f}")
+                            with metrics_col4:
+                                st.metric("Max", f"{embedding_stats.get('max', 0):.4f}")
+
+                            # Plot real distribution histogram
                             st.subheader("📉 Distribuzione Valori Embedding")
-                            # Generate sample data for visualization
-                            sample_values = np.random.normal(0, 0.5, 1000)
-                            fig = px.histogram(
-                                x=sample_values,
-                                nbins=50,
-                                title="Distribuzione dei Valori negli Embeddings",
-                                labels={"x": "Valore", "y": "Frequenza"},
+                            if embedding_stats.get("distribution_data"):
+                                fig = px.histogram(
+                                    x=embedding_stats["distribution_data"],
+                                    nbins=50,
+                                    title=f"Distribuzione Reale dei Valori negli Embeddings (Sample: {embedding_stats.get('sample_size', 0)} vettori)",
+                                    labels={"x": "Valore", "y": "Frequenza"},
+                                )
+                                st.plotly_chart(fig, use_container_width=True)
+                            else:
+                                st.warning("Dati di distribuzione non disponibili")
+                        else:
+                            st.error(f"❌ Errore nell'analisi: {embedding_stats.get('error')}")
+                            st.info(
+                                "💡 Suggerimento: Carica alcuni documenti nella sezione 'RAG Documenti' per abilitare l'analisi embeddings"
                             )
-                            st.plotly_chart(fig, use_container_width=True)
 
                     except Exception as e:
                         st.error(f"❌ Errore nell'analisi: {str(e)}")
@@ -2185,35 +2202,48 @@ def show_database_explorer():
                     try:
                         st.subheader("⚠️ Outliers Rilevati")
 
-                        # Mock outlier detection
-                        exploration_data = rag_engine.explore_database(limit=50)
+                        # Real outlier detection using document similarity
+                        exploration_data = rag_engine.explore_database(limit=20)
                         docs = exploration_data.get("unique_sources", [])
 
-                        if docs:
-                            # Simulate outlier detection
-                            outliers = []
-                            for doc in docs[:5]:
-                                outlier_score = np.random.uniform(0.7, 0.95)
-                                if outlier_score > 0.8:
-                                    outliers.append(
-                                        {
-                                            "Documento": doc["name"][:40],
-                                            "Score Anomalia": f"{outlier_score:.2f}",
-                                            "Tipo": doc["file_type"],
-                                            "Azione": "Verifica manuale",
-                                        }
-                                    )
+                        if len(docs) >= 3:
+                            # Calculate similarity matrix for outlier detection
+                            doc_names = [doc["name"] for doc in docs[:10]]
+                            similarity_matrix, actual_doc_names = rag_engine.get_document_similarity_matrix(
+                                doc_names=doc_names, max_docs=10
+                            )
 
-                            if outliers:
-                                st.warning(f"🔍 Trovati {len(outliers)} potenziali outliers")
-                                st.dataframe(pd.DataFrame(outliers), use_container_width=True)
+                            if similarity_matrix.size > 0:
+                                # Find outliers as documents with consistently low similarity to others
+                                avg_similarities = np.mean(similarity_matrix, axis=1)
+                                threshold = np.mean(avg_similarities) - np.std(avg_similarities)
 
-                                st.info("💡 Gli outliers potrebbero indicare:")
-                                st.caption("• Documenti con contenuto molto diverso dagli altri")
-                                st.caption("• Possibili errori nell'indicizzazione")
-                                st.caption("• Documenti in lingua diversa o formato speciale")
+                                outliers = []
+                                for i, avg_sim in enumerate(avg_similarities):
+                                    if avg_sim < threshold:
+                                        outliers.append(
+                                            {
+                                                "Documento": actual_doc_names[i][:40],
+                                                "Score Similarità Media": f"{avg_sim:.3f}",
+                                                "Deviazione dalla Media": f"{avg_sim - np.mean(avg_similarities):.3f}",
+                                                "Azione": "Verifica contenuto",
+                                            }
+                                        )
+
+                                if outliers:
+                                    st.warning(f"🔍 Trovati {len(outliers)} potenziali outliers")
+                                    st.dataframe(pd.DataFrame(outliers), use_container_width=True)
+
+                                    st.info("💡 Gli outliers potrebbero indicare:")
+                                    st.caption("• Documenti con contenuto molto diverso dagli altri")
+                                    st.caption("• Possibili errori nell'indicizzazione")
+                                    st.caption("• Documenti in lingua diversa o formato speciale")
+                                else:
+                                    st.success("✅ Nessun outlier significativo rilevato")
                             else:
-                                st.success("✅ Nessun outlier significativo rilevato")
+                                st.warning("⚠️ Impossibile calcolare outliers - errore nella matrice di similarità")
+                        else:
+                            st.info("📄 Servono almeno 3 documenti per l'analisi outliers")
 
                     except Exception as e:
                         st.error(f"❌ Errore nella rilevazione outliers: {str(e)}")
@@ -2225,35 +2255,67 @@ def show_database_explorer():
         if st.button("🎨 Analizza Cluster di Documenti", key="analyze_clusters"):
             with st.spinner("Eseguendo clustering analysis..."):
                 try:
-                    # Mock clustering results
-                    st.success("✅ Clustering completato")
+                    exploration_data = rag_engine.explore_database(limit=20)
+                    docs = exploration_data.get("unique_sources", [])
 
-                    clusters_data = {
-                        "Cluster 1 - Finanziari": ["bilancio_2023.pdf", "report_q1.xlsx", "revenue_analysis.csv"],
-                        "Cluster 2 - Contratti": ["contratto_fornitura.pdf", "agreement_2024.docx"],
-                        "Cluster 3 - Presentazioni": ["investor_deck.pptx", "company_overview.pdf"],
-                        "Cluster 4 - Report": ["annual_report.pdf", "sustainability_report.pdf"],
-                    }
-
-                    col_cluster1, col_cluster2 = st.columns(2)
-
-                    with col_cluster1:
-                        st.markdown("### 📊 Cluster Identificati")
-                        for cluster_name, docs in clusters_data.items():
-                            with st.expander(f"{cluster_name} ({len(docs)} documenti)"):
-                                for doc in docs:
-                                    st.write(f"• {doc}")
-
-                    with col_cluster2:
-                        # Cluster size pie chart
-                        cluster_sizes = [len(docs) for docs in clusters_data.values()]
-                        cluster_names = list(clusters_data.keys())
-
-                        fig = px.pie(
-                            values=cluster_sizes, names=cluster_names, title="Distribuzione Documenti per Cluster"
+                    if len(docs) >= 4:
+                        # Real clustering based on similarity matrix
+                        doc_names = [doc["name"] for doc in docs[:15]]
+                        similarity_matrix, actual_doc_names = rag_engine.get_document_similarity_matrix(
+                            doc_names=doc_names, max_docs=15
                         )
-                        st.plotly_chart(fig, use_container_width=True)
 
+                        if similarity_matrix.size > 0:
+                            from sklearn.cluster import AgglomerativeClustering
+
+                            # Convert similarity to distance matrix
+                            distance_matrix = 1 - similarity_matrix
+
+                            # Perform hierarchical clustering
+                            n_clusters = min(4, len(actual_doc_names) // 2)  # Max 4 clusters
+                            clustering = AgglomerativeClustering(
+                                n_clusters=n_clusters, metric="precomputed", linkage="average"
+                            )
+                            cluster_labels = clustering.fit_predict(distance_matrix)
+
+                            st.success("✅ Clustering completato")
+
+                            # Group documents by cluster
+                            clusters_data = {}
+                            for i, label in enumerate(cluster_labels):
+                                cluster_name = f"Cluster {label + 1}"
+                                if cluster_name not in clusters_data:
+                                    clusters_data[cluster_name] = []
+                                clusters_data[cluster_name].append(actual_doc_names[i])
+
+                            col_cluster1, col_cluster2 = st.columns(2)
+
+                            with col_cluster1:
+                                st.markdown("### 📊 Cluster Identificati")
+                                for cluster_name, docs in clusters_data.items():
+                                    with st.expander(f"{cluster_name} ({len(docs)} documenti)"):
+                                        for doc in docs:
+                                            st.write(f"• {doc[:50]}{'...' if len(doc) > 50 else ''}")
+
+                            with col_cluster2:
+                                # Cluster size pie chart
+                                cluster_sizes = [len(docs) for docs in clusters_data.values()]
+                                cluster_names = list(clusters_data.keys())
+
+                                fig = px.pie(
+                                    values=cluster_sizes,
+                                    names=cluster_names,
+                                    title="Distribuzione Documenti per Cluster",
+                                )
+                                st.plotly_chart(fig, use_container_width=True)
+                        else:
+                            st.warning("⚠️ Impossibile eseguire clustering - errore nella matrice di similarità")
+                    else:
+                        st.info("📄 Servono almeno 4 documenti per il clustering")
+
+                except ImportError:
+                    st.error("❌ Libreria scikit-learn non disponibile per il clustering")
+                    st.info("💡 Installa con: pip install scikit-learn")
                 except Exception as e:
                     st.error(f"❌ Errore nel clustering: {str(e)}")
 
