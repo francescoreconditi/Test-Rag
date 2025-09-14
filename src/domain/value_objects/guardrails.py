@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, List
 
 
 class ValidationLevel(Enum):
@@ -52,11 +52,16 @@ class ValidationResult:
 
 @dataclass
 class FinancialGuardrails:
-    """Collection of financial validation rules."""
+    """Collection of financial validation rules with advanced dimensional coherence."""
 
     # Tolerance settings
     balance_tolerance: float = 0.01  # 1% tolerance for balance sheet
     ratio_tolerance: float = 0.05   # 5% tolerance for calculated ratios
+
+    # Dimensional coherence settings
+    enable_dimensional_coherence: bool = True
+    strict_mode: bool = False  # If True, validation failures block processing
+    coherence_rules_config: Optional[str] = None  # Path to custom rules YAML
 
     def validate_balance_sheet_coherence(self,
                                        attivo_totale: Optional[float],
@@ -638,3 +643,251 @@ class FinancialGuardrails:
         base_summary['validation_scope'] = list(categories.keys())
 
         return base_summary
+
+    # ===== ADVANCED DIMENSIONAL COHERENCE VALIDATIONS (NEW) =====
+
+    def validate_pl_coherence(self,
+                              ricavi: Optional[float],
+                              costi_operativi: Optional[float],
+                              ebitda: Optional[float],
+                              ammortamenti: Optional[float] = None,
+                              ebit: Optional[float] = None) -> List[ValidationResult]:
+        """Validate Profit & Loss statement coherence with multiple rules."""
+        results = []
+
+        # Rule 1: EBITDA should be less than Revenues
+        if ricavi and ebitda:
+            passed = ebitda < ricavi
+            results.append(ValidationResult(
+                rule_name="ebitda_revenue_coherence",
+                category=ValidationCategory.BUSINESS_LOGIC,
+                level=ValidationLevel.ERROR if not passed else ValidationLevel.INFO,
+                passed=passed,
+                message=f"EBITDA ({ebitda:,.0f}) deve essere < Ricavi ({ricavi:,.0f})",
+                expected_value=f"< {ricavi}",
+                actual_value=ebitda
+            ))
+
+        # Rule 2: Operating Margin coherence
+        if ricavi and costi_operativi:
+            expected_margin = ricavi - costi_operativi
+            if ebitda:
+                difference = abs(ebitda - expected_margin)
+                tolerance = abs(ricavi) * self.ratio_tolerance
+                passed = difference <= tolerance
+                results.append(ValidationResult(
+                    rule_name="operating_margin_calculation",
+                    category=ValidationCategory.ACCOUNTING_COHERENCE,
+                    level=ValidationLevel.WARNING if not passed else ValidationLevel.INFO,
+                    passed=passed,
+                    message=f"EBITDA calcolato vs dichiarato",
+                    expected_value=expected_margin,
+                    actual_value=ebitda,
+                    tolerance=tolerance
+                ))
+
+        # Rule 3: EBIT = EBITDA - D&A
+        if ebitda and ammortamenti and ebit:
+            expected_ebit = ebitda - ammortamenti
+            difference = abs(ebit - expected_ebit)
+            tolerance = abs(ebitda) * 0.02  # 2% tolerance
+            passed = difference <= tolerance
+            results.append(ValidationResult(
+                rule_name="ebit_calculation",
+                category=ValidationCategory.ACCOUNTING_COHERENCE,
+                level=ValidationLevel.WARNING if not passed else ValidationLevel.INFO,
+                passed=passed,
+                message=f"EBIT = EBITDA - Ammortamenti",
+                expected_value=expected_ebit,
+                actual_value=ebit,
+                tolerance=tolerance
+            ))
+
+        return results
+
+    def validate_ebitda_margin(self,
+                               ebitda: Optional[float],
+                               ricavi: Optional[float]) -> ValidationResult:
+        """Validate EBITDA margin is within reasonable bounds."""
+        if not ebitda or not ricavi or ricavi == 0:
+            return ValidationResult(
+                rule_name="ebitda_margin_check",
+                category=ValidationCategory.BUSINESS_LOGIC,
+                level=ValidationLevel.INFO,
+                passed=True,
+                message="Dati insufficienti per calcolare EBITDA margin"
+            )
+
+        margin = ebitda / ricavi
+
+        # EBITDA margin typically between -50% and +40%
+        passed = -0.5 <= margin <= 0.4
+        level = ValidationLevel.ERROR if margin > 1.0 or margin < -1.0 else \
+                ValidationLevel.WARNING if not passed else ValidationLevel.INFO
+
+        return ValidationResult(
+            rule_name="ebitda_margin_check",
+            category=ValidationCategory.BUSINESS_LOGIC,
+            level=level,
+            passed=passed,
+            message=f"EBITDA Margin: {margin:.1%}",
+            expected_value="Between -50% and 40%",
+            actual_value=f"{margin:.1%}",
+            tolerance=None
+        )
+
+    def validate_cash_flow_coherence(self,
+                                     cash_beginning: Optional[float],
+                                     cash_ending: Optional[float],
+                                     operating_cf: Optional[float],
+                                     investing_cf: Optional[float],
+                                     financing_cf: Optional[float]) -> ValidationResult:
+        """Validate cash flow statement coherence."""
+        if not all([cash_beginning is not None, cash_ending is not None,
+                   operating_cf is not None, investing_cf is not None,
+                   financing_cf is not None]):
+            return ValidationResult(
+                rule_name="cash_flow_coherence",
+                category=ValidationCategory.ACCOUNTING_COHERENCE,
+                level=ValidationLevel.INFO,
+                passed=True,
+                message="Dati insufficienti per validare coerenza cash flow"
+            )
+
+        total_cf = operating_cf + investing_cf + financing_cf
+        expected_ending = cash_beginning + total_cf
+        difference = abs(cash_ending - expected_ending)
+
+        # Tolerance: 0.1% of beginning cash or €1000, whichever is greater
+        tolerance = max(1000, abs(cash_beginning) * 0.001)
+        passed = difference <= tolerance
+
+        return ValidationResult(
+            rule_name="cash_flow_coherence",
+            category=ValidationCategory.ACCOUNTING_COHERENCE,
+            level=ValidationLevel.ERROR if not passed else ValidationLevel.INFO,
+            passed=passed,
+            message=f"Cash flow reconciliation",
+            expected_value=expected_ending,
+            actual_value=cash_ending,
+            tolerance=tolerance
+        )
+
+    def validate_cross_period_consistency(self,
+                                         current_value: float,
+                                         prior_value: float,
+                                         metric_name: str,
+                                         max_change_pct: float = 100.0) -> ValidationResult:
+        """Validate year-over-year or period-over-period consistency."""
+        if prior_value == 0:
+            change_pct = float('inf') if current_value != 0 else 0
+        else:
+            change_pct = ((current_value - prior_value) / abs(prior_value)) * 100
+
+        passed = abs(change_pct) <= max_change_pct
+        level = ValidationLevel.WARNING if not passed else ValidationLevel.INFO
+
+        return ValidationResult(
+            rule_name=f"{metric_name}_period_consistency",
+            category=ValidationCategory.PERIOD_CHECK,
+            level=level,
+            passed=passed,
+            message=f"{metric_name} variazione: {change_pct:+.1f}%",
+            expected_value=f"Max ±{max_change_pct}%",
+            actual_value=f"{change_pct:+.1f}%",
+            tolerance=max_change_pct
+        )
+
+    def validate_working_capital_coherence(self,
+                                          current_assets: Optional[float],
+                                          current_liabilities: Optional[float],
+                                          working_capital: Optional[float]) -> ValidationResult:
+        """Validate working capital calculation."""
+        if not all([current_assets is not None, current_liabilities is not None]):
+            return ValidationResult(
+                rule_name="working_capital_coherence",
+                category=ValidationCategory.ACCOUNTING_COHERENCE,
+                level=ValidationLevel.INFO,
+                passed=True,
+                message="Dati insufficienti per validare capitale circolante"
+            )
+
+        expected_wc = current_assets - current_liabilities
+
+        if working_capital is None:
+            # Just return calculated value as info
+            return ValidationResult(
+                rule_name="working_capital_coherence",
+                category=ValidationCategory.ACCOUNTING_COHERENCE,
+                level=ValidationLevel.INFO,
+                passed=True,
+                message=f"Capitale Circolante calcolato: {expected_wc:,.0f}",
+                expected_value=expected_wc,
+                actual_value=None
+            )
+
+        difference = abs(working_capital - expected_wc)
+        tolerance = max(1000, abs(expected_wc) * 0.01)  # 1% tolerance
+        passed = difference <= tolerance
+
+        return ValidationResult(
+            rule_name="working_capital_coherence",
+            category=ValidationCategory.ACCOUNTING_COHERENCE,
+            level=ValidationLevel.WARNING if not passed else ValidationLevel.INFO,
+            passed=passed,
+            message="Capitale Circolante coerenza",
+            expected_value=expected_wc,
+            actual_value=working_capital,
+            tolerance=tolerance
+        )
+
+    def run_dimensional_coherence_validation(self, financial_data: dict[str, Any]) -> List[ValidationResult]:
+        """Run all dimensional coherence validations on financial data."""
+        if not self.enable_dimensional_coherence:
+            return []
+
+        results = []
+
+        # P&L validations
+        pl_results = self.validate_pl_coherence(
+            financial_data.get('ricavi'),
+            financial_data.get('costi_operativi'),
+            financial_data.get('ebitda'),
+            financial_data.get('ammortamenti'),
+            financial_data.get('ebit')
+        )
+        results.extend(pl_results)
+
+        # EBITDA Margin validation
+        if 'ebitda' in financial_data and 'ricavi' in financial_data:
+            results.append(self.validate_ebitda_margin(
+                financial_data.get('ebitda'),
+                financial_data.get('ricavi')
+            ))
+
+        # Cash Flow validation
+        if all(k in financial_data for k in ['cash_beginning', 'cash_ending',
+                                              'operating_cf', 'investing_cf', 'financing_cf']):
+            results.append(self.validate_cash_flow_coherence(
+                financial_data.get('cash_beginning'),
+                financial_data.get('cash_ending'),
+                financial_data.get('operating_cf'),
+                financial_data.get('investing_cf'),
+                financial_data.get('financing_cf')
+            ))
+
+        # Working Capital validation
+        if 'current_assets' in financial_data and 'current_liabilities' in financial_data:
+            results.append(self.validate_working_capital_coherence(
+                financial_data.get('current_assets'),
+                financial_data.get('current_liabilities'),
+                financial_data.get('working_capital')
+            ))
+
+        # Check if strict mode should block processing
+        if self.strict_mode:
+            errors = [r for r in results if r.level == ValidationLevel.ERROR]
+            if errors:
+                raise ValueError(f"Dimensional coherence validation failed with {len(errors)} errors in strict mode")
+
+        return results

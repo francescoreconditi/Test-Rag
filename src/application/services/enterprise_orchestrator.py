@@ -89,7 +89,13 @@ class EnterpriseOrchestrator:
             self.fact_table_repo = FactTableRepository(db_path=fact_table_path)
         else:
             self.fact_table_repo = None
-        self.guardrails = FinancialGuardrails()
+
+        # Initialize Financial Guardrails with Dimensional Coherence enabled
+        self.guardrails = FinancialGuardrails(
+            enable_dimensional_coherence=True,
+            strict_mode=False,  # Can be enabled for critical applications
+            coherence_rules_config=None  # Use default rules
+        )
 
         # Initialize new parsers
         self.excel_parser = ExcelParser()
@@ -329,17 +335,23 @@ class EnterpriseOrchestrator:
             # Run validation rules
             validation_results = []
 
-            # Balance sheet validation
+            # Standard validations
             bs_validation = self.guardrails.validate_balance_sheet(validation_data)
             validation_results.append(bs_validation)
 
-            # PFN coherence
             pfn_validation = self.guardrails.validate_pfn_coherence_from_data(validation_data)
             validation_results.append(pfn_validation)
 
-            # Margin coherence
             margin_validation = self.guardrails.validate_margin_coherence(validation_data)
             validation_results.append(margin_validation)
+
+            # NEW: Advanced Dimensional Coherence validations
+            dimensional_results = self.guardrails.run_dimensional_coherence_validation(validation_data)
+            validation_results.extend(dimensional_results)
+
+            # Comprehensive validation with domain-specific rules
+            comprehensive_results = self.guardrails.validate_comprehensive(validation_data)
+            validation_results.extend(comprehensive_results)
 
             result.validation_results = validation_results
 
