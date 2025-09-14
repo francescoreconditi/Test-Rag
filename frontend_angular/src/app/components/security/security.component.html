@@ -1,0 +1,333 @@
+<!-- Security Dashboard Component Template -->
+<div class="security-container">
+  <!-- Header -->
+  <header class="security-header">
+    <div class="header-content">
+      <div class="title-section">
+        <h1>🛡️ Security Dashboard</h1>
+        <p>Manage users, roles, and security settings</p>
+      </div>
+
+      <div class="header-actions">
+        <button class="create-user-btn" (click)="createUser()">
+          👤 Create User
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Error Alert -->
+  <div class="error-alert" *ngIf="error">
+    <p>❌ {{ error }}</p>
+    <button (click)="clearError()">✕</button>
+  </div>
+
+  <!-- Loading State -->
+  <div class="loading-container" *ngIf="isLoading">
+    <div class="loading-spinner">🔄</div>
+    <p>Loading security data...</p>
+  </div>
+
+  <!-- Security Content -->
+  <div class="security-content" *ngIf="!isLoading">
+
+    <!-- Security Metrics -->
+    <section class="metrics-section">
+      <h2>📊 Security Overview</h2>
+
+      <div class="metrics-grid" *ngIf="securityMetrics">
+        <!-- Total Users -->
+        <div class="metric-card users">
+          <div class="metric-icon">👥</div>
+          <div class="metric-content">
+            <h3>Total Users</h3>
+            <div class="metric-value">{{ securityMetrics.totalUsers }}</div>
+            <div class="metric-detail">{{ securityMetrics.activeUsers }} active</div>
+          </div>
+        </div>
+
+        <!-- Failed Logins -->
+        <div class="metric-card failed-logins">
+          <div class="metric-icon">🚫</div>
+          <div class="metric-content">
+            <h3>Failed Logins (24h)</h3>
+            <div class="metric-value">{{ securityMetrics.failedLogins24h }}</div>
+            <div class="metric-detail">Security incidents</div>
+          </div>
+        </div>
+
+        <!-- Security Events -->
+        <div class="metric-card events">
+          <div class="metric-icon">⚠️</div>
+          <div class="metric-content">
+            <h3>Security Events (24h)</h3>
+            <div class="metric-value">{{ securityMetrics.securityEvents24h }}</div>
+            <div class="metric-detail">Alerts & warnings</div>
+          </div>
+        </div>
+
+        <!-- Top Tenants -->
+        <div class="metric-card tenants">
+          <div class="metric-icon">🏢</div>
+          <div class="metric-content">
+            <h3>Top Tenant</h3>
+            <div class="metric-value">{{ securityMetrics.topTenants[0] && securityMetrics.topTenants[0].name || 'N/A' }}</div>
+            <div class="metric-detail">{{ (securityMetrics.topTenants[0] && securityMetrics.topTenants[0].userCount || 0) }} users</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- User Management -->
+    <section class="users-section">
+      <div class="section-header">
+        <h2>👥 User Management</h2>
+
+        <!-- Filters -->
+        <div class="user-filters">
+          <input
+            type="text"
+            placeholder="Search users..."
+            [(ngModel)]="userFilter"
+            class="search-input"
+          />
+
+          <select [(ngModel)]="roleFilter" class="filter-select">
+            <option value="all">All Roles</option>
+            <option *ngFor="let role of userRoles" [value]="role">
+              {{ role | titlecase }}
+            </option>
+          </select>
+
+          <select [(ngModel)]="statusFilter" class="filter-select">
+            <option value="all">All Status</option>
+            <option value="active">Active Only</option>
+            <option value="inactive">Inactive Only</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Users Table -->
+      <div class="users-table-container">
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>User</th>
+              <th>Role</th>
+              <th>Tenant</th>
+              <th>Last Login</th>
+              <th>Login Attempts</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let user of getFilteredUsers()" [class.inactive]="!user.is_active">
+              <td>
+                <span class="status-indicator">{{ getUserStatusIcon(user) }}</span>
+              </td>
+              <td>
+                <div class="user-info">
+                  <div class="user-email">{{ user.email }}</div>
+                  <div class="user-created">
+                    Created {{ formatTimeAgo(user.created_at) }}
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="role-badge" [class]="getRoleBadgeClass(user.role)">
+                  {{ user.role | titlecase }}
+                </span>
+              </td>
+              <td>{{ user.tenant_name }}</td>
+              <td>
+                <span *ngIf="user.last_login">
+                  {{ formatTimeAgo(user.last_login) }}
+                </span>
+                <span *ngIf="!user.last_login" class="never-logged-in">
+                  Never
+                </span>
+              </td>
+              <td>
+                <span class="login-attempts" [class.high]="user.login_attempts >= 3">
+                  {{ user.login_attempts }}
+                </span>
+              </td>
+              <td>
+                <div class="user-actions">
+                  <button
+                    class="action-btn edit-btn"
+                    (click)="editUser(user)"
+                    title="Edit User"
+                  >
+                    ✏️
+                  </button>
+
+                  <button
+                    class="action-btn toggle-btn"
+                    (click)="toggleUserStatus(user)"
+                    [title]="user.is_active ? 'Deactivate User' : 'Activate User'"
+                  >
+                    {{ user.is_active ? '🔒' : '🔓' }}
+                  </button>
+
+                  <button
+                    class="action-btn reset-btn"
+                    (click)="resetLoginAttempts(user)"
+                    title="Reset Login Attempts"
+                    *ngIf="user.login_attempts > 0"
+                  >
+                    🔄
+                  </button>
+
+                  <button
+                    class="action-btn delete-btn"
+                    (click)="deleteUser(user)"
+                    title="Delete User"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Empty State -->
+        <div class="empty-users" *ngIf="getFilteredUsers().length === 0">
+          <div class="empty-icon">👥</div>
+          <h3>No Users Found</h3>
+          <p>No users match your current filters</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Audit Logs -->
+    <section class="audit-section">
+      <div class="section-header">
+        <h2>📋 Audit Logs</h2>
+
+        <button class="export-btn" (click)="exportAuditLogs()">
+          📊 Export Logs
+        </button>
+      </div>
+
+      <div class="audit-logs-container">
+        <div
+          class="audit-log-item"
+          *ngFor="let log of auditLogs.slice(0, 10)"
+          [class]="getAuditStatusClass(log.status)"
+        >
+          <div class="audit-icon">{{ getAuditActionIcon(log.action) }}</div>
+
+          <div class="audit-content">
+            <div class="audit-primary">
+              <span class="audit-action">{{ log.action }}</span>
+              <span class="audit-resource">{{ log.resource }}</span>
+              <span class="audit-user">{{ log.user_email }}</span>
+            </div>
+            <div class="audit-secondary">
+              <span class="audit-time">{{ log.timestamp | date:'short' }}</span>
+              <span class="audit-ip">{{ log.ip_address }}</span>
+              <span class="audit-status">{{ log.status | titlecase }}</span>
+            </div>
+          </div>
+
+          <div class="audit-details" *ngIf="log.details">
+            <button
+              class="details-btn"
+              (click)="showDetails = showDetails === log.id ? null : log.id"
+            >
+              {{ showDetails === log.id ? '➖' : '➕' }}
+            </button>
+            <div class="details-content" *ngIf="showDetails === log.id">
+              <pre>{{ log.details | json }}</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Security Events -->
+    <section class="events-section" *ngIf="securityEvents.length > 0">
+      <h2>⚠️ Recent Security Events</h2>
+
+      <div class="security-events-container">
+        <div
+          class="security-event-item"
+          *ngFor="let event of securityEvents"
+        >
+          <div class="event-icon">🚨</div>
+
+          <div class="event-content">
+            <div class="event-type">{{ event.event_type }}</div>
+            <div class="event-details">
+              <span>IP: {{ event.ip_address }}</span>
+              <span>{{ formatTimeAgo(event.timestamp) }}</span>
+            </div>
+          </div>
+
+          <div class="event-severity" [class]="'severity-' + (event.event_type.includes('Failed') ? 'high' : 'medium')">
+            {{ event.event_type.includes('Failed') ? 'HIGH' : 'MEDIUM' }}
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<!-- User Modal -->
+<div class="modal-overlay" *ngIf="showUserModal" (click)="closeUserModal()">
+  <div class="user-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>{{ selectedUser ? 'Edit User' : 'Create New User' }}</h3>
+      <button class="close-btn" (click)="closeUserModal()">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <form (ngSubmit)="saveUser()">
+        <div class="form-group">
+          <label for="userEmail">Email Address:</label>
+          <input
+            type="email"
+            id="userEmail"
+            [(ngModel)]="editingUser.email"
+            name="email"
+            required
+            [disabled]="!!selectedUser"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="userRole">Role:</label>
+          <select id="userRole" [(ngModel)]="editingUser.role" name="role" required>
+            <option *ngFor="let role of userRoles" [value]="role">
+              {{ role | titlecase }}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input
+              type="checkbox"
+              [(ngModel)]="editingUser.is_active"
+              name="isActive"
+            />
+            Active User
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="cancel-btn" (click)="closeUserModal()">
+            Cancel
+          </button>
+          <button type="submit" class="save-btn">
+            {{ selectedUser ? 'Update User' : 'Create User' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

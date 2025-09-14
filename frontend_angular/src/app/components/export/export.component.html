@@ -1,0 +1,245 @@
+<!-- Export Component Template -->
+<div class="export-container">
+  <!-- Header -->
+  <header class="export-header">
+    <div class="header-content">
+      <div class="title-section">
+        <h1>📊 Export & Reports</h1>
+        <p>Generate and download professional reports in multiple formats</p>
+      </div>
+
+      <div class="header-actions">
+        <button class="history-btn" (click)="toggleHistory()">
+          📋 Export History
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Success Alert -->
+  <div class="success-alert" *ngIf="success">
+    <p>✅ {{ success }}</p>
+    <button (click)="clearSuccess()">✕</button>
+  </div>
+
+  <!-- Error Alert -->
+  <div class="error-alert" *ngIf="error">
+    <p>❌ {{ error }}</p>
+    <button (click)="clearError()">✕</button>
+  </div>
+
+  <!-- Export Templates -->
+  <section class="templates-section">
+    <h2>📋 Export Templates</h2>
+
+    <div class="templates-grid">
+      <div
+        class="template-card"
+        *ngFor="let template of availableTemplates"
+        [class.selected]="selectedTemplate?.id === template.id"
+        (click)="selectTemplate(template)"
+      >
+        <div class="template-header">
+          <div class="template-icon">{{ getFormatIcon(template.format) }}</div>
+          <div class="template-info">
+            <h3>{{ template.name }}</h3>
+            <p>{{ template.description }}</p>
+          </div>
+          <div class="template-format">{{ template.format.toUpperCase() }}</div>
+        </div>
+
+        <div class="template-features" *ngIf="selectedTemplate?.id === template.id">
+          <div class="feature-list">
+            <div class="feature" *ngIf="template.options.includeMetadata">
+              ✅ System Metadata
+            </div>
+            <div class="feature" *ngIf="template.options.includeValidation">
+              ✅ Validation Results
+            </div>
+            <div class="feature" *ngIf="template.options.includeSourceRefs">
+              ✅ Source References
+            </div>
+            <div class="feature" *ngIf="template.options.queryHistory">
+              ✅ Query History
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Export Options -->
+  <section class="options-section" *ngIf="selectedTemplate">
+    <h2>⚙️ Export Options</h2>
+
+    <div class="options-card">
+      <div class="options-grid">
+        <!-- Basic Options -->
+        <div class="option-group">
+          <h3>📊 Content Options</h3>
+
+          <label class="checkbox-label">
+            <input
+              type="checkbox"
+              [(ngModel)]="exportOptions.includeMetadata"
+            />
+            Include System Metadata
+          </label>
+
+          <label class="checkbox-label">
+            <input
+              type="checkbox"
+              [(ngModel)]="exportOptions.includeValidation"
+            />
+            Include Validation Results
+          </label>
+
+          <label class="checkbox-label">
+            <input
+              type="checkbox"
+              [(ngModel)]="exportOptions.includeSourceRefs"
+            />
+            Include Source References
+          </label>
+
+          <label class="checkbox-label" *ngIf="hasEnterpriseAccess()">
+            <input
+              type="checkbox"
+              [(ngModel)]="exportOptions.queryHistory"
+            />
+            Include Query History
+          </label>
+        </div>
+
+        <!-- Date Range Filter -->
+        <div class="option-group">
+          <h3>📅 Date Range (Optional)</h3>
+
+          <div class="date-range">
+            <div class="date-input">
+              <label>From:</label>
+              <input
+                type="date"
+                [ngModel]="exportOptions.dateRange?.start | date:'yyyy-MM-dd'"
+                (ngModelChange)="onStartDateChange($event)"
+              />
+            </div>
+
+            <div class="date-input">
+              <label>To:</label>
+              <input
+                type="date"
+                [ngModel]="exportOptions.dateRange?.end | date:'yyyy-MM-dd'"
+                (ngModelChange)="onEndDateChange($event)"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Document Type Filter -->
+        <div class="option-group">
+          <h3>📄 Document Types (Optional)</h3>
+
+          <div class="document-types">
+            <label
+              class="checkbox-label"
+              *ngFor="let docType of availableDocumentTypes"
+            >
+              <input
+                type="checkbox"
+                [value]="docType"
+                (change)="onDocumentTypeChange($event)"
+              />
+              {{ docType }} Documents
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Export Action -->
+  <section class="export-action" *ngIf="selectedTemplate">
+    <div class="action-card">
+      <div class="action-header">
+        <h2>🚀 Generate Export</h2>
+        <p>Ready to generate <strong>{{ selectedTemplate.name }}</strong> in {{ selectedTemplate.format.toUpperCase() }} format</p>
+      </div>
+
+      <!-- Export Progress -->
+      <div class="export-progress" *ngIf="isExporting">
+        <div class="progress-info">
+          <span>Generating export...</span>
+          <span>{{ exportProgress }}%</span>
+        </div>
+        <div class="progress-bar">
+          <div
+            class="progress-fill"
+            [style.width.%]="exportProgress"
+          ></div>
+        </div>
+      </div>
+
+      <!-- Export Button -->
+      <button
+        class="export-btn"
+        (click)="exportReport()"
+        [disabled]="isExporting"
+      >
+        <span *ngIf="!isExporting">📊 Generate & Download</span>
+        <span *ngIf="isExporting">🔄 Generating...</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- Export History -->
+  <section class="history-section" *ngIf="showHistory">
+    <h2>📋 Export History</h2>
+
+    <div class="history-card" *ngIf="exportHistory.length > 0; else noHistory">
+      <div
+        class="history-item"
+        *ngFor="let item of exportHistory"
+      >
+        <div class="history-icon">
+          {{ getFormatIcon(item.format) }}
+          <span class="history-status">{{ getStatusIcon(item.status) }}</span>
+        </div>
+
+        <div class="history-info">
+          <div class="history-name">{{ item.filename }}</div>
+          <div class="history-meta">
+            <span class="history-date">{{ item.createdAt | date:'short' }}</span>
+            <span class="history-size">{{ formatFileSize(item.size) }}</span>
+            <span class="history-downloads">{{ item.downloadCount }} downloads</span>
+          </div>
+        </div>
+
+        <div class="history-actions">
+          <button
+            class="action-btn download-btn"
+            (click)="downloadFromHistory(item)"
+            [disabled]="item.status !== 'completed'"
+          >
+            💾 Download
+          </button>
+
+          <button
+            class="action-btn delete-btn"
+            (click)="deleteFromHistory(item)"
+          >
+            🗑️ Delete
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <ng-template #noHistory>
+      <div class="no-history">
+        <div class="no-history-icon">📁</div>
+        <h3>No Export History</h3>
+        <p>Generate your first export to see it here</p>
+      </div>
+    </ng-template>
+  </section>
+</div>
