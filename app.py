@@ -17,6 +17,8 @@ from config.settings import settings
 from services.csv_analyzer import CSVAnalyzer
 from services.llm_service import LLMService
 from services.rag_engine import RAGEngine
+from components.security_ui import security_ui, require_authentication, init_security_session
+from services.secure_rag_engine import SecureRAGEngine
 
 # Page configuration
 st.set_page_config(
@@ -259,13 +261,44 @@ def show_intelligent_faq():
 
 def main():
     """Main application function."""
-
-    # Check authentication
-    if "tenant_context" not in st.session_state:
-        st.warning("🔐 Please login first to access the application")
-        if st.button("Go to Login Page"):
-            st.switch_page("pages/00_🔐_Login.py")
+    
+    # Initialize security session
+    init_security_session()
+    
+    # Check for RLS authentication first
+    if st.session_state.get('show_login', True) or not st.session_state.get('authenticated', False):
+        if security_ui.render_login_form():
+            st.rerun()
         return
+    
+    # Add user info to sidebar
+    security_ui.render_user_info_sidebar()
+
+    # Ensure tenant context exists (created during login)
+    if "tenant_context" not in st.session_state:
+        # Create default tenant context for users without specific tenant
+        user_context = st.session_state.get('user_context')
+        if user_context:
+            from src.core.security.multi_tenant_manager import MultiTenantManager
+            from src.domain.entities.tenant_context import TenantTier
+
+            manager = MultiTenantManager()
+            tenant_id = user_context.tenant_id or "default"
+
+            # Get or create tenant
+            tenant = manager.get_tenant(tenant_id)
+            if not tenant:
+                tenant = manager.create_tenant(
+                    tenant_id=tenant_id,
+                    company_name=f"Organization {tenant_id}",
+                    tier=TenantTier.PREMIUM,
+                    admin_email=f"{user_context.username}@company.com"
+                )
+
+            st.session_state.tenant_context = tenant
+        else:
+            st.error("❌ Session error. Please login again.")
+            st.stop()
 
     # Get tenant context
     tenant = st.session_state.tenant_context
@@ -283,6 +316,12 @@ def main():
         with st.spinner("Initializing tenant services..."):
             st.session_state.services = init_services(tenant.tenant_id)
             st.session_state.current_tenant_id = tenant.tenant_id
+    
+    # Initialize or update secure RAG engine with current user context
+    if "secure_rag_engine" not in st.session_state:
+        user_context = st.session_state.get('user_context')
+        if user_context:
+            st.session_state.secure_rag_engine = SecureRAGEngine(user_context)
 
     if "csv_analysis" not in st.session_state:
         st.session_state.csv_analysis = None

@@ -10,24 +10,27 @@ import streamlit as st
 # Import our services
 try:
     from src.application.services.document_preview import DocumentPreviewService
+
     SERVICES_AVAILABLE = True
 except ImportError:
     SERVICES_AVAILABLE = False
     st.error("Document preview services not available.")
+
 
 def display_file_info(file_info):
     """Display file information in a nice format."""
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.metric("File Size", file_info['size_formatted'])
+        st.metric("File Size", file_info["size_formatted"])
 
     with col2:
-        st.metric("File Type", file_info['extension'].upper())
+        st.metric("File Type", file_info["extension"].upper())
 
     with col3:
-        modified_date = datetime.fromisoformat(file_info['modified']).strftime('%Y-%m-%d %H:%M')
+        modified_date = datetime.fromisoformat(file_info["modified"]).strftime("%Y-%m-%d %H:%M")
         st.metric("Modified", modified_date)
+
 
 def display_thumbnails(thumbnails):
     """Display document thumbnails."""
@@ -45,47 +48,48 @@ def display_thumbnails(thumbnails):
 
         with cols[col_idx]:
             st.markdown(f"**Page {thumb['page']}**")
-            st.image(thumb['thumbnail'], width='stretch')
+            st.image(thumb["thumbnail"], width="stretch")
+
 
 def display_statistics(statistics):
     """Display document statistics."""
     st.subheader("📊 Document Statistics")
 
-    if 'error' in statistics:
+    if "error" in statistics:
         st.error(f"Error: {statistics['error']}")
         return
 
     # Create expandable sections for different types of statistics
-    if 'total_pages' in statistics:
+    if "total_pages" in statistics:
         # PDF statistics
         col1, col2, col3 = st.columns(3)
 
         with col1:
-            st.metric("Total Pages", statistics['total_pages'])
+            st.metric("Total Pages", statistics["total_pages"])
 
         with col2:
-            st.metric("Previewed Pages", statistics.get('previewed_pages', 0))
+            st.metric("Previewed Pages", statistics.get("previewed_pages", 0))
 
         with col3:
-            has_text = "✅" if statistics.get('has_text', False) else "❌"
+            has_text = "✅" if statistics.get("has_text", False) else "❌"
             st.metric("Has Text Content", has_text)
 
         # Metadata
-        if 'metadata' in statistics and statistics['metadata']:
+        if "metadata" in statistics and statistics["metadata"]:
             with st.expander("📋 Document Metadata"):
-                for key, value in statistics['metadata'].items():
+                for key, value in statistics["metadata"].items():
                     if value:
                         st.write(f"**{key.replace('_', ' ').title()}**: {value}")
 
-    elif 'total_sheets' in statistics:
+    elif "total_sheets" in statistics:
         # Excel statistics
         col1, col2 = st.columns(2)
 
         with col1:
-            st.metric("Total Sheets", statistics['total_sheets'])
+            st.metric("Total Sheets", statistics["total_sheets"])
 
         with col2:
-            sheet_names = statistics.get('sheet_names', [])
+            sheet_names = statistics.get("sheet_names", [])
             st.metric("Available Sheets", len(sheet_names))
 
         if sheet_names:
@@ -95,52 +99,53 @@ def display_statistics(statistics):
 
         # Individual sheet statistics
         for key, value in statistics.items():
-            if key.startswith('sheet_') and isinstance(value, dict):
-                sheet_name = key.replace('sheet_', '')
+            if key.startswith("sheet_") and isinstance(value, dict):
+                sheet_name = key.replace("sheet_", "")
                 with st.expander(f"📊 {sheet_name} Details"):
                     col1, col2 = st.columns(2)
                     with col1:
-                        st.metric("Rows", value.get('rows', 0))
-                        st.metric("Numeric Columns", value.get('numeric_columns', 0))
+                        st.metric("Rows", value.get("rows", 0))
+                        st.metric("Numeric Columns", value.get("numeric_columns", 0))
                     with col2:
-                        st.metric("Columns", value.get('columns', 0))
-                        st.metric("Text Columns", value.get('text_columns', 0))
+                        st.metric("Columns", value.get("columns", 0))
+                        st.metric("Text Columns", value.get("text_columns", 0))
 
-    elif 'total_rows' in statistics:
+    elif "total_rows" in statistics:
         # CSV statistics
         col1, col2, col3, col4 = st.columns(4)
 
         with col1:
-            st.metric("Total Rows", statistics['total_rows'])
+            st.metric("Total Rows", statistics["total_rows"])
 
         with col2:
-            st.metric("Total Columns", statistics['total_columns'])
+            st.metric("Total Columns", statistics["total_columns"])
 
         with col3:
-            st.metric("Numeric Columns", statistics.get('numeric_columns', 0))
+            st.metric("Numeric Columns", statistics.get("numeric_columns", 0))
 
         with col4:
-            st.metric("Text Columns", statistics.get('text_columns', 0))
+            st.metric("Text Columns", statistics.get("text_columns", 0))
 
         # Null values
-        null_values = statistics.get('null_values', {})
+        null_values = statistics.get("null_values", {})
         if null_values:
             with st.expander("🔍 Data Quality - Null Values"):
-                null_df = pd.DataFrame(list(null_values.items()), columns=['Column', 'Null Count'])
-                st.dataframe(null_df, width='stretch')
+                null_df = pd.DataFrame(list(null_values.items()), columns=["Column", "Null Count"])
+                st.dataframe(null_df, width="stretch")
 
-    elif 'format' in statistics:
+    elif "format" in statistics:
         # Image statistics
         col1, col2, col3 = st.columns(3)
 
         with col1:
-            st.metric("Format", statistics['format'])
+            st.metric("Format", statistics["format"])
 
         with col2:
-            st.metric("Mode", statistics['mode'])
+            st.metric("Mode", statistics["mode"])
 
         with col3:
-            st.metric("Size", statistics['size'])
+            st.metric("Size", statistics["size"])
+
 
 def display_key_metrics(key_metrics):
     """Display extracted key metrics."""
@@ -159,7 +164,7 @@ def display_key_metrics(key_metrics):
         for i, (metric, value) in enumerate(simple_metrics.items()):
             col_idx = i % 3
             with cols[col_idx]:
-                metric_name = metric.replace('_', ' ').title()
+                metric_name = metric.replace("_", " ").title()
                 st.metric(metric_name, value)
 
     # Complex metrics (with statistics)
@@ -174,22 +179,23 @@ def display_key_metrics(key_metrics):
                     col1, col2, col3, col4 = st.columns(4)
 
                     with col1:
-                        if 'min' in stats and stats['min'] is not None:
+                        if "min" in stats and stats["min"] is not None:
                             st.write(f"Min: {stats['min']:,.2f}")
 
                     with col2:
-                        if 'max' in stats and stats['max'] is not None:
+                        if "max" in stats and stats["max"] is not None:
                             st.write(f"Max: {stats['max']:,.2f}")
 
                     with col3:
-                        if 'mean' in stats and stats['mean'] is not None:
+                        if "mean" in stats and stats["mean"] is not None:
                             st.write(f"Avg: {stats['mean']:,.2f}")
 
                     with col4:
-                        if 'count' in stats:
+                        if "count" in stats:
                             st.write(f"Count: {stats['count']}")
 
                 st.write("---")
+
 
 def main():
     st.set_page_config(page_title="Document Preview", page_icon="🔍", layout="wide")
@@ -202,7 +208,7 @@ def main():
         st.stop()
 
     # Initialize preview service
-    if 'preview_service' not in st.session_state:
+    if "preview_service" not in st.session_state:
         st.session_state.preview_service = DocumentPreviewService()
 
     preview_service = st.session_state.preview_service
@@ -213,11 +219,7 @@ def main():
     with col1:
         st.subheader("📁 Select Document Source")
 
-        source_method = st.radio(
-            "Choose method:",
-            ["Upload File", "Select from Documents Folder"],
-            horizontal=True
-        )
+        source_method = st.radio("Choose method:", ["Upload File", "Select from Documents Folder"], horizontal=True)
 
     with col2:
         st.subheader("⚙️ Preview Settings")
@@ -227,7 +229,7 @@ def main():
             "Thumbnail size",
             [("Small", (150, 150)), ("Medium", (200, 200)), ("Large", (300, 300))],
             index=1,
-            format_func=lambda x: x[0]
+            format_func=lambda x: x[0],
         )[1]
 
     selected_file = None
@@ -237,8 +239,8 @@ def main():
 
         uploaded_file = st.file_uploader(
             "Choose a file",
-            type=['pdf', 'xlsx', 'xls', 'csv', 'txt', 'md', 'json', 'png', 'jpg', 'jpeg'],
-            help="Supported formats: PDF, Excel, CSV, Text, Markdown, JSON, Images"
+            type=["pdf", "xlsx", "xls", "csv", "txt", "md", "json", "png", "jpg", "jpeg"],
+            help="Supported formats: PDF, Excel, CSV, Text, Markdown, JSON, Images",
         )
 
         if uploaded_file is not None:
@@ -261,15 +263,11 @@ def main():
 
         if docs_folder.exists():
             doc_files = []
-            for ext in ['*.pdf', '*.xlsx', '*.xls', '*.csv', '*.txt', '*.md', '*.json']:
+            for ext in ["*.pdf", "*.xlsx", "*.xls", "*.csv", "*.txt", "*.md", "*.json"]:
                 doc_files.extend(docs_folder.glob(ext))
 
             if doc_files:
-                selected_path = st.selectbox(
-                    "Available documents:",
-                    doc_files,
-                    format_func=lambda x: x.name
-                )
+                selected_path = st.selectbox("Available documents:", doc_files, format_func=lambda x: x.name)
 
                 selected_file = selected_path
             else:
@@ -288,12 +286,10 @@ def main():
         with st.spinner("Generating document preview..."):
             try:
                 preview_data = preview_service.generate_preview(
-                    str(selected_file),
-                    max_pages=max_pages,
-                    thumbnail_size=thumbnail_size
+                    str(selected_file), max_pages=max_pages, thumbnail_size=thumbnail_size
                 )
 
-                if preview_data.get('status') == 'error':
+                if preview_data.get("status") == "error":
                     st.error(f"Error generating preview: {preview_data.get('error')}")
                     return
 
@@ -305,26 +301,21 @@ def main():
 
                 with tabs[0]:
                     st.subheader("📋 File Information")
-                    display_file_info(preview_data['file_info'])
+                    display_file_info(preview_data["file_info"])
 
                     # Additional file info in expandable section
                     with st.expander("🔍 Detailed File Info"):
-                        file_info = preview_data['file_info']
+                        file_info = preview_data["file_info"]
                         st.json(file_info)
 
                 with tabs[1]:
                     st.subheader("👁️ Content Preview")
 
-                    content_preview = preview_data.get('content_preview', '')
+                    content_preview = preview_data.get("content_preview", "")
 
-                    if content_preview and content_preview != 'No text content found':
+                    if content_preview and content_preview != "No text content found":
                         # Display content in a nice text area
-                        st.text_area(
-                            "Document Content (Preview)",
-                            value=content_preview,
-                            height=400,
-                            disabled=True
-                        )
+                        st.text_area("Document Content (Preview)", value=content_preview, height=400, disabled=True)
 
                         # Word count
                         word_count = len(content_preview.split())
@@ -339,15 +330,15 @@ def main():
                         st.info("No text content available for preview.")
 
                 with tabs[2]:
-                    thumbnails = preview_data.get('thumbnails', [])
+                    thumbnails = preview_data.get("thumbnails", [])
                     display_thumbnails(thumbnails)
 
                 with tabs[3]:
-                    statistics = preview_data.get('statistics', {})
+                    statistics = preview_data.get("statistics", {})
                     display_statistics(statistics)
 
                 with tabs[4]:
-                    key_metrics = preview_data.get('key_metrics', {})
+                    key_metrics = preview_data.get("key_metrics", {})
                     display_key_metrics(key_metrics)
 
                 # Action buttons
@@ -365,7 +356,7 @@ def main():
                         label="📥 Download Preview Data",
                         data=preview_json,
                         file_name=f"preview_{selected_file.stem}.json",
-                        mime="application/json"
+                        mime="application/json",
                     )
 
                 with col3:
@@ -432,6 +423,7 @@ def main():
     # Footer
     st.markdown("---")
     st.caption(f"Document Preview Service - Generated at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
 
 if __name__ == "__main__":
     main()

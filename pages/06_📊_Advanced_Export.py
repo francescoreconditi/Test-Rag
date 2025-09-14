@@ -23,24 +23,22 @@ st.set_page_config(
     page_title="Advanced Export - Business Intelligence RAG",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
+
 
 # Initialize services
 @st.cache_resource
 def get_services():
     """Get cached service instances."""
-    return {
-        'report_scheduler': ReportScheduler(),
-        'dashboard_embed': DashboardEmbed(),
-        'theme_manager': ThemeManager()
-    }
+    return {"report_scheduler": ReportScheduler(), "dashboard_embed": DashboardEmbed(), "theme_manager": ThemeManager()}
+
 
 def main():
     """Main advanced export page."""
 
     # Check authentication
-    if 'tenant_context' not in st.session_state:
+    if "tenant_context" not in st.session_state:
         st.warning("⚠️ Please login to access advanced export features")
         if st.button("🔐 Go to Login"):
             st.switch_page("pages/00_🔐_Login.py")
@@ -52,9 +50,9 @@ def main():
 
     # Initialize services
     services = get_services()
-    report_scheduler = services['report_scheduler']
-    dashboard_embed = services['dashboard_embed']
-    theme_manager = services['theme_manager']
+    report_scheduler = services["report_scheduler"]
+    dashboard_embed = services["dashboard_embed"]
+    theme_manager = services["theme_manager"]
 
     # Apply theme
     theme_manager.apply_theme()
@@ -97,13 +95,9 @@ def main():
             st.info("No recent report activity")
 
     # Main content tabs
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "📋 Report Management",
-        "🔗 Dashboard Embeds",
-        "📊 Analytics API",
-        "📄 Export Templates",
-        "⚙️ System Status"
-    ])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(
+        ["📋 Report Management", "🔗 Dashboard Embeds", "📊 Analytics API", "📄 Export Templates", "⚙️ System Status"]
+    )
 
     with tab1:
         render_report_management(report_scheduler, tenant_context)
@@ -119,6 +113,7 @@ def main():
 
     with tab5:
         render_system_status(report_scheduler, dashboard_embed, tenant_context)
+
 
 def render_report_management(report_scheduler: ReportScheduler, tenant_context):
     """Render report management interface."""
@@ -158,7 +153,7 @@ def render_report_management(report_scheduler: ReportScheduler, tenant_context):
                             with st.spinner("Generating report..."):
                                 result = report_scheduler.run_report_now(report.id)
 
-                                if result.get('success'):
+                                if result.get("success"):
                                     st.success("✅ Report generated successfully!")
                                     st.info(f"Output: {result.get('output_path')}")
                                 else:
@@ -166,7 +161,7 @@ def render_report_management(report_scheduler: ReportScheduler, tenant_context):
 
                         enabled = st.checkbox("Enabled", value=report.enabled, key=f"enabled_{report.id}")
                         if enabled != report.enabled:
-                            report_scheduler.update_scheduled_report(report.id, {'enabled': enabled})
+                            report_scheduler.update_scheduled_report(report.id, {"enabled": enabled})
                             st.rerun()
 
                         if st.button("🗑️ Delete", key=f"delete_{report.id}"):
@@ -183,37 +178,48 @@ def render_report_management(report_scheduler: ReportScheduler, tenant_context):
 
             col1, col2 = st.columns(2)
             with col1:
-                report_type = st.selectbox("Report Type", [
-                    ("usage_analytics", "Usage Analytics"),
-                    ("query_insights", "Query Insights"),
-                    ("document_stats", "Document Statistics"),
-                    ("performance_metrics", "Performance Metrics"),
-                    ("financial_summary", "Financial Summary"),
-                    ("custom_dashboard", "Custom Dashboard")
-                ], format_func=lambda x: x[1])
+                report_type = st.selectbox(
+                    "Report Type",
+                    [
+                        ("usage_analytics", "Usage Analytics"),
+                        ("query_insights", "Query Insights"),
+                        ("document_stats", "Document Statistics"),
+                        ("performance_metrics", "Performance Metrics"),
+                        ("financial_summary", "Financial Summary"),
+                        ("custom_dashboard", "Custom Dashboard"),
+                    ],
+                    format_func=lambda x: x[1],
+                )
 
-                frequency = st.selectbox("Frequency", [
-                    ("daily", "Daily"),
-                    ("weekly", "Weekly"),
-                    ("monthly", "Monthly"),
-                    ("quarterly", "Quarterly")
-                ], format_func=lambda x: x[1])
+                frequency = st.selectbox(
+                    "Frequency",
+                    [("daily", "Daily"), ("weekly", "Weekly"), ("monthly", "Monthly"), ("quarterly", "Quarterly")],
+                    format_func=lambda x: x[1],
+                )
 
             with col2:
-                format_type = st.selectbox("Export Format", [
-                    ("pdf", "PDF Report"),
-                    ("excel", "Excel Spreadsheet"),
-                    ("json", "JSON Data"),
-                    ("html", "HTML Report"),
-                    ("csv", "CSV File")
-                ], format_func=lambda x: x[1])
+                format_type = st.selectbox(
+                    "Export Format",
+                    [
+                        ("pdf", "PDF Report"),
+                        ("excel", "Excel Spreadsheet"),
+                        ("json", "JSON Data"),
+                        ("html", "HTML Report"),
+                        ("csv", "CSV File"),
+                    ],
+                    format_func=lambda x: x[1],
+                )
 
-                delivery_method = st.selectbox("Delivery Method", [
-                    ("storage", "File Storage"),
-                    ("email", "Email Delivery"),
-                    ("webhook", "Webhook"),
-                    ("api", "API Access")
-                ], format_func=lambda x: x[1])
+                delivery_method = st.selectbox(
+                    "Delivery Method",
+                    [
+                        ("storage", "File Storage"),
+                        ("email", "Email Delivery"),
+                        ("webhook", "Webhook"),
+                        ("api", "API Access"),
+                    ],
+                    format_func=lambda x: x[1],
+                )
 
             # Advanced options
             with st.expander("🔧 Advanced Options"):
@@ -231,25 +237,22 @@ def render_report_management(report_scheduler: ReportScheduler, tenant_context):
             if st.form_submit_button("📊 Create Scheduled Report", type="primary"):
                 if report_name:
                     config = {
-                        'name': report_name,
-                        'tenant_id': tenant_context.tenant_id,
-                        'report_type': report_type[0],
-                        'format': format_type[0],
-                        'frequency': frequency[0],
-                        'delivery': delivery_method[0],
-                        'enabled': enabled,
-                        'parameters': {
-                            'days': days,
-                            'include_charts': include_charts
-                        },
-                        'delivery_config': {}
+                        "name": report_name,
+                        "tenant_id": tenant_context.tenant_id,
+                        "report_type": report_type[0],
+                        "format": format_type[0],
+                        "frequency": frequency[0],
+                        "delivery": delivery_method[0],
+                        "enabled": enabled,
+                        "parameters": {"days": days, "include_charts": include_charts},
+                        "delivery_config": {},
                     }
 
                     # Add delivery config
-                    if delivery_method[0] == "email" and 'email_recipient' in locals():
-                        config['delivery_config']['recipient'] = email_recipient
-                    elif delivery_method[0] == "webhook" and 'webhook_url' in locals():
-                        config['delivery_config']['url'] = webhook_url
+                    if delivery_method[0] == "email" and "email_recipient" in locals():
+                        config["delivery_config"]["recipient"] = email_recipient
+                    elif delivery_method[0] == "webhook" and "webhook_url" in locals():
+                        config["delivery_config"]["url"] = webhook_url
 
                     try:
                         report = report_scheduler.create_scheduled_report(config)
@@ -284,22 +287,25 @@ def render_report_management(report_scheduler: ReportScheduler, tenant_context):
             history_data = []
             for report in reports:
                 if report.last_run:
-                    history_data.append({
-                        'Report': report.name,
-                        'Type': report.report_type.value,
-                        'Format': report.format.value,
-                        'Last Run': report.last_run,
-                        'Status': '✅ Success' if report.run_count > 0 else '❌ Failed',
-                        'Run Count': report.run_count
-                    })
+                    history_data.append(
+                        {
+                            "Report": report.name,
+                            "Type": report.report_type.value,
+                            "Format": report.format.value,
+                            "Last Run": report.last_run,
+                            "Status": "✅ Success" if report.run_count > 0 else "❌ Failed",
+                            "Run Count": report.run_count,
+                        }
+                    )
 
             if history_data:
                 df = pd.DataFrame(history_data)
-                st.dataframe(df, width='stretch')
+                st.dataframe(df, width="stretch")
             else:
                 st.info("No execution history available")
         else:
             st.info("No reports configured")
+
 
 def render_analytics_api(tenant_context):
     """Render analytics API documentation and testing interface."""
@@ -318,42 +324,42 @@ def render_analytics_api(tenant_context):
                 "method": "GET",
                 "endpoint": "/api/v1/analytics/health",
                 "description": "Health check for analytics service",
-                "auth": "No"
+                "auth": "No",
             },
             {
                 "method": "GET",
                 "endpoint": "/api/v1/analytics/metrics/overview",
                 "description": "Get overview metrics for tenant",
-                "auth": "Bearer token"
+                "auth": "Bearer token",
             },
             {
                 "method": "POST",
                 "endpoint": "/api/v1/analytics/query",
                 "description": "Query analytics data with flexible parameters",
-                "auth": "Bearer token"
+                "auth": "Bearer token",
             },
             {
                 "method": "GET",
                 "endpoint": "/api/v1/analytics/reports",
                 "description": "List scheduled reports",
-                "auth": "Bearer token"
+                "auth": "Bearer token",
             },
             {
                 "method": "POST",
                 "endpoint": "/api/v1/analytics/reports/generate",
                 "description": "Generate report on-demand",
-                "auth": "Bearer token"
+                "auth": "Bearer token",
             },
             {
                 "method": "GET",
                 "endpoint": "/api/v1/analytics/embeds",
                 "description": "List dashboard embeds",
-                "auth": "Bearer token"
-            }
+                "auth": "Bearer token",
+            },
         ]
 
         df = pd.DataFrame(endpoints)
-        st.dataframe(df, width='stretch')
+        st.dataframe(df, width="stretch")
 
     # API testing interface
     st.markdown("### 🧪 API Testing")
@@ -362,12 +368,9 @@ def render_analytics_api(tenant_context):
 
     with col1:
         st.markdown("**Test Endpoint:**")
-        test_endpoint = st.selectbox("Select endpoint", [
-            "GET /health",
-            "GET /metrics/overview",
-            "POST /query",
-            "GET /reports"
-        ])
+        test_endpoint = st.selectbox(
+            "Select endpoint", ["GET /health", "GET /metrics/overview", "POST /query", "GET /reports"]
+        )
 
         if test_endpoint in ["GET /metrics/overview", "POST /query", "GET /reports"]:
             st.text_input("Authorization Token", type="password", placeholder="Bearer token...")
@@ -385,28 +388,21 @@ def render_analytics_api(tenant_context):
         st.markdown("**Example Response:**")
 
         if test_endpoint == "GET /health":
-            example_response = {
-                "status": "healthy",
-                "timestamp": datetime.now().isoformat(),
-                "version": "1.0.0"
-            }
+            example_response = {"status": "healthy", "timestamp": datetime.now().isoformat(), "version": "1.0.0"}
         elif test_endpoint == "GET /metrics/overview":
             example_response = {
                 "tenant_info": {
                     "tenant_id": tenant_context.tenant_id,
                     "organization": tenant_context.organization,
-                    "tier": tenant_context.tier.value
+                    "tier": tenant_context.tier.value,
                 },
-                "usage_metrics": {
-                    "documents_today": 12,
-                    "queries_today": 84,
-                    "storage_mb": 156.8
-                }
+                "usage_metrics": {"documents_today": 12, "queries_today": 84, "storage_mb": 156.8},
             }
         else:
             example_response = {"message": "Select an endpoint to see example response"}
 
         st.json(example_response)
+
 
 def render_export_templates(report_scheduler: ReportScheduler, tenant_context):
     """Render export templates interface."""
@@ -423,26 +419,26 @@ def render_export_templates(report_scheduler: ReportScheduler, tenant_context):
             "name": "Executive Summary",
             "description": "High-level overview with key metrics and trends",
             "formats": ["PDF", "HTML"],
-            "sections": ["KPIs", "Charts", "Insights", "Recommendations"]
+            "sections": ["KPIs", "Charts", "Insights", "Recommendations"],
         },
         {
             "name": "Operational Dashboard",
             "description": "Detailed operational metrics and performance indicators",
             "formats": ["Excel", "PDF", "HTML"],
-            "sections": ["Usage Stats", "Performance", "Errors", "Capacity"]
+            "sections": ["Usage Stats", "Performance", "Errors", "Capacity"],
         },
         {
             "name": "Financial Report",
             "description": "Financial analysis with cost breakdowns and projections",
             "formats": ["PDF", "Excel"],
-            "sections": ["Revenue", "Costs", "ROI", "Forecasts"]
+            "sections": ["Revenue", "Costs", "ROI", "Forecasts"],
         },
         {
             "name": "Data Quality Report",
             "description": "Document indexing quality and data health metrics",
             "formats": ["PDF", "CSV", "JSON"],
-            "sections": ["Index Stats", "Quality Metrics", "Issues", "Recommendations"]
-        }
+            "sections": ["Index Stats", "Quality Metrics", "Issues", "Recommendations"],
+        },
     ]
 
     # Display templates
@@ -451,7 +447,7 @@ def render_export_templates(report_scheduler: ReportScheduler, tenant_context):
             col1, col2, col3 = st.columns([2, 1, 1])
 
             with col1:
-                st.write(template['description'])
+                st.write(template["description"])
                 st.write(f"**Sections:** {', '.join(template['sections'])}")
 
             with col2:
@@ -483,16 +479,20 @@ def render_export_templates(report_scheduler: ReportScheduler, tenant_context):
             st.checkbox("Include KPI metrics", value=True)
             st.checkbox("Include AI insights", value=False)
 
-        st.multiselect("Report Sections", [
-            "Executive Summary",
-            "Key Metrics",
-            "Usage Analytics",
-            "Performance Data",
-            "Document Statistics",
-            "Query Insights",
-            "Recommendations",
-            "Technical Details"
-        ], default=["Key Metrics", "Usage Analytics"])
+        st.multiselect(
+            "Report Sections",
+            [
+                "Executive Summary",
+                "Key Metrics",
+                "Usage Analytics",
+                "Performance Data",
+                "Document Statistics",
+                "Query Insights",
+                "Recommendations",
+                "Technical Details",
+            ],
+            default=["Key Metrics", "Usage Analytics"],
+        )
 
         if st.form_submit_button("📄 Create Template", type="primary"):
             if template_name:
@@ -500,6 +500,7 @@ def render_export_templates(report_scheduler: ReportScheduler, tenant_context):
                 st.info("Template saved and available for use in scheduled reports")
             else:
                 st.error("Please enter a template name")
+
 
 def render_system_status(report_scheduler: ReportScheduler, dashboard_embed: DashboardEmbed, tenant_context):
     """Render system status and monitoring."""
@@ -521,30 +522,31 @@ def render_system_status(report_scheduler: ReportScheduler, dashboard_embed: Das
     st.markdown("### 📈 Performance Metrics")
 
     # Generate mock performance data
-    dates = pd.date_range(start=datetime.now() - timedelta(days=7), end=datetime.now(), freq='1H')
-    performance_data = pd.DataFrame({
-        'timestamp': dates,
-        'response_time': [0.5 + 0.3 * np.random.random() for _ in dates],
-        'cpu_usage': [20 + 30 * np.random.random() for _ in dates],
-        'memory_usage': [40 + 20 * np.random.random() for _ in dates]
-    })
+    dates = pd.date_range(start=datetime.now() - timedelta(days=7), end=datetime.now(), freq="1H")
+    performance_data = pd.DataFrame(
+        {
+            "timestamp": dates,
+            "response_time": [0.5 + 0.3 * np.random.random() for _ in dates],
+            "cpu_usage": [20 + 30 * np.random.random() for _ in dates],
+            "memory_usage": [40 + 20 * np.random.random() for _ in dates],
+        }
+    )
 
     col1, col2 = st.columns(2)
 
     with col1:
         # Response time chart
-        fig_response = px.line(performance_data, x='timestamp', y='response_time',
-                             title='API Response Time (7 days)')
+        fig_response = px.line(performance_data, x="timestamp", y="response_time", title="API Response Time (7 days)")
         fig_response.update_layout(height=300)
-        st.plotly_chart(fig_response, width='stretch')
+        st.plotly_chart(fig_response, width="stretch")
 
     with col2:
         # Resource usage chart
-        fig_resources = px.line(performance_data, x='timestamp',
-                              y=['cpu_usage', 'memory_usage'],
-                              title='Resource Usage (7 days)')
+        fig_resources = px.line(
+            performance_data, x="timestamp", y=["cpu_usage", "memory_usage"], title="Resource Usage (7 days)"
+        )
         fig_resources.update_layout(height=300)
-        st.plotly_chart(fig_resources, width='stretch')
+        st.plotly_chart(fig_resources, width="stretch")
 
     # Service statistics
     st.markdown("### 📊 Service Statistics")
@@ -554,30 +556,35 @@ def render_system_status(report_scheduler: ReportScheduler, dashboard_embed: Das
     embeds = dashboard_embed.list_embeds(tenant_context.tenant_id)
 
     stats_data = {
-        'Service': ['Report Scheduler', 'Dashboard Embeds', 'Analytics API', 'Export Engine'],
-        'Status': ['🟢 Active', '🟢 Active', '🟢 Active', '🟢 Active'],
-        'Items': [str(len(reports)), str(len(embeds)), 'Available', 'Available'],
-        'Last Activity': ['5 min ago', '12 min ago', '2 min ago', '8 min ago'],
-        'Success Rate': ['98.2%', '99.5%', '97.8%', '99.1%']
+        "Service": ["Report Scheduler", "Dashboard Embeds", "Analytics API", "Export Engine"],
+        "Status": ["🟢 Active", "🟢 Active", "🟢 Active", "🟢 Active"],
+        "Items": [str(len(reports)), str(len(embeds)), "Available", "Available"],
+        "Last Activity": ["5 min ago", "12 min ago", "2 min ago", "8 min ago"],
+        "Success Rate": ["98.2%", "99.5%", "97.8%", "99.1%"],
     }
 
     df_stats = pd.DataFrame(stats_data)
-    st.dataframe(df_stats, width='stretch')
+    st.dataframe(df_stats, width="stretch")
 
     # System logs (mock)
     st.markdown("### 📝 Recent System Logs")
 
     logs = [
-        {'time': '2024-01-15 14:30:25', 'level': 'INFO', 'message': 'Scheduled report "Weekly Analytics" completed successfully'},
-        {'time': '2024-01-15 14:28:15', 'level': 'INFO', 'message': 'Dashboard embed accessed from external domain'},
-        {'time': '2024-01-15 14:25:10', 'level': 'INFO', 'message': 'Analytics API query processed for tenant demo'},
-        {'time': '2024-01-15 14:20:05', 'level': 'WARN', 'message': 'Export service temporary slowdown detected'},
-        {'time': '2024-01-15 14:15:30', 'level': 'INFO', 'message': 'Background maintenance task completed'},
+        {
+            "time": "2024-01-15 14:30:25",
+            "level": "INFO",
+            "message": 'Scheduled report "Weekly Analytics" completed successfully',
+        },
+        {"time": "2024-01-15 14:28:15", "level": "INFO", "message": "Dashboard embed accessed from external domain"},
+        {"time": "2024-01-15 14:25:10", "level": "INFO", "message": "Analytics API query processed for tenant demo"},
+        {"time": "2024-01-15 14:20:05", "level": "WARN", "message": "Export service temporary slowdown detected"},
+        {"time": "2024-01-15 14:15:30", "level": "INFO", "message": "Background maintenance task completed"},
     ]
 
     for log in logs:
-        level_color = {'INFO': '🟢', 'WARN': '🟡', 'ERROR': '🔴'}.get(log['level'], '⚪')
+        level_color = {"INFO": "🟢", "WARN": "🟡", "ERROR": "🔴"}.get(log["level"], "⚪")
         st.text(f"{level_color} {log['time']} [{log['level']}] {log['message']}")
+
 
 if __name__ == "__main__":
     main()

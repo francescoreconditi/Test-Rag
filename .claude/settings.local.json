@@ -63,7 +63,9 @@
       "Bash(ruff format:*)",
       "Bash(del test_scadenzario_router.py)",
       "Bash(del test_scadenzario.py test_format_scadenzario.py)",
-      "Bash(sudo rm:*)"
+      "Bash(sudo rm:*)",
+      "Bash(PYTHONPATH=. python tests/test_rls_functionality.py)",
+      "Bash(chmod:*)"
     ],
     "deny": [],
     "ask": []
