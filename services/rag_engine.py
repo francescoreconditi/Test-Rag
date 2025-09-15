@@ -6,13 +6,13 @@ from logging import Logger
 from pathlib import Path
 from typing import Any, List, Optional, Tuple
 
-import numpy as np
 from llama_index.core import Document, Settings, SimpleDirectoryReader, StorageContext, VectorStoreIndex
 from llama_index.core.node_parser import SimpleNodeParser
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
 from llama_index.vector_stores.qdrant import QdrantVectorStore
-from qdrant_client.models import Distance, Filter, FieldCondition, DatetimeRange, VectorParams
+import numpy as np
+from qdrant_client.models import DatetimeRange, Distance, FieldCondition, Filter, VectorParams
 
 from config.settings import settings
 from services.format_helper import format_analysis_result
@@ -2563,3 +2563,44 @@ Genera SOLO le domande, una per riga, numerate da 1 a {num_questions}:
             progress_callback(1.0, "Reindexing complete")
 
         return results
+
+    def clear_index(self) -> dict[str, Any]:
+        """remove all documents/nodes from the current tenant's vector db"""
+        try:
+            if not self.index:
+                return {"success": False, "message": "No index intialized"}
+            deleted = 0
+            errors = []
+            try:
+                stats = self.get_index_stats()
+                total_vectors = stats.get("total_vectors", 0)
+            except Exception as e:
+                logger.warning(f"Could not get index stats:{e}")
+                total_vectors = 0
+            if total_vectors == 0:
+                return {"success": True, "message": "Index already empty", "deleted": 0}
+
+            exploration_data = self.explore_database(limit=total_vectors)
+            docs = exploration_data.get("documents", [])
+            for doc in docs:
+                doc_id = None
+                if "metadata" in doc and "doc_id" in doc["metadata"]:
+                    doc_id = doc["metadata"]["doc_id"]
+                if doc_id:
+                    try:
+                        self.index.delete_ref_doc(ref_doc_id=doc_id)
+                        deleted += 1
+                    except Exception as e:
+                        errors.append(f"Failed to delete {doc_id}:{e}")
+                else:
+                    errors.append(f"No doc_id found in document:{doc}")
+            logger.info("Vector index cleared successfully")
+            return {
+                "success": True,
+                "message": f"Deleted {deleted} documents" + (f" with {len(errors)} errors" if errors else ""),
+                "deleted": deleted,
+                "errors": errors,
+            }
+        except Exception as e:
+            logger.error(f"Failed to clear index: {str(e)}")
+            return {"success": False, "message": str(e)}

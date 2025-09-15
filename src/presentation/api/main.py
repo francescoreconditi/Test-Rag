@@ -1165,6 +1165,30 @@ async def list_documents():
 
 
 @app.delete(
+    "/documents/clear/tenant",
+    summary="Svuota Knowledge Base Tenant attuale",
+    description="Rimuove tutti i doc dal DBV per il tenant associato al token attuale",
+    tags=["Base Conoscenza"],
+)
+async def clear_tenant_documents(
+    tenant: TenantContext = Depends(get_current_tenant),
+):
+    try:
+        if not tenant:
+            raise HTTPException(status_code=401, details="Tenant authentication required")
+        result = rag_engine.clear_index()
+        if not result.get("success", False):
+            raise HTTPException(status_code=500, detail=result.get("message", "Clear failed"))
+        return {
+            "message": f"Documents cleared successfully for tenant {tenant.tenant_id}",
+            "tenant_id": tenant.tenant_id,
+        }
+    except Exception as e:
+        logger.error(f"Failed to clear docs for tenant {tenant.tenant_id if tenant else 'unknown'}:{str(e)}")
+        raise HTTPException(status_code=500, detail=f"Clear Failed: {str(e)}") from e
+
+
+@app.delete(
     "/documents/clear",
     summary="Svuota Knowledge Base",
     description="""
