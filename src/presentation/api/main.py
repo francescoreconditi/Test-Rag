@@ -197,13 +197,21 @@ class PDFAnalysisResponse(BaseModel):
     """Modello risposta analisi PDF."""
 
     analysis: AnalysisResult = Field(..., description="Risultati analisi documento")
-    faqs: list[FAQItem] = Field(..., description="FAQ generate", min_items=10, max_items=10)
+    faqs: Optional[list[FAQItem]] = Field(..., description="FAQ generate", max_items=10)
     processing_time: float = Field(..., description="Tempo elaborazione in secondi", example=15.2)
     file_info: dict[str, Any] = Field(
         ...,
         description="Informazioni file",
         example={"filename": "report.pdf", "size_bytes": 1048576, "pages": 15, "has_tables": True},
     )
+    pdf_b64: Optional[str] = Field(None, description="PDF Codificato in b64")
+
+
+class FAQResponse(BaseModel):
+    """Response model for FAQ generation"""
+
+    faqs: list[FAQItem] = Field(..., description="FAQ generate", min_items=10, max_items=10)
+    processing_time: float = Field(..., description="Tempo elaborazione in secondi", example=15.2)
     pdf_b64: Optional[str] = Field(None, description="PDF Codificato in b64")
 
 
@@ -534,6 +542,80 @@ async def upload_documents(
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}") from e
 
 
+@app.post(
+    "/analyze/stored",
+    response_model=PDFAnalysisResponse,
+    summary="Analizza doc da DBV",
+    description="""
+    Analizza documenti pre-caricati nel DB per il tenant attuale.
+    Non richiede un secondo caricamento dei dati.
+    """,
+    tags=["Document Analysis"],
+)
+async def analyze_stored_documents(
+    enterprise_mode: bool = Query(False, description="Enable enterprise features"),
+    tenant: TenantContext = Depends(get_current_tenant),
+    rag_engine: RAGEngine = Depends(get_tenant_rag_engine),
+    pdf_exporter: PDFExporter = Depends(get_pdf_exporter),
+):
+    import base64
+
+    start_time = datetime.now()
+
+    try:
+        if enterprise_mode:
+            analysis_response = rag_engine.enterprise_query(
+                "Fornisci un'analisi completa e dettagliata del documento, includendo tutti i dati finanziari chiave, tendenze, rischi e opportunità identificate."
+            )
+        else:
+            analysis_response = rag_engine.query(
+                "Fornisci un'analisi completa e dettagliata del documento, includendo tutti i dati finanziari chiave, tendenze, rischi e opportunità identificate."
+            )
+        analysis_result = AnalysisResult(
+            analysis=analysis_response["answer"],
+            confidence=analysis_response.get("confidence", 0.8),
+            sources=analysis_response.get("sources", []),
+            metadata={
+                "processing_time": (datetime.now() - start_time).total_seconds(),
+                "analysis_type": "enterprise" if enterprise_mode else "standard",
+                "document_source": "vector_db",
+            },
+        )
+
+        response_data = PDFAnalysisResponse(
+            analysis=analysis_result,
+            faqs=[],
+            processing_time=(datetime.now() - start_time).total_seconds(),
+            file_info={
+                "filename": "stored_documents",
+                "size_bytes": 0,
+                "pages": 0,
+                "has_tables": False,
+                "has_ocr": False,
+            },
+        )
+        pdf_bytes = pdf_exporter.export_document_analysis(
+            document_analyses={"stored_documents": response_data.analysis.analysis},
+            metadata=response_data.file_info,
+            filename="stored_documents",
+        ).getvalue()
+        response_data.pdf_b64 = base64.b64encode(pdf_bytes).decode("utf-8")
+
+        return response_data
+
+    except Exception as e:
+        logger.error(f"Stored analysis failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}") from e
+
+
+@app.post(
+    "/analyze/faqs",
+    response_mode=FAQResponse,
+    summary="Generate FAQs from stored documents",
+    description="""
+    Generate
+    """,
+)
 # Core Analysis Endpoints
 @app.post(
     "/analyze/pdf",
