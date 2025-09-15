@@ -610,12 +610,52 @@ async def analyze_stored_documents(
 
 @app.post(
     "/analyze/faqs",
-    response_mode=FAQResponse,
-    summary="Generate FAQs from stored documents",
+    response_model=FAQResponse,
+    summary="Genera FAQs da DBV",
     description="""
-    Generate
+    Genera 10 FAQs basandosi sui documenti pre-caricati sul DB vettoriale per il tenant attuale.
+    Fornisce anche un report PDF codificato in b64.
     """,
 )
+async def generate_faqs_endpoint(
+    num_questions: int = Query(10, description="Numero di FAQs da generare"),
+    tenant: TenantContext = Depends(get_current_tenant),
+    rag_engine: RAGEngine = Depends(get_tenant_rag_engine),
+    pdf_exporter: PDFExporter = Depends(get_pdf_exporter),
+):
+    import base64
+
+    start_time = datetime.now()
+
+    faqs_result = rag_engine.generate_faq(num_questions=num_questions)
+    processing_time = (datetime.now() - start_time).total_seconds()
+    if not faqs_result.get("success", False):
+        raise HTTPException(status_code=500, detail=faqs_result.get("error", "FAQ generation failed"))
+
+    faqs_raw = faqs_result.get("faqs", [])
+    faq_items = [
+        FAQItem(
+            question=faq["question"],
+            answer=faq["answer"],
+            confidence=0.8,  # fixed since generate_faq doesn’t return confidence
+        )
+        for faq in faqs_raw
+    ]
+    faq_text = "\n\n".join([f"Q: {f.question}\nA: {f.answer}" for f in faq_items])
+    pdf_bytes = pdf_exporter.export_document_analysis(
+        document_analyses={"FAQs": f"{faq_text}"},
+        metadata={"generated_for": tenant.organization, "faq_count": len(faq_text)},
+        filename="faqs_report",
+    ).getvalue()
+    pdf_b64 = base64.b64encode(pdf_bytes).decode("utf-8")
+    processing_time = (datetime.now() - start_time).total_seconds()
+    return FAQResponse(
+        faqs=faq_items,
+        processing_time=processing_time,
+        pdf_b64=pdf_b64,
+    )
+
+
 # Core Analysis Endpoints
 @app.post(
     "/analyze/pdf",
