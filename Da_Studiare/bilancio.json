@@ -1,0 +1,137 @@
+{
+  "Periodo": "Aprile 2025 YTD",
+  "Sezioni": {
+    "Ricavi": {
+      "Consuntivo": {
+        "Vendite": 683926,
+        "Servizi": 1205342,
+        "Assistenze": 3289555,
+        "Altri ricavi": 34057,
+        "Recupero spese trasporto": 1215,
+        "Totale": 5214095
+      },
+      "Budget": {
+        "Vendite": 691332,
+        "Servizi": 976437,
+        "Assistenze": 3119798,
+        "Altri ricavi": 55869,
+        "Recupero spese trasporto": 12330,
+        "Totale": 4855765
+      },
+      "AnnoPrecedente": {
+        "Vendite": 680743,
+        "Servizi": 880551,
+        "Assistenze": 2845041,
+        "Altri ricavi": 56943,
+        "Recupero spese trasporto": 1151,
+        "Totale": 4464428
+      }
+    },
+    "Consumi": {
+      "Consuntivo": {
+        "Acquisti": 1393205,
+        "Rimanenze iniziali": 77826,
+        "Rimanenze finali": 121680,
+        "Totale": 1349351
+      },
+      "Budget": {
+        "Acquisti": 1191833,
+        "Rimanenze iniziali": 80000,
+        "Rimanenze finali": 80000,
+        "Totale": 1191833
+      },
+      "AnnoPrecedente": {
+        "Acquisti": 1240338,
+        "Rimanenze iniziali": 84626,
+        "Rimanenze finali": 79901,
+        "Totale": 1245064
+      }
+    },
+    "Margini": {
+      "Consuntivo": {
+        "Gross Margin": 3864743,
+        "Gross Margin %": 74.1
+      },
+      "Budget": {
+        "Gross Margin": 3663932,
+        "Gross Margin %": 75.5
+      },
+      "AnnoPrecedente": {
+        "Gross Margin": 3219364,
+        "Gross Margin %": 72.1
+      }
+    },
+    "Costi": {
+      "Consuntivo": {
+        "Costo del Lavoro": 2527127,
+        "Opex Industriali": 442238,
+        "Opex Commerciali": 211434,
+        "Opex Amministrative": 122967,
+        "Opex Totali": 776640,
+        "Accantonamenti e svalutazioni": 13333,
+        "Ammortamenti": 146800
+      },
+      "Budget": {
+        "Costo del Lavoro": 2538367,
+        "Opex Industriali": 382685,
+        "Opex Commerciali": 144080,
+        "Opex Amministrative": 99730,
+        "Opex Totali": 626495,
+        "Accantonamenti e svalutazioni": 13333,
+        "Ammortamenti": 160283
+      },
+      "AnnoPrecedente": {
+        "Costo del Lavoro": 2158961,
+        "Opex Industriali": 323005,
+        "Opex Commerciali": 142851,
+        "Opex Amministrative": 92530,
+        "Opex Totali": 558386,
+        "Accantonamenti e svalutazioni": 12311,
+        "Ammortamenti": 142636
+      }
+    },
+    "Risultati": {
+      "Consuntivo": {
+        "EBITDA": 547643,
+        "EBITDA_escluso_premio": 664310,
+        "EBIT": 400843,
+        "Oneri finanziari": 6045,
+        "EBT": 394798
+      },
+      "Budget": {
+        "EBITDA": 485737,
+        "EBITDA_escluso_premio": 602404,
+        "EBIT": 325454,
+        "Oneri finanziari": 1666,
+        "EBT": 323788
+      },
+      "AnnoPrecedente": {
+        "EBITDA": 489705,
+        "EBITDA_escluso_premio": 606372,
+        "EBIT": 347069,
+        "Oneri finanziari": 10606,
+        "EBT": 336464
+      }
+    },
+    "Consolidato": {
+      "Consuntivo": {
+        "Ricavi netti": 2855190,
+        "Costi netti": 605200,
+        "Gross Margin netto": 2249990,
+        "Gross Margin %": 78.8
+      },
+      "Budget": {
+        "Ricavi netti": 2464099,
+        "Costi netti": 448500,
+        "Gross Margin netto": 2015599,
+        "Gross Margin %": 81.8
+      },
+      "AnnoPrecedente": {
+        "Ricavi netti": 2327787,
+        "Costi netti": 530350,
+        "Gross Margin netto": 1797437,
+        "Gross Margin %": 77.2
+      }
+    }
+  }
+}
