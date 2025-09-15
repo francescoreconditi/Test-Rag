@@ -70,7 +70,8 @@
       "Bash(npm install:*)",
       "Bash(ng build)",
       "Bash(tasklist)",
-      "Bash(del app.ts app.html app.scss app.spec.ts)"
+      "Bash(del app.ts app.html app.scss app.spec.ts)",
+      "Bash(del \"C:\\Progetti\\Test-Rag\\test_format_presentazione.py\")"
     ],
     "deny": [],
     "ask": []
