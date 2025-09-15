@@ -489,7 +489,7 @@ async def liveness_check():
 
 @app.post(
     "/upload/file",
-    summary="Upload documenti sul db",
+    summary="Upload documenti DB",
     description="""
     Carica uno o più documenti e li indicizza direttamente nella knowledge base,
     senza eseguire analisi o generazione di risposte.
@@ -500,9 +500,11 @@ async def liveness_check():
     - Excel (.xlsx, .xls)
     - Testo (.txt, .md)
     """,
+    tags=["Analisi Documenti"],
 )
 async def upload_documents(
     files: list[UploadFile] = File(..., description="Documenti da caricare"),
+    rag_engine: RAGEngine = Depends(get_optional_rag_engine),
 ):
     try:
         temp_files = []
