@@ -508,7 +508,7 @@ async def liveness_check():
     - Excel (.xlsx, .xls)
     - Testo (.txt, .md)
     """,
-    tags=["Analisi Documenti"],
+    tags=["Base Conoscenza"],
 )
 async def upload_documents(
     files: list[UploadFile] = File(..., description="Documenti da caricare"),
@@ -550,7 +550,7 @@ async def upload_documents(
     Analizza documenti pre-caricati nel DB per il tenant attuale.
     Non richiede un secondo caricamento dei dati.
     """,
-    tags=["Document Analysis"],
+    tags=["Analisi Documenti"],
 )
 async def analyze_stored_documents(
     enterprise_mode: bool = Query(False, description="Enable enterprise features"),
@@ -616,6 +616,7 @@ async def analyze_stored_documents(
     Genera 10 FAQs basandosi sui documenti pre-caricati sul DB vettoriale per il tenant attuale.
     Fornisce anche un report PDF codificato in b64.
     """,
+    tags=["Analisi Documenti"],
 )
 async def generate_faqs_endpoint(
     num_questions: int = Query(10, description="Numero di FAQs da generare"),
