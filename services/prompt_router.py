@@ -280,6 +280,8 @@ Sei un business analyst esperto. Analizza la presentazione "{file_name}" basando
 {analysis_text}
 === FINE DOCUMENTO ===
 
+[Analisi tipo: PRESENTAZIONE]
+
 OUTPUT:
 <JSON>
 {{
