@@ -1,0 +1,188 @@
+<!-- Dashboard Component Template -->
+<div class="dashboard-container">
+  <!-- Header -->
+  <header class="dashboard-header">
+    <div class="header-content">
+      <div class="greeting">
+        <h1>{{ getGreeting() }}, {{ currentUser?.email || 'User' }}! 👋</h1>
+        <div class="tenant-info" *ngIf="currentTenant">
+          <span class="tenant-name">{{ currentTenant.name }}</span>
+          <span class="tier-badge" [class]="getTenantTierClass()">
+            {{ currentTenant.tier.toUpperCase() }}
+          </span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button class="refresh-btn" (click)="refreshDashboard()" [disabled]="isLoading">
+          <span [class.spinning]="isLoading">🔄</span> Refresh
+        </button>
+
+        <button class="logout-btn" (click)="logout()">
+          🚪 Logout
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Error Alert -->
+  <div class="error-alert" *ngIf="error">
+    <p>❌ {{ error }}</p>
+    <button (click)="clearError()">✕</button>
+  </div>
+
+  <!-- Loading State -->
+  <div class="loading-container" *ngIf="isLoading">
+    <div class="loading-spinner">🔄</div>
+    <p>Loading dashboard data...</p>
+  </div>
+
+  <!-- Dashboard Content -->
+  <div class="dashboard-content" *ngIf="!isLoading">
+
+    <!-- Statistics Cards -->
+    <section class="stats-section">
+      <h2>📊 System Overview</h2>
+
+      <div class="stats-grid">
+        <!-- System Health Card -->
+        <div class="stat-card system-health" [class]="getHealthStatusClass()">
+          <div class="stat-icon">{{ getHealthStatusIcon() }}</div>
+          <div class="stat-content">
+            <h3>System Health</h3>
+            <p class="stat-value">{{ stats.system_health | titlecase }}</p>
+            <small>Last updated: {{ stats.last_updated | date:'short' }}</small>
+          </div>
+        </div>
+
+        <!-- Documents Card -->
+        <div class="stat-card documents">
+          <div class="stat-icon">📄</div>
+          <div class="stat-content">
+            <h3>Documents</h3>
+            <p class="stat-value">{{ formatNumber(stats.total_documents) }}</p>
+            <small>{{ formatNumber(stats.total_vectors) }} vectors indexed</small>
+          </div>
+        </div>
+
+        <!-- Queries Card -->
+        <div class="stat-card queries">
+          <div class="stat-icon">🔍</div>
+          <div class="stat-content">
+            <h3>Total Queries</h3>
+            <p class="stat-value">{{ formatNumber(stats.total_queries) }}</p>
+            <small>{{ stats.success_rate }}% success rate</small>
+          </div>
+        </div>
+
+        <!-- Performance Card -->
+        <div class="stat-card performance">
+          <div class="stat-icon">⚡</div>
+          <div class="stat-content">
+            <h3>Avg Response</h3>
+            <p class="stat-value">{{ stats.processing_time_avg }}ms</p>
+            <small>Processing time</small>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Enterprise Mode Section -->
+    <section class="enterprise-section" *ngIf="hasEnterpriseAccess()">
+      <h2>🚀 Enterprise Features</h2>
+
+      <div class="enterprise-card">
+        <div class="enterprise-header">
+          <div class="enterprise-info">
+            <h3>Enterprise Mode</h3>
+            <p>Advanced RAG processing with validation, benchmarking, and enhanced analytics</p>
+          </div>
+
+          <div class="enterprise-toggle">
+            <button
+              class="toggle-btn"
+              [class.active]="stats.enterprise_mode"
+              (click)="toggleEnterpriseMode()"
+            >
+              <span class="toggle-icon">{{ stats.enterprise_mode ? '🟢' : '🔴' }}</span>
+              {{ stats.enterprise_mode ? 'ON' : 'OFF' }}
+            </button>
+          </div>
+        </div>
+
+        <div class="enterprise-features" *ngIf="stats.enterprise_mode">
+          <div class="feature-list">
+            <div class="feature">✅ Dimensional Coherence Validation</div>
+            <div class="feature">✅ Gold Standard Benchmarking</div>
+            <div class="feature">✅ Hybrid Retrieval (BM25 + Embeddings)</div>
+            <div class="feature">✅ Source Provenance Tracking</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quick Actions -->
+    <section class="actions-section">
+      <h2>⚡ Quick Actions</h2>
+
+      <div class="action-grid">
+        <div class="action-card" (click)="goToDocuments()">
+          <div class="action-icon">📄</div>
+          <h3>Manage Documents</h3>
+          <p>Upload, preview, and organize your documents</p>
+        </div>
+
+        <div class="action-card" (click)="goToAnalytics()" *ngIf="hasAnalyticsAccess()">
+          <div class="action-icon">📈</div>
+          <h3>Analytics Dashboard</h3>
+          <p>View detailed analytics and insights</p>
+        </div>
+
+        <div class="action-card" (click)="goToExport()">
+          <div class="action-icon">📊</div>
+          <h3>Export Data</h3>
+          <p>Generate reports in PDF, Excel, or JSON</p>
+        </div>
+
+        <div class="action-card" (click)="goToSecurity()" *ngIf="isAdmin()">
+          <div class="action-icon">🛡️</div>
+          <h3>Security Dashboard</h3>
+          <p>Manage users, roles, and security settings</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Recent Activities -->
+    <section class="activities-section">
+      <h2>📋 Recent Activity</h2>
+
+      <div class="activities-list" *ngIf="recentActivities.length > 0; else noActivities">
+        <div
+          class="activity-item"
+          *ngFor="let activity of recentActivities"
+          [class]="'activity-' + activity.status"
+        >
+          <div class="activity-icon">
+            {{ getActivityTypeIcon(activity.type) }}
+            <span class="activity-status">{{ getActivityStatusIcon(activity.status) }}</span>
+          </div>
+
+          <div class="activity-content">
+            <p class="activity-description">{{ activity.description }}</p>
+            <div class="activity-meta">
+              <small class="activity-user">{{ activity.user_email }}</small>
+              <small class="activity-time">{{ activity.timestamp | date:'short' }}</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <ng-template #noActivities>
+        <div class="no-activities">
+          <p>📭 No recent activity</p>
+        </div>
+      </ng-template>
+    </section>
+
+  </div>
+</div>

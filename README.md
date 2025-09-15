@@ -1,693 +1,751 @@
-# Sistema RAG di Business Intelligence 🏢
+# Sistema RAG di Business Intelligence Avanzato 🏢
 
-Una **piattaforma di Business Intelligence aziendale di nuova generazione** che combina l'analisi di dati strutturati con funzionalità avanzate RAG (Retrieval-Augmented Generation). Costruita con **Clean Architecture**, **Domain-Driven Design**, e **pattern di livello enterprise** per analisi finanziarie scalabili e intelligenza documentale.
+Una **piattaforma enterprise di Business Intelligence di nuova generazione** che combina analisi di dati strutturati con funzionalità avanzate RAG (Retrieval-Augmented Generation). Costruita con **Clean Architecture**, **Domain-Driven Design**, e **pattern enterprise-grade** per analisi finanziarie scalabili, intelligenza documentale e sicurezza multi-tenant.
 
-## 🎯 Funzionalità Principali
-
-### 🚀 **NOVITÀ: Architettura Enterprise Avanzata + Performance Optimization (2025)**
-- **🔧 Attivazione Enterprise**: Modalità enterprise con un clic nella barra laterale Streamlit
-- **⚡ Performance Ultra-Ottimizzate**: Connection pooling, cache distribuita Redis, background jobs Celery
-- **🔄 Horizontal Scaling**: Load balancing Nginx, auto-scaling Docker, alta disponibilità
-- **📊 Dashboard Analytics Avanzato**: KPI interattivi, trend analysis, waterfall charts, radar efficienza
-- **🔍 Anteprima Documenti**: Thumbnails automatici, estrazione contenuti, statistiche documenti
-- **✏️ Editor Interattivo Metriche**: Editing real-time, validazione automatica, suggerimenti AI
-- **📈 Visualizzazioni Professionali**: Plotly charts, gauge KPI, heatmap rischio
-- **🎯 68 Metriche Finanziarie**: Ontologia estesa AR/AP, Vendite, Magazzino, HR
-- **✅ Great Expectations**: Validazioni data quality sistematiche su coerenza contabile
-- **🔄 Calcoli Derivati Automatici**: 15+ formule finanziarie con lineage completo  
-- **🔍 Provenienza Granulare**: Tracking pagina/cella/coordinata per massima tracciabilità
-- **📊 Riferimenti Origine**: Tracciamento completo provenienza dati (file.xlsx|sheet:CE|cell:B12)
-- **🤖 Recupero Ibrido**: BM25 + Embeddings + Riclassificazione con cross-encoder
-- **🗄️ Tabella Dimensionale**: Schema a stella con persistenza DuckDB/SQLite
-- **⚡ Orchestrazione Enterprise Avanzata**: Pipeline 6 fasi con quality checks e calculations
-
-### 📊 Analisi Finanziarie Avanzate
-- **Elaborazione CSV Intelligente** con supporto per formati numerici italiani (`1.234,56`)
-- **Modellazione Finanziaria Automatizzata** (crescita YoY, rapporti, KPI)
-- **Calcoli Derivati Automatici** - 15 formule finanziarie (PFN, ROS, ROIC, Current Ratio, DSO, ecc.)
-- **Lineage Tracking Completo** - tracciamento formula + inputs + confidence per ogni calcolo
-- **Data Quality Enterprise** - validazioni Great Expectations su coerenza bilancio/PFN
-- **Rilevamento Anomalie** con algoritmi statistici e range validation
-- **Supporto Multi-Valuta** con tracciamento delle conversioni
-- **Dashboard Interattive** con visualizzazioni in tempo reale
-- **Analisi Comparativa** tra più periodi ed entità
-
-### 🧠 Intelligenza Documentale Basata su RAG  
-- **Supporto Multi-Formato** (PDF, DOCX, TXT, Markdown, Excel)
-- **Estrazione Avanzata** - OCR Tesseract, Camelot/Tabula per tabelle PDF, parsing Excel
-- **Provenienza Granulare** - tracking preciso pagina/cella (es: "bilancio.xlsx|sheet:CE|cell:B12")
-- **Ricerca Semantica** con database vettoriale Qdrant
-- **Query Context-Aware** che combinano dati strutturati e non strutturati
-- **Estrazione Metadati** con tracciamento completo della provenienza
-- **Export PDF Professionale** con stile ZCS Company
-- **Chunking Intelligente** con ottimizzazione delle sovrapposizioni
-
-### 🤖 Business Intelligence Guidata dall'AI
-- **Report Esecutivi** con insight strategici
-- **Analisi Predittive** basate su pattern storici
-- **Valutazione del Rischio** con punteggi di confidenza
-- **Query in Linguaggio Naturale** in italiano e inglese
-- **Raccomandazioni Automatiche** con livelli di priorità
-- **Analisi dei Trend** con significatività statistica
-
-### ⚡ **NOVITÀ: Performance Optimization Enterprise (2025)**
-- **🔗 Connection Pooling**: Gestione ottimizzata connessioni database con pool configurabili
-- **🗄️ Cache Distribuita Redis**: Caching in-memory ultra-veloce per query e sessioni utente
-- **⚙️ Background Job Processing**: Code Celery per elaborazioni pesanti (indicizzazione, analisi)
-- **🔄 Horizontal Scaling**: Load balancer Nginx con auto-scaling e health checks
-- **📊 Monitoring Avanzato**: Dashboard Flower per monitoraggio real-time task e performance
-- **🚀 Auto-Deployment**: Script automatici per setup completo dell'infrastruttura
-- **📈 Performance Analytics**: Metriche dettagliate su hit rate cache, connection pool, response time
-- **🔧 Configurazione Elastica**: Scaling dinamico basato su carico con soglie configurabili
-
-### 💼 Architettura Enterprise-Ready
-- **Clean Architecture** con separazione dei domini
-- **Pattern Repository** con persistenza SQLite/DuckDB
-- **Data Quality Service** - Great Expectations per validazioni sistematiche
-- **Calculation Engine** - motore calcoli derivati con dependency resolution
-- **Granular Provenance Service** - tracciamento provenienza cella-per-cella
-- **Advanced Enterprise Orchestrator** - coordinamento pipeline completo
-- **Dependency Injection** container
-- **Logging Completo** con filtraggio dei dati sensibili
-- **Type Safety** con piena conformità MyPy
-- **Gestione Errori** con eccezioni strutturate
-- **Degradazione Graduale** per componenti enterprise opzionali
-
-## 🏗️ Panoramica dell'Architettura
-
-### Progettazione del Sistema
-L'applicazione segue i principi della **Clean Architecture** con una chiara separazione dei livelli:
-
-```mermaid
-graph TD
-    UI[Streamlit UI] --> APP[Livello Applicazione]
-    APP --> DOMAIN[Livello Dominio] 
-    APP --> INFRA[Livello Infrastruttura]
-    
-    subgraph "Livello Dominio"
-        ENT[Entità]
-        VO[Oggetti Valore]
-        EXC[Eccezioni]
-    end
-    
-    subgraph "Livello Applicazione"  
-        INT[Interfacce]
-        UC[Casi d'Uso]
-        DTO[DTOs]
-    end
-    
-    subgraph "Livello Infrastruttura"
-        REPO[Repository]
-        EXT[Servizi Esterni]
-        PERS[Persistenza]
-    end
-```
-
-### Stack Tecnologico Enterprise
-
-| Livello | Componente | Tecnologia | Scopo |
-|---------|------------|------------|--------|
-| **Presentazione** | Framework UI | Streamlit 1.29+ | Interfaccia web con modalità Enterprise |
-| **Applicazione** | Logica di Business | Python 3.10+ | Casi d'uso e interfacce |
-| | **Orchestratore Enterprise** | **Pipeline Personalizzata** | **Flusso di lavoro a 6 fasi** |
-| | **Router Documenti** | **Classificazione Contenuti** | **Routing Strutturato/Non Strutturato** |
-| | **Recupero Ibrido** | **BM25 + Embeddings** | **Ricerca avanzata con riclassificazione** |
-| **Performance** | **Connection Pooling** | **Custom Pool Manager** | **Gestione ottimizzata connessioni DB** |
-| | **Cache Distribuita** | **Redis 7+** | **Caching in-memory sessioni/query** |
-| | **Background Jobs** | **Celery 5.5+** | **Task asincroni e scheduled** |
-| | **Load Balancing** | **Nginx** | **Distribuzione carico multi-istanza** |
-| | **Task Monitoring** | **Flower 2.0+** | **Dashboard monitoraggio real-time** |
-| **Dominio** | Modelli Core | Pydantic 2.0+ | Entità e oggetti valore |
-| | **Riferimenti Origine** | **Tracciamento Provenienza** | **Lineage completo dei dati** |
-| | **Controlli Finanziari** | **Regole di Validazione** | **Verifiche coerenza bilancio** |
-| **Infrastruttura** | Database Vettoriale | Qdrant 1.7+ | Ricerca semantica |
-| | **Tabella Fatti** | **DuckDB/SQLite** | **Data warehouse dimensionale** |
-| | Servizio LLM | OpenAI GPT-4 | Ragionamento AI |
-| | **Mappatura Ontologia** | **YAML + RapidFuzz** | **31 metriche, oltre 219 sinonimi** |
-| | **Normalizzazione Dati** | **Supporto Multi-locale** | **Formati e periodi italiani** |
-| | Elaborazione Dati | Pandas 2.1+ | Analisi CSV |
-| | Visualizzazione | Plotly 5.18+ | Grafici interattivi |
-| **ML/AI** | **Embeddings** | **SentenceTransformers** | **Modello All-MiniLM-L6-v2** |
-| | **Reranker** | **CrossEncoder** | **MS-MARCO-MiniLM-L-2-v2** |
-| | **Ricerca** | **BM25Okapi** | **Recupero basato su parole chiave** |
-| **DevOps** | Package Manager | uv | Dipendenze veloci |
-| | Linting | Ruff + Black | Qualità del codice |
-| | Controllo Tipi | MyPy | Sicurezza dei tipi |
-| | Testing | Pytest | Garanzia qualità |
-| | **Containerization** | **Docker + Compose** | **Deployment scalabile** |
-
-## Prerequisiti
-
-- **Python 3.10+**
-- **Chiave API OpenAI** (richiesta per LLM ed embeddings)
-- **Docker + Docker Compose** (richiesto per Redis, Qdrant e scaling)
-- **8GB+ RAM** (raccomandato per operazioni vettoriali e cache Redis)
-- **Tesseract OCR** (richiesto per estrazione testo PDF e funzionalità OCR)
-
-### 🚀 **NUOVO: Performance Optimization Requirements**
-- **Redis 7+** (per cache distribuita e sessioni)
-- **Nginx** (per load balancing e reverse proxy)
-- **Celery + Flower** (per background jobs e monitoring)
-- **16GB+ RAM** (raccomandato per deployment enterprise con scaling)
-- **Multi-core CPU** (per performance ottimali con connection pooling)
-
-## Installazione
-
-### Opzione 1: Avvio Rapido (Raccomandato)
-
-```bash
-# 1. Clona il repository
-git clone <repository-url>
-cd RAG
-
-# 2. Configura l'ambiente
-cp .env.example .env
-# Modifica .env e aggiungi la tua OPENAI_API_KEY
-
-# 3. Avvio automatico (installa uv se mancante)
-start.bat      # Windows  
-./start.sh     # Linux/Mac
-
-# 4. Apri il browser: http://localhost:8501
-```
-
-### Opzione 2: Configurazione Manuale con uv
-
-```bash
-# Installa uv (se non presente)
-curl -LsSf https://astral.sh/uv/install.sh | sh  # Linux/Mac
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"  # Windows
-
-# Configura l'ambiente
-uv venv                              # Crea ambiente virtuale
-source .venv/bin/activate           # Linux/Mac
-.venv\Scripts\activate              # Windows
-
-# Installa le dipendenze (10-100x più veloce di pip)
-uv pip install -r requirements.txt
-
-# Avvia Qdrant
-docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant
-
-# Avvia l'applicazione
-streamlit run app.py
-```
-
-### Opzione 3: Deployment Docker
-
-```bash
-# Configurazione completa con un comando
-cp .env.example .env  # Aggiungi OPENAI_API_KEY
-docker-compose up -d
-
-# Accedi all'app: http://localhost:8501
-# UI Qdrant: http://localhost:6333/dashboard
-```
-
-### 🚀 **NUOVO: Opzione 4: Performance Optimization Setup**
-
-```bash
-# Setup automatico completo performance optimization
-.\scripts\deploy_performance.bat     # Windows
-./scripts/deploy_performance.sh      # Linux/Mac
-
-# Setup alternativo con Python script
-python setup_performance.py
-
-# Verifica deployment
-python test_performance_final.py
-
-# Servizi attivati:
-# - Redis: localhost:6379 (cache distribuita)
-# - Qdrant: localhost:6333 (database vettoriale)
-# - Celery Worker: background jobs
-# - Flower: localhost:5555 (monitoring)
-```
-
-### 🔧 **Performance Optimization Manuale**
-
-```bash
-# 1. Setup Redis + Qdrant
-docker run -d --name rag_redis -p 6379:6379 redis:7-alpine
-docker run -d --name rag_qdrant -p 6333:6333 qdrant/qdrant
-
-# 2. Installa dependencies performance
-pip install redis celery flower
-
-# 3. Avvia Celery worker
-celery -A src.infrastructure.performance.celery_tasks worker --loglevel=info
-
-# 4. Avvia Flower monitoring
-flower -A src.infrastructure.performance.celery_tasks --port=5555
-
-# 5. Deployment scaling (produzione)
-docker-compose -f docker-compose.scaling.yml up -d --scale app=3
-```
-
-### Installazione Dipendenze OCR
-
-L'applicazione richiede **Tesseract OCR** per l'estrazione di testo dai PDF e la funzionalità OCR.
-
-#### Installazione Windows
-
-**Opzione 1: Utilizzo di Windows Package Manager (Raccomandato)**
-```bash
-# Installa usando winget (Windows 10+)
-winget install --id UB-Mannheim.TesseractOCR
-
-# Verifica l'installazione
-tesseract --version
-```
-
-**Opzione 2: Installazione Manuale**
-1. Scarica l'installer più recente di Tesseract da [UB Mannheim](https://github.com/UB-Mannheim/tesseract/releases)
-2. Esegui l'installer (`tesseract-ocr-w64-setup-5.x.x.exe`)
-3. Assicurati di selezionare "Aggiungi al PATH" durante l'installazione
-4. Riavvia il terminale/prompt dei comandi
-5. Verifica: `tesseract --version`
-
-**Se Tesseract non è nel PATH:**
-```bash
-# Aggiungi alla sessione corrente (temporaneo)
-set PATH=C:\Program Files\Tesseract-OCR;%PATH%
-
-# Oppure aggiungi permanentemente C:\Program Files\Tesseract-OCR al PATH di sistema
-```
-
-#### Installazione Linux
-```bash
-# Ubuntu/Debian
-sudo apt update && sudo apt install tesseract-ocr
-
-# CentOS/RHEL/Fedora
-sudo yum install tesseract  # oppure sudo dnf install tesseract
-
-# Verifica
-tesseract --version
-```
-
-#### Installazione macOS
-```bash
-# Usando Homebrew
-brew install tesseract
-
-# Verifica
-tesseract --version
-```
-
-**Nota:** Se Tesseract non è installato, l'applicazione mostrerà un avviso e la funzionalità OCR sarà disabilitata, ma le altre funzionalità continueranno a funzionare.
-
-## Configurazione
-
-### Variabili d'Ambiente (.env)
-
-```env
-# OpenAI (Obbligatorio)
-OPENAI_API_KEY=sk-...la-tua-chiave-qui...
-
-# Database Vettoriale Qdrant
-QDRANT_HOST=localhost
-QDRANT_PORT=6333
-QDRANT_COLLECTION_NAME=business_documents
-
-# Configurazione AI
-LLM_MODEL=gpt-4-turbo-preview
-EMBEDDING_MODEL=text-embedding-3-small
-TEMPERATURE=0.1
-MAX_TOKENS=2000
-
-# Elaborazione Documenti
-CHUNK_SIZE=512
-CHUNK_OVERLAP=50
-
-# Performance RAG
-RAG_RESPONSE_MODE=compact
-RAG_SIMILARITY_TOP_K=3
-RAG_ENABLE_CACHING=True
-
-# Performance Optimization (NUOVO)
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_DB=0
-CELERY_BROKER_URL=redis://localhost:6379/0
-CELERY_RESULT_BACKEND=redis://localhost:6379/0
-
-# Connection Pooling
-QDRANT_POOL_MIN_SIZE=2
-QDRANT_POOL_MAX_SIZE=10
-DUCKDB_POOL_MIN_SIZE=1
-DUCKDB_POOL_MAX_SIZE=5
-
-# Funzionalità Enterprise
-HF_HUB_DISABLE_SYMLINKS_WARNING=1
-
-# Applicazione
-DEBUG_MODE=false
-APP_NAME=Sistema RAG di Business Intelligence
-```
-
-## 📁 Struttura del Progetto Enterprise
-
-```
-src/
-├── domain/                    # Logica di business principale (entità, oggetti valore)
-│   ├── entities/             # Entità di business (FinancialData, Document, AnalysisResult)
-│   ├── value_objects/        # NUOVO: Riferimenti origine, controlli, validazione
-│   │   ├── source_reference.py    # Tracciamento completo provenienza dati
-│   │   └── guardrails.py          # Regole di validazione finanziaria
-│   ├── services/             # NUOVO: Servizi enterprise core
-│   │   ├── data_quality_service.py      # Great Expectations per data quality
-│   │   ├── calculation_engine.py        # Calcoli derivati con lineage  
-│   │   └── granular_provenance_service.py  # Provenienza granulare
-│   └── exceptions/           # Eccezioni specifiche del dominio
-├── application/              # Casi d'uso e interfacce  
-│   ├── interfaces/           # Contratti per dipendenze esterne
-│   └── services/             # NUOVO: Servizi applicativi enterprise
-│       ├── enterprise_orchestrator.py       # Coordinatore principale del flusso
-│       ├── advanced_enterprise_orchestrator.py  # NUOVO: Orchestratore avanzato integrato
-│       ├── document_router.py               # Classificazione documenti
-│       ├── hybrid_retrieval.py              # Ricerca BM25 + Embeddings
-│       ├── ontology_mapper.py               # Mappatura sinonimi metriche (68 metriche)
-│       ├── data_normalizer.py               # Normalizzazione multi-locale
-│       ├── document_preview.py              # NUOVO: Anteprima documenti con thumbnails
-│       ├── interactive_editor.py            # NUOVO: Editor interattivo metriche
-│       └── analytics_dashboard.py           # NUOVO: Dashboard analytics avanzato
-├── infrastructure/           # Aspetti esterni (database, API)
-│   ├── repositories/         # Implementazioni persistenza dati
-│   │   └── fact_table_repository.py   # Data warehouse dimensionale
-│   └── performance/          # NUOVO: Moduli ottimizzazione performance
-│       ├── connection_pool.py         # Connection pooling per DB
-│       ├── redis_cache.py             # Cache distribuita Redis
-│       ├── celery_tasks.py            # Background jobs Celery
-│       └── load_balancer.py           # Load balancing e scaling
-├── core/                     # Aspetti trasversali
-│   ├── config.py            # Gestione configurazione
-│   ├── logging_config.py    # Logging strutturato
-│   └── dependency_injection.py # Container DI
-├── presentation/             # Livello UI (Streamlit)
-│   └── streamlit/
-│       └── pdf_exporter.py   # NUOVO: Export PDF professionale (stile ZCS)
-├── pages/                    # NUOVO: Pagine UI/UX avanzate
-│   ├── 1_📊_Analytics_Dashboard.py    # Dashboard KPI interattivo
-│   ├── 2_🔍_Document_Preview.py       # Anteprima documenti con thumbnails
-│   └── 3_✏️_Interactive_Editor.py      # Editor metriche real-time
-└── services/                 # Servizi legacy (in migrazione)
-    ├── rag_engine.py        # Potenziato con orchestratore enterprise
-    └── query_cache.py       # Ottimizzazione performance
-
-config/
-└── ontology/                 # NUOVO: Ontologia metriche finanziarie
-    └── financial_metrics.yaml     # 31 metriche, oltre 219 sinonimi
-
-scripts/                      # NUOVO: Script deployment e automation
-├── deploy_performance.bat           # Script Windows performance setup
-└── deploy_performance.sh            # Script Linux/Mac performance setup
-
-docker-compose.scaling.yml     # NUOVO: Configurazione Docker scaling
-nginx/                        # NUOVO: Configurazione Nginx load balancer
-└── nginx.conf               # Reverse proxy e load balancing
-
-docs/                         # NUOVO: Documentazione avanzata
-└── PERFORMANCE_OPTIMIZATION.md  # Guida completa performance
-
-tests/
-├── unit/                     # Test unitari per logica dominio
-├── integration/              # Test integrazione per repository
-├── e2e/                     # Test end-to-end flussi lavoro
-└── test_performance.py      # NUOVO: Test suite performance optimization
-
-# File setup performance
-setup_performance.py         # NUOVO: Setup automatico performance optimization
-test_performance_final.py    # NUOVO: Test finale verifica deployment
-requirements.performance.txt # NUOVO: Dependencies performance optimization
-```
-
-## 🚀 Guida all'Uso
-
-### 🚀 **NUOVO: Utilizzo Modalità Enterprise**
-
-**Attiva le Funzionalità Enterprise:**
-1. **Attiva la Modalità Enterprise** nella barra laterale di Streamlit (🚀 Modalità Enterprise)
-2. **Carica Documenti Finanziari** (PDF, Excel, Word)
-3. **Poni Domande** - La pipeline Enterprise automaticamente:
-   - Instradata i documenti (strutturati/non strutturati/ibridi)
-   - Esegue recupero ibrido (BM25 + embeddings + riclassificazione)
-   - Estrae e normalizza le metriche finanziarie
-   - Mappa all'ontologia canonica (Italiano ↔ Inglese)
-   - Valida la coerenza del bilancio
-   - Archivia con piena provenienza nella tabella dimensionale
-
-**I Risultati delle Query Enterprise Includono:**
-- **📊 Metriche Rilevate**: Valori normalizzati con punteggi di confidenza
-- **✅ Risultati di Validazione**: Controlli di coerenza (bilancio, PFN)
-- **⚡ Statistiche di Elaborazione**: Tempo, confidenza, record salvati
-- **🔍 Riferimenti di Origine**: Provenienza completa dei dati
-- **⚠️ Avvisi di Validazione**: Incongruenze contabili segnalate
-
-### 🚀 **NUOVO: Funzionalità UI/UX Avanzate**
-
-#### 📊 Dashboard Analytics Avanzato (`1_📊_Analytics_Dashboard.py`)
-- **Gauge KPI Interattivi**: Visualizzazione metriche con soglie e colori dinamici
-- **Waterfall Charts**: Analisi breakdown finanziario (Ricavi → EBITDA → Utile Netto)
-- **Trend Analysis**: Grafici temporali con analisi crescita YoY
-- **Health Score**: Punteggio di salute aziendale con algoritmi di scoring
-- **Radar Efficienza**: Visualizzazione multi-dimensionale delle performance
-- **Risk Assessment**: Analisi del rischio con matrice di valutazione
-
-#### 🔍 Anteprima Documenti (`2_🔍_Document_Preview.py`)
-- **Supporto Multi-Formato**: PDF, Excel, CSV, Immagini, Text, JSON, Markdown
-- **Thumbnails Automatici**: Generazione preview pagine PDF e documenti
-- **Estrazione Contenuti**: Analisi automatica e preview del testo
-- **Statistiche Documenti**: Metadati dettagliati e analisi qualità dati
-- **Rilevamento Metriche**: Identificazione automatica valori finanziari
-- **Sistema Caching**: Ottimizzazione performance per documenti ricorrenti
-- **Export Funzionale**: Download dati preview in formato JSON
-
-#### ✏️ Editor Interattivo Metriche (`3_✏️_Interactive_Editor.py`)
-- **Editing Real-Time**: Modifica valori con validazione immediata
-- **Gestione Sessioni**: Controllo stato editing multi-utente
-- **Suggerimenti AI**: Raccomandazioni automatiche per correzioni
-- **Cronologia Modifiche**: Tracking completo operazioni con undo/redo
-- **Validazione Avanzata**: Controlli dominio (AR/AP, Sales, HR, Inventory)
-- **Integrazione Ontologia**: Mappatura automatica sinonimi 68 metriche
-- **Import/Export Bulk**: Funzionalità caricamento/scaricamento dati massivo
-
-### 1. 📊 Analisi Dati Finanziari
-
-**Elaborazione CSV di Livello Enterprise:**
-1. **Upload Intelligente**: Rileva automaticamente i formati italiani (`1.234,56`, formati data)
-2. **Modellazione Finanziaria**: Calcolo automatico di KPI e analisi dei trend
-3. **Analisi Avanzate**:
-   - Crescita YoY con significatività statistica
-   - Rapporti finanziari e analisi dei margini
-   - Rilevamento anomalie con punteggi di confidenza
-   - Analisi comparative multi-periodo
-4. **Visualizzazioni Interattive**: Dashboard Plotly con capacità di drill-down
-
-### 2. 🔍 Intelligenza Documentale RAG
-
-**Elaborazione Semantica dei Documenti:**
-1. **Ingestione Multi-Formato**: PDF, DOCX, TXT, Markdown con estrazione metadati
-2. **Indicizzazione Intelligente**: Chunking context-aware con archiviazione vettoriale Qdrant
-3. **Query in Linguaggio Naturale**: Poni domande complesse in italiano o inglese
-4. **Integrazione del Contesto**: Combina insights dei dati finanziari con il contenuto dei documenti
-5. **Export PDF Professionale** - Esporta sessioni Q&A con stile ZCS Company
-
-### 3. 🤖 Business Intelligence Basata su AI
-
-**Supporto Decisionale Strategico:**
-- **Dashboard Esecutive**: Report pronti per il C-suite con insight chiave
-- **Analisi Predittive**: Previsioni sui trend con intervalli di confidenza  
-- **Valutazione del Rischio**: Scoring automatico del rischio con strategie di mitigazione
-- **Report di Conformità**: Documentazione pronta per audit con tracciamento provenienza
-- **Supporto Multi-Lingua**: Elaborazione query in italiano e inglese
-
-### ⚡ **NUOVO: 4. Performance Monitoring e Optimization**
-
-**Dashboard Performance Enterprise:**
-- **🔧 Connection Pool Status**: Monitoraggio real-time pool connessioni DB
-- **📊 Redis Cache Analytics**: Hit rate, memory usage, key statistics
-- **⚙️ Celery Task Queue**: Background jobs status, workers health, task throughput
-- **🌐 Load Balancer Metrics**: Distribuzione carico, health checks, response times
-- **📈 Performance Dashboard**: Grafici interattivi su latenza, throughput, errori
-
-**Accesso Monitoring:**
-```bash
-# Flower Dashboard (Celery monitoring)
-http://localhost:5555
-
-# Redis CLI per cache inspection
-docker exec -it rag_redis redis-cli
-
-# Qdrant dashboard
-http://localhost:6333/dashboard
-
-# Nginx status (se configurato)
-http://localhost/nginx-status
-
-# Application performance metrics
-http://localhost:8502 → Sidebar "Performance Stats"
-```
-
-## 🛠️ Sviluppo
-
-### Garanzia della Qualità
-
-```bash
-# Qualità del Codice
-ruff check .                       # Linting veloce con oltre 800 regole
-black .                           # Formattazione coerente del codice  
-mypy src/                         # Controllo dei tipi
-bandit src/                       # Scansione sicurezza
-
-# Suite di Test  
-pytest                            # Esegui tutti i test (obiettivo copertura 80%)
-pytest -m unit                   # Solo test unitari
-pytest -m integration            # Test di integrazione  
-pytest -v --tb=short            # Output dettagliato
-
-# Test delle Prestazioni
-pytest -m slow                   # Benchmark delle prestazioni
-pytest --cov=src --cov-report=html  # Report di copertura
-
-# Test UI/UX Integration
-python test_ui_integration.py    # Test completo funzionalità UI/UX avanzate
-
-# Performance Optimization Testing (NUOVO)
-python test_performance_final.py # Test completo performance optimization
-pytest tests/test_performance.py # Test suite performance components
-```
-
-### Gestione Dipendenze
-
-```bash
-# Gestione dipendenze veloce con uv (10-100x più veloce di pip)
-uv add nome-pacchetto              # Aggiungi dipendenza di produzione
-uv add --dev nome-pacchetto        # Aggiungi dipendenza di sviluppo
-uv remove nome-pacchetto           # Rimuovi dipendenza
-uv pip compile requirements.txt   # Aggiorna file di lock
-uv sync                           # Sincronizza ambiente
-```
-
-### Architecture Validation
-
-```bash
-# Domain Model Validation
-python -m src.domain.entities.financial_data  # Test entity integrity
-python -m src.domain.value_objects.money     # Test value objects
-
-# Repository Testing  
-python -m src.infrastructure.repositories    # Test data persistence
-
-# Dependency Injection Validation
-python -m src.core.dependency_injection      # Test DI container
-```
-
-## Risoluzione Problemi
-
-### Problemi Comuni
-
-#### Errori API OpenAI
-```bash
-# Chiave API non valida
-export OPENAI_API_KEY=sk-la-tua-chiave-qui
-# Oppure modifica il file .env
-
-# Limite di velocità superato  
-# Soluzione: Riduci la frequenza delle richieste o aggiorna il piano
-```
-
-#### Problemi di Connessione Qdrant
-```bash
-# Controlla lo stato di Qdrant
-curl http://localhost:6333/health
-
-# Riavvia Qdrant
-docker restart qdrant
-```
-
-#### Problemi di Memoria
-```bash
-# Riduci la dimensione del chunk
-CHUNK_SIZE=256  # Default: 512
-
-# Aumenta la memoria Docker
-docker-compose up --memory=4g
-```
-
-#### 🚀 **NUOVO: Problemi Performance Optimization**
-
-**Redis Connection Issues:**
-```bash
-# Test connessione Redis
-docker exec -it rag_redis redis-cli ping
-
-# Restart Redis container
-docker restart rag_redis
-
-# Check Redis memory usage
-docker exec rag_redis redis-cli info memory
-```
-
-**Celery Worker Issues:**
-```bash
-# Check workers status
-celery -A src.infrastructure.performance.celery_tasks status
-
-# Restart workers
-pkill -f celery
-celery -A src.infrastructure.performance.celery_tasks worker --loglevel=info
-
-# Monitor with Flower
-flower -A src.infrastructure.performance.celery_tasks --port=5555
-```
-
-**Connection Pool Issues:**
-```bash
-# Check pool statistics
-python -c "from src.infrastructure.performance.connection_pool import get_qdrant_pool; print(get_qdrant_pool().get_stats())"
-
-# Reset pools
-docker restart rag_redis rag_qdrant
-python setup_performance.py
-```
-
-**Load Balancer Issues:**
-```bash
-# Test Nginx configuration
-nginx -t
-
-# Restart load balancer
-docker-compose -f docker-compose.scaling.yml restart nginx
-
-# Check service health
-curl http://localhost/health
-```
-
-## Contribuire
-
-1. **Fork** del repository
-2. **Crea branch feature**: `git checkout -b feature/funzionalita-incredibile`
-3. **Commit delle modifiche**: `git commit -m 'Aggiungi funzionalità incredibile'`
-4. **Push al branch**: `git push origin feature/funzionalita-incredibile`
-5. **Apri Pull Request**
-
-## Licenza
-
-Questo progetto è rilasciato sotto la **Licenza MIT** - vedi [LICENSE](LICENSE) per i dettagli.
-
-## Supporto
-
-- **Problemi**: GitHub Issues per segnalazioni di bug
-- **Discussioni**: GitHub Discussions per domande e risposte
-- **Documentazione**: Wiki completa su GitHub
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
+[![Qdrant](https://img.shields.io/badge/Qdrant-DC244C?logo=qdrant&logoColor=white)](https://qdrant.tech/)
+[![Enterprise Ready](https://img.shields.io/badge/Enterprise-Ready-green)](https://github.com)
 
 ---
 
-**Pronto a trasformare i tuoi dati in business intelligence enterprise-grade?**
+## 🎯 Funzionalità Principali
 
-🚀 **Quick Start**: `start.bat` (standard)
-⚡ **Performance**: `.\scripts\deploy_performance.bat` (ottimizzato)
-🌐 **Enterprise**: `docker-compose -f docker-compose.scaling.yml up -d` (scaling)
+### 🔥 **NOVITÀ 2025: Gold Standard Benchmarking & Dimensional Coherence**
+- **🎯 Gold Standard Benchmarking**: Sistema automatizzato per misurare accuratezza RAG vs valori certificati
+- **📐 Dimensional Coherence Validation**: 15+ regole avanzate per validazione coerenza finanziaria
+- **📊 Report di Qualità**: HTML/JSON reports con metriche dettagliate e grafici di performance
+- **⚙️ Configurazione YAML**: Test cases e regole di validazione completamente configurabili
+- **🔍 Continuous Quality**: Integrazione CI/CD per monitoraggio qualità automatico
 
-**Il futuro dell'AI aziendale è qui - inizia ora!**
+### 🚀 **Architettura Enterprise a 6 Livelli**
+- **🔧 Attivazione Enterprise**: Modalità enterprise con toggle nella sidebar Streamlit
+- **⚡ Performance Ultra-Ottimizzate**: Connection pooling, cache Redis distribuita, Celery background jobs
+- **🔄 Scaling Orizzontale**: Load balancing Nginx, auto-scaling Docker, alta disponibilità
+- **📊 Dashboard Analytics**: KPI interattivi, trend analysis, waterfall charts, radar efficienza
+- **🔍 Anteprima Documenti**: Thumbnails automatici, estrazione contenuti, statistiche documenti
+- **✏️ Editor Interattivo**: Real-time editing metriche, validazione automatica, suggerimenti AI
+- **📈 Visualizzazioni Professionali**: Plotly charts, gauge KPI, heatmap rischio
+
+### 🔐 **Sistema di Sicurezza Multi-Tenant Avanzato**
+- **🛡️ Row-Level Security (RLS)**: Sistema di controllo accessi granulare enterprise-grade
+- **👥 5 Ruoli Utente**: ADMIN, ANALYST, VIEWER, BU_MANAGER, TENANT_ADMIN con permessi specifici
+- **🏢 Multi-Tenant**: Isolamento dati completo per organizzazioni multiple
+- **🔑 Autenticazione Unificata**: Login con username/password + tenant ID opzionale
+- **📊 Security Dashboard**: Monitoraggio sessioni, audit trail, statistiche sicurezza
+- **🔒 4 Livelli Classificazione**: PUBLIC → INTERNAL → CONFIDENTIAL → RESTRICTED
+- **👤 5 Utenti Demo**: Preconfigurati per testing (admin, analyst.azienda.a, manager.bu.sales, etc.)
+
+### 📊 **Analisi Finanziarie Enterprise-Grade**
+- **🧮 68 Metriche Finanziarie**: Ontologia completa AR/AP, Vendite, Magazzino, HR, Liquidità
+- **📐 Dimensional Coherence**: Validazione automatica coerenza contabile (Attivo = Passivo + PN)
+- **🔍 Provenienza Granulare**: Tracking completo pagina/cella/coordinata (file.xlsx|sheet:CE|cell:B12)
+- **✅ Data Quality**: Validazioni Great Expectations sistematiche su coerenza bilancio/PFN
+- **🔄 Calcoli Derivati**: 15+ formule automatiche (PFN, ROS, ROIC, Current Ratio, DSO, DPO)
+- **📈 Lineage Tracking**: Tracciamento formula + inputs + confidence per ogni calcolo
+- **🌍 Multi-Valuta**: Supporto completo con tracciamento conversioni
+- **📊 Analisi Comparativa**: Confronti multi-periodo ed entità con validazioni cross-period
+
+### 🧠 **Intelligenza Documentale RAG Avanzata**
+- **🤖 Retrieval Ibrido**: BM25 + OpenAI Embeddings + CrossEncoder reranking per accuratezza massima
+- **📄 Supporto Multi-Formato**: PDF, DOCX, TXT, MD, Excel, CSV con parsing intelligente
+- **🔍 Estrazione Avanzata**: OCR Tesseract, Camelot/Tabula per tabelle, parsing Excel strutturato
+- **🗄️ Vector Database**: Qdrant con 1536-dim embeddings (text-embedding-3-small)
+- **💭 Query Context-Aware**: Combinazione seamless dati strutturati + non strutturati
+- **📋 Metadati Ricchi**: Estrazione automatica con classificazione documento
+- **📖 Chunking Intelligente**: Ottimizzazione overlap e dimensioni per qualità massima
+
+### 🏗️ **Architettura e Infrastruttura**
+- **📐 Clean Architecture**: Domain-Driven Design con separazione livelli
+- **🗄️ Fact Table Dimensionale**: Schema a stella con DuckDB/SQLite backend
+- **🔄 Enterprise Orchestrator**: Pipeline 6-step con error handling e statistics
+- **📊 Data Normalization**: Formati italiani (1.234,56), scale detection, period parsing
+- **🎯 Ontology Mapping**: 31 metriche canoniche con 219+ sinonimi italiano/inglese
+- **⚡ Performance Caching**: TTL-based query caching, compact response mode
+- **🔍 Health Monitoring**: Component-wise health checks, processing metrics
+
+### 🎨 **Interfaccia Utente Moderna**
+- **📱 Multi-Page Streamlit**: 12+ pagine specializzate con navigazione intuitiva
+- **🖥️ Angular Frontend**: Alternativa moderna con dashboard interattive
+- **📄 Export PDF Professionale**: Styling ZCS Company con logo e formattazione
+- **📊 Visualizzazioni Dinamiche**: Plotly charts, KPI gauges, tabelle interattive
+- **🌙 Theme Manager**: Supporto temi light/dark con persistenza utente
+- **📱 Responsive Design**: Ottimizzato desktop, tablet e mobile
+
+### 🤖 **AI-Powered Business Intelligence**
+- **💬 Query Linguaggio Naturale**: Italiano e inglese con context understanding
+- **📈 Analisi Predittive**: Pattern recognition su dati storici
+- **🎯 Raccomandazioni Smart**: Insight automatici con prioritizzazione
+- **⚠️ Risk Assessment**: Punteggi confidenza e alerting anomalie
+- **📋 Report Esecutivi**: Generazione automatica executive summary
+- **🔍 FAQ Intelligenti**: Generazione automatica domande/risposte da documenti
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisiti
+- **Python 3.12+**
+- **Docker** (opzionale, per Qdrant)
+- **OpenAI API Key** (per embeddings)
+
+### Installazione Rapida
+
+```bash
+# Clone repository
+git clone https://github.com/your-repo/business-intelligence-rag.git
+cd business-intelligence-rag
+
+# Setup ambiente (Windows)
+start.bat
+
+# Setup ambiente (Linux/Mac)
+./start.sh
+
+# Avvio applicazione
+streamlit run app.py
+```
+
+### Setup Manuale con uv (Raccomandato)
+
+```bash
+# Installa uv se non presente
+pip install uv
+
+# Setup ambiente virtuale
+uv venv
+source .venv/bin/activate  # Linux/Mac
+.venv\\Scripts\\activate   # Windows
+
+# Installazione dipendenze (ultra-veloce con uv)
+uv pip install -r requirements.txt
+
+# Configurazione
+cp .env.example .env
+# Modifica .env con le tue API keys
+
+# Avvio Streamlit
+streamlit run app.py
+```
+
+### Avvio con Docker
+
+```bash
+# Avvio completo (Qdrant + App)
+docker-compose up -d
+
+# Solo database vettoriale
+docker-compose up -d qdrant
+
+# Applicazione in sviluppo
+streamlit run app.py --server.port 8501
+```
+
+---
+
+## 🎯 Utilizzo
+
+### 1. **Autenticazione e Multi-Tenant**
+
+```python
+# Login con credenziali demo
+Username: admin
+Password: admin123
+Tenant ID: (lascia vuoto per admin globale)
+
+# Oppure con tenant specifico
+Username: analyst.azienda.a
+Password: analyst123
+Tenant ID: tenant_b  # Override del tenant default
+```
+
+### 2. **Caricamento Documenti**
+- Accedi alla sezione **📄 RAG Documenti**
+- Upload PDF, Excel, CSV o documenti Word
+- Il sistema processerà automaticamente con:
+  - Estrazione metadati e provenienza
+  - Chunking intelligente
+  - Generazione embeddings
+  - Indicizzazione vettoriale
+
+### 3. **Analisi CSV/Excel**
+- Carica file nella sezione **📊 Analisi CSV**
+- Ottieni automaticamente:
+  - 68 metriche finanziarie estratte
+  - Validazioni dimensional coherence
+  - Calcoli derivati con lineage
+  - Visualizzazioni interattive
+
+### 4. **Query Intelligenti**
+```
+Query esempi:
+"Qual è l'EBITDA margin del 2023?"
+"Confronta i ricavi Q1 vs Q2 2024"
+"Mostra l'evoluzione del PFN negli ultimi 3 anni"
+"Quali sono i principali rischi finanziari?"
+```
+
+### 5. **Gold Standard Benchmarking**
+```bash
+# Esegui benchmark qualità
+python benchmarks/benchmark_runner.py
+
+# Con configurazione custom
+python benchmarks/benchmark_runner.py --config custom_tests.yaml
+
+# Output: report HTML in benchmarks/reports/
+```
+
+---
+
+## 📁 Architettura del Progetto
+
+```
+business-intelligence-rag/
+│
+├── 🏗️ **Core Application**
+│   ├── app.py                     # Main Streamlit application
+│   ├── api.py                     # FastAPI REST API
+│   └── services/                  # Core business services
+│       ├── rag_engine.py         # RAG engine principale
+│       ├── csv_analyzer.py       # Analizzatore CSV/Excel
+│       ├── llm_service.py        # Integrazione LLM
+│       └── secure_rag_engine.py  # RAG con security RLS
+│
+├── 🔐 **Security & Multi-Tenant**
+│   └── src/core/security/
+│       ├── authentication.py     # Sistema autenticazione
+│       ├── access_control.py     # Row-Level Security
+│       ├── multi_tenant_manager.py # Gestione tenant
+│       └── user_context.py       # Context utenti e ruoli
+│
+├── 🎯 **Enterprise Services**
+│   └── src/application/services/
+│       ├── enterprise_orchestrator.py    # Pipeline enterprise 6-step
+│       ├── hybrid_retrieval.py          # BM25 + Embeddings + Rerank
+│       ├── data_normalizer.py           # Normalizzazione dati IT/EN
+│       ├── ontology_mapper.py           # 31 metriche + 219 sinonimi
+│       ├── document_router.py           # Classificazione documenti
+│       └── advanced_enterprise_orchestrator.py # Orchestrazione avanzata
+│
+├── 📊 **Data & Analytics**
+│   └── src/infrastructure/repositories/
+│       ├── fact_table_repository.py     # Fact table dimensionale
+│       ├── secure_fact_table.py         # Fact table con RLS
+│       └── multi_tenant_fact_table.py   # Multi-tenant data layer
+│
+├── 🎯 **Quality & Validation**
+│   ├── benchmarks/                      # Gold Standard Benchmarking
+│   │   ├── benchmark_runner.py         # Sistema di benchmark
+│   │   ├── gold_standard_config.yaml   # Test cases configurazione
+│   │   └── reports/                     # Report HTML/JSON output
+│   ├── src/domain/value_objects/
+│   │   └── guardrails.py               # Dimensional coherence + validazioni
+│   └── config/
+│       └── dimensional_coherence_rules.yaml # Regole validazione YAML
+│
+├── 🎨 **Frontend & UI**
+│   ├── pages/                          # Streamlit multi-page
+│   │   ├── 00_🔐_Login.py             # Login multi-tenant (deprecated)
+│   │   ├── 01_🛡️_Security_Dashboard.py # Dashboard sicurezza admin
+│   │   ├── 1_📊_Analytics_Dashboard.py # Dashboard analytics
+│   │   ├── 2_📍_Document_Preview.py    # Anteprima documenti
+│   │   └── 3_✏️_Interactive_Editor.py # Editor metriche interattivo
+│   ├── components/
+│   │   └── security_ui.py              # Componenti UI sicurezza
+│   └── frontend_angular/               # Frontend Angular alternativo
+│
+├── 📄 **Configuration**
+│   ├── config/                         # Configurazioni sistema
+│   ├── data/                          # Storage dati e cache
+│   ├── .env                           # Variabili ambiente
+│   ├── requirements.txt               # Dipendenze Python
+│   ├── docker-compose.yml             # Container orchestration
+│   └── uv.lock                        # Lock file uv
+│
+└── 📚 **Documentation**
+    ├── README.md                       # Questo file
+    ├── IMPLEMENTATION_PLAN.md          # Piano implementazione gap
+    ├── RLS_IMPLEMENTATION_COMPLETE.md  # Documentazione RLS
+    ├── CLAUDE.md                       # Istruzioni Claude Code
+    └── docs/                           # Documentazione dettagliata
+```
+
+---
+
+## 🔧 Configurazione Avanzata
+
+### Variabili Ambiente (.env)
+
+```env
+# === CORE CONFIGURATION ===
+OPENAI_API_KEY=your_openai_key_here
+QDRANT_URL=http://localhost:6333
+QDRANT_COLLECTION_NAME=business_documents
+
+# === PERFORMANCE OPTIMIZATION ===
+RAG_RESPONSE_MODE=compact            # Faster than tree_summarize
+RAG_SIMILARITY_TOP_K=3              # Reduced from 5 for speed
+RAG_ENABLE_CACHING=True             # Query result caching
+RAG_CHUNK_SIZE=1000                 # Optimal chunk size
+RAG_CHUNK_OVERLAP=200               # Overlap for context
+
+# === ENTERPRISE FEATURES ===
+ENABLE_ENTERPRISE_MODE=true          # Attiva funzionalità enterprise
+ENABLE_DIMENSIONAL_COHERENCE=true   # Validazioni coerenza avanzate
+STRICT_VALIDATION_MODE=false        # Blocca processing su errori
+MAX_VALIDATION_TIME_SECONDS=30      # Timeout validazioni
+
+# === SECURITY SETTINGS ===
+ENABLE_RLS=true                     # Row-Level Security
+SESSION_TIMEOUT_HOURS=8             # Timeout sessione utente
+MAX_FAILED_LOGIN_ATTEMPTS=5        # Tentativi login falliti
+LOCKOUT_DURATION_MINUTES=30        # Durata lockout account
+
+# === MULTI-TENANT CONFIGURATION ===
+DEFAULT_TENANT_TIER=PREMIUM         # Tier default nuovi tenant
+ENABLE_TENANT_ISOLATION=true       # Isolamento dati tenant
+TENANT_RESOURCE_LIMITS=true         # Limiti risorse per tenant
+
+# === PERFORMANCE & CACHING ===
+REDIS_URL=redis://localhost:6379   # Cache distribuita
+CELERY_BROKER_URL=redis://localhost:6379 # Background jobs
+ENABLE_CONNECTION_POOLING=true     # Pool connessioni DB
+MAX_POOL_SIZE=20                   # Dimensione pool
+
+# === QUALITY & BENCHMARKING ===
+ENABLE_GOLD_STANDARD_BENCHMARKING=true  # Sistema benchmark
+BENCHMARK_OUTPUT_FORMAT=html,json       # Formati report
+BENCHMARK_INCLUDE_CHARTS=true           # Grafici nei report
+QUALITY_THRESHOLD_ERROR=95              # Soglia errore qualità %
+QUALITY_THRESHOLD_WARNING=85            # Soglia warning qualità %
+
+# === LOGGING & MONITORING ===
+LOG_LEVEL=INFO                      # DEBUG, INFO, WARNING, ERROR
+ENABLE_AUDIT_LOGGING=true          # Log audit security
+ENABLE_PERFORMANCE_MONITORING=true # Monitoring performance
+METRICS_COLLECTION_INTERVAL=60     # Intervallo raccolta metriche (sec)
+
+# === OPTIONAL INTEGRATIONS ===
+ANTHROPIC_API_KEY=your_anthropic_key    # Claude integration
+HUGGINGFACE_API_TOKEN=your_hf_token     # HuggingFace models
+GREAT_EXPECTATIONS_ENABLE=true          # Data quality validation
+DVC_REMOTE_URL=s3://your-bucket         # Data versioning
+```
+
+### Configurazione Gold Standard Benchmarking
+
+```yaml
+# benchmarks/gold_standard_config.yaml
+test_cases:
+  - id: "bilancio_2023_test"
+    name: "Bilancio 2023 - Extraction Test"
+    document_path: "benchmarks/gold_standard/documents/bilancio_sample.pdf"
+    expected_metrics:
+      - metric_name: "ricavi"
+        expected_value: 5000000.0
+        tolerance: 0.01  # 1%
+        source_page: 12
+      - metric_name: "ebitda"
+        expected_value: 800000.0
+        tolerance: 0.01
+        source_page: 14
+
+scoring:
+  metrics:
+    numeric_accuracy:
+      weight: 0.4
+    source_attribution:
+      weight: 0.2
+    completeness:
+      weight: 0.2
+    context_relevance:
+      weight: 0.2
+
+  thresholds:
+    excellent: 95  # >= 95% accuracy
+    good: 85       # >= 85% accuracy
+    acceptable: 75 # >= 75% accuracy
+```
+
+### Configurazione Dimensional Coherence
+
+```yaml
+# config/dimensional_coherence_rules.yaml
+settings:
+  enable_dimensional_coherence: true
+  strict_mode: false
+  tolerance:
+    balance_sheet: 0.01  # 1%
+    ratios: 0.05         # 5%
+
+balance_sheet_rules:
+  attivo_passivo_coherence:
+    enabled: true
+    level: "error"
+    tolerance_pct: 0.01
+
+pl_statement_rules:
+  ebitda_revenue_coherence:
+    enabled: true
+    level: "error"
+    max_ebitda_pct_of_revenue: 100
+
+  ebitda_margin_bounds:
+    enabled: true
+    level: "warning"
+    min_margin_pct: -50
+    max_margin_pct: 40
+```
+
+---
+
+## 🧪 Testing & Quality Assurance
+
+### Test di Unità
+```bash
+# Esegui tutti i test
+pytest
+
+# Test specifici con coverage
+pytest tests/ -v --cov=src --cov-report=html
+
+# Test sicurezza RLS
+pytest tests/test_security_core.py -v
+
+# Test enterprise services
+pytest tests/test_enterprise_orchestrator.py -v
+```
+
+### Gold Standard Benchmarking
+```bash
+# Benchmark completo con report HTML
+python benchmarks/benchmark_runner.py --verbose
+
+# Test solo estrazione numerica
+python benchmarks/benchmark_runner.py --numeric-only
+
+# Benchmark con configurazione custom
+python benchmarks/benchmark_runner.py --config custom_tests.yaml
+
+# Output automatico in benchmarks/reports/
+# - benchmark_report_YYYYMMDD_HHMMSS.html
+# - benchmark_report_YYYYMMDD_HHMMSS.json
+```
+
+### Validation Testing
+```bash
+# Test validazioni dimensional coherence
+python -c "
+from src.domain.value_objects.guardrails import FinancialGuardrails
+guardrails = FinancialGuardrails(enable_dimensional_coherence=True)
+test_data = {'ricavi': 5000000, 'ebitda': 800000}
+results = guardrails.run_dimensional_coherence_validation(test_data)
+print(f'Validations: {len(results)}, Passed: {sum(r.passed for r in results)}')
+"
+
+# Test con dati problematici
+python -c "
+from src.domain.value_objects.guardrails import FinancialGuardrails
+guardrails = FinancialGuardrails()
+bad_data = {'ricavi': 1000000, 'ebitda': 2000000}  # EBITDA > Revenue!
+result = guardrails.validate_ebitda_margin(bad_data['ebitda'], bad_data['ricavi'])
+print(f'Invalid data test: {result.passed} - {result.message}')
+"
+```
+
+### Performance Benchmarking
+```bash
+# Test performance pipeline enterprise
+python -c "
+import time
+from src.application.services.enterprise_orchestrator import EnterpriseOrchestrator
+orchestrator = EnterpriseOrchestrator()
+start = time.time()
+# Simulate processing
+print(f'Enterprise pipeline ready in {time.time() - start:.2f}s')
+"
+
+# Monitor memory usage durante processing
+python -c "
+import psutil, time
+from services.rag_engine import RAGEngine
+process = psutil.Process()
+rag = RAGEngine()
+print(f'Memory usage: {process.memory_info().rss / 1024 / 1024:.1f} MB')
+"
+```
+
+---
+
+## 🚀 Deployment Production
+
+### Docker Production
+```bash
+# Build immagine production
+docker build -t business-intelligence-rag:latest .
+
+# Deploy con orchestrazione completa
+docker-compose -f docker-compose.prod.yml up -d
+
+# Scaling orizzontale
+docker-compose -f docker-compose.prod.yml up -d --scale app=3
+
+# Health check
+curl http://localhost:8501/_health
+```
+
+### Kubernetes Deployment
+```yaml
+# k8s-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: rag-app
+  template:
+    spec:
+      containers:
+      - name: rag-app
+        image: business-intelligence-rag:latest
+        ports:
+        - containerPort: 8501
+        env:
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: rag-secrets
+              key: openai-api-key
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-service
+spec:
+  selector:
+    app: rag-app
+  ports:
+  - port: 80
+    targetPort: 8501
+  type: LoadBalancer
+```
+
+### Environment Setup
+```bash
+# Production environment variables
+export OPENAI_API_KEY="your-production-key"
+export QDRANT_URL="https://your-qdrant-cluster.com"
+export REDIS_URL="redis://your-redis-cluster:6379"
+export LOG_LEVEL="INFO"
+export ENABLE_ENTERPRISE_MODE="true"
+export STRICT_VALIDATION_MODE="true"
+
+# Security hardening
+export SESSION_TIMEOUT_HOURS="4"
+export MAX_FAILED_LOGIN_ATTEMPTS="3"
+export ENABLE_AUDIT_LOGGING="true"
+
+# Performance optimization
+export RAG_ENABLE_CACHING="true"
+export ENABLE_CONNECTION_POOLING="true"
+export MAX_POOL_SIZE="50"
+```
+
+---
+
+## 📊 Metriche e Monitoring
+
+### Performance Metrics
+- **Query Response Time**: < 2s (95th percentile)
+- **Document Processing**: 1000+ docs/hour
+- **Concurrent Users**: 50+ simultaneous
+- **Memory Usage**: < 4GB per instance
+- **CPU Usage**: < 80% under load
+
+### Quality Metrics
+- **Gold Standard Accuracy**: 95%+ on financial metrics
+- **Dimensional Coherence**: 99%+ validation pass rate
+- **Source Attribution**: 90%+ correct page/cell references
+- **Semantic Relevance**: 85%+ user satisfaction
+
+### Business Metrics
+- **Data Coverage**: 68 financial metrics supported
+- **Document Formats**: 8+ formats (PDF, Excel, etc.)
+- **Languages**: Italian + English support
+- **Industries**: Finance, Manufacturing, Services, Tech
+- **Compliance**: SOX, GDPR ready with RLS
+
+---
+
+## 🤝 Contributing
+
+### Development Setup
+```bash
+# Fork e clone
+git clone https://github.com/your-username/business-intelligence-rag.git
+cd business-intelligence-rag
+
+# Setup sviluppo
+uv venv
+source .venv/bin/activate
+uv pip install -r requirements-dev.txt
+
+# Pre-commit hooks
+pre-commit install
+
+# Testing locale
+pytest tests/ -v
+```
+
+### Code Quality
+```bash
+# Linting e formatting
+ruff check .                    # Fast Python linter
+ruff format .                   # Code formatting
+
+# Type checking
+mypy src/
+
+# Security scanning
+bandit -r src/
+
+# Dependency checking
+pip-audit
+```
+
+### Contribution Guidelines
+1. **Fork** il repository
+2. Crea **feature branch** (`git checkout -b feature/amazing-feature`)
+3. **Commit** con messaggi descrittivi (`git commit -m 'Add amazing feature'`)
+4. **Test** completamente (`pytest tests/`)
+5. **Push** al branch (`git push origin feature/amazing-feature`)
+6. Apri **Pull Request** con descrizione dettagliata
+
+---
+
+## 🏢 Enterprise Support & Licensing
+
+### Versioni Disponibili
+
+| Feature | Community | Professional | Enterprise |
+|---------|-----------|-------------|------------|
+| Core RAG Engine | ✅ | ✅ | ✅ |
+| Multi-Format Support | ✅ | ✅ | ✅ |
+| Gold Standard Benchmarking | ❌ | ✅ | ✅ |
+| Dimensional Coherence | ❌ | ✅ | ✅ |
+| Row-Level Security | ❌ | ✅ | ✅ |
+| Multi-Tenant | ❌ | ✅ | ✅ |
+| Advanced Analytics | ❌ | ✅ | ✅ |
+| Performance Optimization | ❌ | ❌ | ✅ |
+| High Availability | ❌ | ❌ | ✅ |
+| Priority Support | ❌ | ❌ | ✅ |
+| Custom Development | ❌ | ❌ | ✅ |
+
+### Support & Training
+- **📧 Email Support**: support@zcs-company.com
+- **💬 Enterprise Chat**: Slack/Teams integration disponibile
+- **🎓 Training**: Sessioni di formazione personalizzate
+- **🔧 Custom Development**: Sviluppo funzionalità su misura
+- **🏗️ Implementation**: Supporto deployment e architettura
+
+### SLA Enterprise
+- **Uptime**: 99.9% SLA garantito
+- **Response Time**: < 4h per issues critici
+- **Resolution Time**: < 24h per bugs P1
+- **Support Hours**: 24/7 per clienti Enterprise
+- **Dedicated Success Manager**: Assegnato per account > 10K users
+
+---
+
+## 📚 Roadmap & Future Development
+
+### Q1 2025
+- ✅ **Gold Standard Benchmarking System** - Completato
+- ✅ **Dimensional Coherence Validation** - Completato
+- 🔄 **Real-time Collaboration** - In sviluppo
+- 📅 **Advanced Scheduling** - Pianificato
+
+### Q2 2025
+- 📅 **Machine Learning Insights** - Algoritmi predittivi avanzati
+- 📅 **Natural Language Queries** - Miglioramenti comprensione
+- 📅 **Mobile App** - App nativa iOS/Android
+- 📅 **API Gateway** - Gestione API enterprise
+
+### Q3 2025
+- 📅 **Blockchain Provenance** - Immutable data lineage
+- 📅 **Advanced Visualizations** - D3.js interactive charts
+- 📅 **Voice Integration** - Voice queries e reporting
+- 📅 **Federated Learning** - ML distribuito multi-tenant
+
+### Q4 2025
+- 📅 **Quantum Computing** - Optimization algorithms
+- 📅 **Augmented Reality** - AR data visualization
+- 📅 **AI Automation** - Fully autonomous insights
+- 📅 **Global Expansion** - Multi-language support
+
+---
+
+## 📄 License
+
+Questo progetto è distribuito sotto **Doppia Licenza**:
+
+- **Community Edition**: MIT License - Uso personale e open source
+- **Enterprise Edition**: Commercial License - Contattaci per pricing
+
+Vedi [LICENSE.md](LICENSE.md) per dettagli completi.
+
+---
+
+## 🙏 Acknowledgments
+
+- **OpenAI** - GPT models e embedding APIs
+- **Qdrant** - High-performance vector database
+- **Streamlit** - Amazing web app framework
+- **LlamaIndex** - RAG framework foundation
+- **FastAPI** - Modern API development
+- **Docker** - Containerization platform
+- **ZCS Company** - Enterprise architecture e business expertise
+
+---
+
+## 📞 Contact & Support
+
+### Community
+- **GitHub Issues**: [Report bugs e feature requests](https://github.com/your-repo/issues)
+- **Discussions**: [Community forum](https://github.com/your-repo/discussions)
+- **Stack Overflow**: Tag `business-intelligence-rag`
+- **Reddit**: r/BusinessIntelligence
+
+### Enterprise
+- **📧 Sales**: sales@zcs-company.com
+- **🔧 Support**: support@zcs-company.com
+- **💼 Partnerships**: partnerships@zcs-company.com
+- **📱 Phone**: +39 XXX XXX XXXX (Business hours CET)
+
+### Social Media
+- **LinkedIn**: [ZCS Company](https://linkedin.com/company/zcs-company)
+- **Twitter**: [@ZCSCompany](https://twitter.com/zcscompany)
+- **YouTube**: [ZCS Tech Channel](https://youtube.com/zcstech)
+
+---
+
+<div align="center">
+
+### Built with ❤️ by ZCS Company
+
+**Transforming Business Intelligence with AI-Powered Analytics**
+
+[⭐ Star questo progetto](https://github.com/your-repo) | [🐛 Report Bug](https://github.com/your-repo/issues) | [💡 Request Feature](https://github.com/your-repo/issues)
+
+</div>

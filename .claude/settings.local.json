@@ -60,7 +60,17 @@
       "Bash(cmd /c:*)",
       "Bash(git clean:*)",
       "WebSearch",
-      "Bash(ruff format:*)"
+      "Bash(ruff format:*)",
+      "Bash(del test_scadenzario_router.py)",
+      "Bash(del test_scadenzario.py test_format_scadenzario.py)",
+      "Bash(sudo rm:*)",
+      "Bash(PYTHONPATH=. python tests/test_rls_functionality.py)",
+      "Bash(chmod:*)",
+      "Bash(del \"src\\app\\components\\analytics\\analytics.component.ts\")",
+      "Bash(npm install:*)",
+      "Bash(ng build)",
+      "Bash(tasklist)",
+      "Bash(del app.ts app.html app.scss app.spec.ts)"
     ],
     "deny": [],
     "ask": []

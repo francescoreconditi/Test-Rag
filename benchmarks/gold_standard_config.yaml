@@ -1,0 +1,156 @@
+# Gold Standard Benchmark Configuration
+# This file defines the expected results for testing RAG extraction accuracy
+
+test_cases:
+  - id: "bilancio_2023_test"
+    name: "Bilancio 2023 - Extraction Accuracy Test"
+    document_path: "benchmarks/gold_standard/documents/bilancio_2023_sample.pdf"
+    document_type: "bilancio"
+    expected_metrics:
+      - metric_name: "ricavi"
+        canonical_name: "Ricavi delle vendite"
+        expected_value: 5000000.0
+        unit: "EUR"
+        tolerance: 0.01  # 1% tolerance
+        source_page: 12
+        source_section: "Conto Economico"
+
+      - metric_name: "ebitda"
+        canonical_name: "EBITDA"
+        expected_value: 800000.0
+        unit: "EUR"
+        tolerance: 0.01
+        source_page: 14
+        source_section: "Conto Economico Riclassificato"
+
+      - metric_name: "ebit"
+        canonical_name: "EBIT"
+        expected_value: 650000.0
+        unit: "EUR"
+        tolerance: 0.01
+        source_page: 14
+        source_section: "Conto Economico Riclassificato"
+
+      - metric_name: "utile_netto"
+        canonical_name: "Utile Netto"
+        expected_value: 420000.0
+        unit: "EUR"
+        tolerance: 0.01
+        source_page: 15
+        source_section: "Conto Economico"
+
+      - metric_name: "attivo_totale"
+        canonical_name: "Totale Attivo"
+        expected_value: 12500000.0
+        unit: "EUR"
+        tolerance: 0.001
+        source_page: 8
+        source_section: "Stato Patrimoniale"
+
+      - metric_name: "passivo_totale"
+        canonical_name: "Totale Passivo"
+        expected_value: 12500000.0
+        unit: "EUR"
+        tolerance: 0.001
+        source_page: 10
+        source_section: "Stato Patrimoniale"
+
+      - metric_name: "patrimonio_netto"
+        canonical_name: "Patrimonio Netto"
+        expected_value: 4200000.0
+        unit: "EUR"
+        tolerance: 0.01
+        source_page: 10
+        source_section: "Stato Patrimoniale"
+
+  - id: "ce_excel_test"
+    name: "Conto Economico Excel - Data Extraction Test"
+    document_path: "benchmarks/gold_standard/documents/ce_2024_q1.xlsx"
+    document_type: "conto_economico"
+    expected_metrics:
+      - metric_name: "ricavi_q1"
+        canonical_name: "Ricavi Q1 2024"
+        expected_value: 1250000.0
+        unit: "EUR"
+        tolerance: 0.01
+        source_sheet: "CE"
+        source_cell: "B15"
+
+      - metric_name: "costi_produzione"
+        canonical_name: "Costi della produzione"
+        expected_value: 980000.0
+        unit: "EUR"
+        tolerance: 0.01
+        source_sheet: "CE"
+        source_cell: "B25"
+
+      - metric_name: "margine_operativo"
+        canonical_name: "Margine Operativo Lordo"
+        expected_value: 270000.0
+        unit: "EUR"
+        tolerance: 0.02
+        source_sheet: "CE"
+        source_cell: "B30"
+
+  - id: "nota_integrativa_test"
+    name: "Nota Integrativa - Text Extraction Test"
+    document_path: "benchmarks/gold_standard/documents/nota_integrativa_2023.pdf"
+    document_type: "nota_integrativa"
+    expected_extractions:
+      - query: "Qual è il numero medio di dipendenti?"
+        expected_answer: "150"
+        expected_context: "numero medio di dipendenti"
+        tolerance_type: "exact"
+
+      - query: "Quali sono i principali rischi finanziari?"
+        expected_keywords:
+          - "rischio di credito"
+          - "rischio di liquidità"
+          - "rischio di cambio"
+        tolerance_type: "keywords"
+        min_keywords_match: 2
+
+      - query: "Qual è la politica di ammortamento?"
+        expected_keywords:
+          - "ammortamento"
+          - "quote costanti"
+          - "vita utile"
+        tolerance_type: "keywords"
+        min_keywords_match: 2
+
+# Benchmark scoring configuration
+scoring:
+  metrics:
+    numeric_accuracy:
+      weight: 0.4
+      description: "Accuracy of numeric value extraction"
+
+    source_attribution:
+      weight: 0.2
+      description: "Correct identification of source page/section"
+
+    unit_detection:
+      weight: 0.1
+      description: "Correct identification of units (EUR, %, etc.)"
+
+    completeness:
+      weight: 0.2
+      description: "Percentage of expected values found"
+
+    context_relevance:
+      weight: 0.1
+      description: "Relevance of extracted context"
+
+  thresholds:
+    excellent: 95  # >= 95% accuracy
+    good: 85       # >= 85% accuracy
+    acceptable: 75 # >= 75% accuracy
+    poor: 0        # < 75% accuracy
+
+# Reporting configuration
+reporting:
+  output_format: ["json", "html", "csv"]
+  include_details: true
+  include_failures: true
+  include_charts: true
+  report_path: "benchmarks/reports/"

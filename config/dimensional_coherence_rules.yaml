@@ -1,0 +1,292 @@
+# Dimensional Coherence Validation Rules Configuration
+# This file defines advanced validation rules for financial data coherence
+
+# Global settings
+settings:
+  enable_dimensional_coherence: true
+  strict_mode: false  # If true, validation errors block processing
+  tolerance:
+    balance_sheet: 0.01  # 1% tolerance for balance sheet coherence
+    ratios: 0.05         # 5% tolerance for ratio calculations
+    calculations: 0.02   # 2% tolerance for derived calculations
+
+# Balance Sheet Coherence Rules
+balance_sheet_rules:
+  attivo_passivo_coherence:
+    enabled: true
+    level: "error"  # error, warning, info
+    description: "Attivo Totale must equal Passivo + Patrimonio Netto"
+    tolerance_pct: 0.01
+
+  working_capital_coherence:
+    enabled: true
+    level: "warning"
+    description: "Working Capital = Current Assets - Current Liabilities"
+    tolerance_pct: 0.01
+
+# P&L Statement Coherence Rules
+pl_statement_rules:
+  ebitda_revenue_coherence:
+    enabled: true
+    level: "error"
+    description: "EBITDA must be less than or equal to Revenues"
+    max_ebitda_pct_of_revenue: 100
+
+  ebitda_margin_bounds:
+    enabled: true
+    level: "warning"
+    description: "EBITDA margin should be within reasonable bounds"
+    min_margin_pct: -50
+    max_margin_pct: 40
+    extreme_threshold_pct: 100  # Above this becomes error level
+
+  ebit_calculation:
+    enabled: true
+    level: "warning"
+    description: "EBIT = EBITDA - Ammortamenti"
+    tolerance_pct: 0.02
+
+  operating_margin_coherence:
+    enabled: true
+    level: "warning"
+    description: "EBITDA = Ricavi - Costi Operativi"
+    tolerance_pct: 0.05
+
+  net_income_bounds:
+    enabled: true
+    level: "info"
+    description: "Net Income reasonableness check"
+    max_pct_of_revenue: 50
+    min_pct_of_revenue: -100
+
+# Cash Flow Statement Rules
+cash_flow_rules:
+  cash_flow_coherence:
+    enabled: true
+    level: "error"
+    description: "Ending Cash = Beginning Cash + Operating CF + Investing CF + Financing CF"
+    tolerance_absolute: 1000  # Euro
+    tolerance_pct: 0.001      # 0.1% of beginning cash
+
+  operating_cf_bounds:
+    enabled: true
+    level: "warning"
+    description: "Operating Cash Flow reasonableness"
+    max_pct_of_ebitda: 150
+    min_pct_of_ebitda: -50
+
+# Financial Ratios Validation
+ratio_validation_rules:
+  liquidity_ratios:
+    current_ratio:
+      enabled: true
+      min_value: 0.1
+      max_value: 10.0
+      level: "warning"
+
+    quick_ratio:
+      enabled: true
+      min_value: 0.05
+      max_value: 5.0
+      level: "warning"
+
+  leverage_ratios:
+    debt_to_equity:
+      enabled: true
+      min_value: 0.0
+      max_value: 20.0
+      level: "warning"
+
+    debt_to_assets:
+      enabled: true
+      min_value: 0.0
+      max_value: 1.5
+      level: "warning"
+
+  profitability_ratios:
+    gross_margin_pct:
+      enabled: true
+      min_value: -100
+      max_value: 95
+      level: "warning"
+
+    net_margin_pct:
+      enabled: true
+      min_value: -100
+      max_value: 50
+      level: "warning"
+
+# Period-over-Period Consistency Rules
+period_consistency_rules:
+  revenue_growth:
+    enabled: true
+    level: "warning"
+    description: "Revenue growth should be within reasonable bounds"
+    max_growth_pct: 200   # 200% growth max
+    max_decline_pct: -50  # 50% decline max
+
+  ebitda_growth:
+    enabled: true
+    level: "info"
+    description: "EBITDA growth consistency check"
+    max_growth_pct: 300
+    max_decline_pct: -80
+
+  asset_growth:
+    enabled: true
+    level: "warning"
+    description: "Total assets growth reasonableness"
+    max_growth_pct: 150
+    max_decline_pct: -30
+
+# Domain-Specific Validations
+domain_specific_rules:
+  accounts_receivable:
+    dso_range:
+      enabled: true
+      level: "warning"
+      min_days: 15
+      max_days: 180
+      description: "Days Sales Outstanding reasonable range"
+
+  accounts_payable:
+    dpo_range:
+      enabled: true
+      level: "warning"
+      min_days: 15
+      max_days: 120
+      description: "Days Payable Outstanding reasonable range"
+
+  inventory:
+    turnover_range:
+      enabled: true
+      level: "warning"
+      min_turnover: 0.5
+      max_turnover: 50
+      description: "Inventory turnover reasonable range"
+
+    days_range:
+      enabled: true
+      level: "warning"
+      min_days: 7
+      max_days: 730
+      description: "Days in inventory reasonable range"
+
+  hr_metrics:
+    turnover_rate:
+      enabled: true
+      level: "warning"
+      min_pct: 0
+      max_pct: 100
+      description: "Employee turnover rate bounds"
+
+    absenteeism_rate:
+      enabled: true
+      level: "warning"
+      min_pct: 0
+      max_pct: 30
+      description: "Absenteeism rate bounds"
+
+# Cross-Validation Rules (between different metrics)
+cross_validation_rules:
+  revenue_vs_costs:
+    enabled: true
+    level: "error"
+    description: "Total costs should not exceed revenues by more than reasonable loss threshold"
+    max_loss_pct_of_revenue: 50
+
+  assets_vs_liabilities:
+    enabled: true
+    level: "error"
+    description: "Total liabilities should not exceed total assets significantly"
+    max_liability_pct_of_assets: 120
+
+  ebitda_vs_capex:
+    enabled: true
+    level: "info"
+    description: "CapEx should be reasonable vs EBITDA for sustainability"
+    max_capex_pct_of_ebitda: 200
+
+  debt_service_coverage:
+    enabled: true
+    level: "warning"
+    description: "EBITDA should adequately cover debt service"
+    min_coverage_ratio: 1.1  # EBITDA / Debt Service
+
+# Perimeter Consistency Rules
+perimeter_rules:
+  consolidated_vs_standalone:
+    enabled: true
+    level: "error"
+    description: "Consolidated figures should be >= standalone"
+    tolerance_pct: 0.05  # 5% tolerance for rounding/eliminations
+
+    metrics_to_check:
+      - "ricavi"
+      - "ebitda"
+      - "attivo_totale"
+      - "patrimonio_netto"
+
+# Industry-Specific Rules (can be activated based on company sector)
+industry_rules:
+  manufacturing:
+    enabled: false
+    inventory_turnover_min: 2.0
+    capex_pct_of_revenue_max: 15
+
+  retail:
+    enabled: false
+    inventory_turnover_min: 4.0
+    gross_margin_min_pct: 20
+
+  services:
+    enabled: false
+    asset_turnover_min: 0.8
+    employee_cost_pct_max: 70
+
+  technology:
+    enabled: false
+    rd_pct_of_revenue_max: 30
+    gross_margin_min_pct: 50
+
+# Notification and Alerting
+notifications:
+  email_alerts:
+    enabled: false
+    recipients: []
+    error_threshold: 1      # Send alert if >= 1 error
+    warning_threshold: 5    # Send alert if >= 5 warnings
+
+  log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+
+  reporting:
+    generate_summary: true
+    include_passed_checks: false
+    max_details_per_category: 10
+
+# Validation Scope Control
+scope_control:
+  # Skip validation for certain metrics if needed
+  exclude_metrics: []
+
+  # Only validate specific metrics (if specified, others are ignored)
+  include_only_metrics: []
+
+  # Skip validation for specific categories
+  exclude_categories: []
+  # Options: accounting_coherence, business_logic, range_check,
+  #          consistency_check, period_check, perimeter_check
+
+  # Validation execution control
+  max_validation_time_seconds: 30
+  fail_fast_on_errors: false  # Stop validation on first error
+
+# Custom Rules (can be extended)
+custom_rules: []
+# Example custom rule:
+# - name: "custom_margin_check"
+#   enabled: true
+#   level: "warning"
+#   description: "Custom margin validation"
+#   python_expression: "ebitda / ricavi > 0.05"
+#   error_message: "EBITDA margin below 5%"

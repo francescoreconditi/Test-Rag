@@ -191,7 +191,7 @@ def _score_case(rule: CaseRule, file_name: str, analysis_text: str) -> float:
 def choose_prompt(file_name: str, analysis_text: str) -> tuple[str, str, dict]:
     """
     Ritorna (prompt_name, prompt_text, debug_info)
-    - prompt_name: 'bilancio' | 'fatturato' | 'magazzino' | 'contratto' | 'presentazione' | 'generale'
+    - prompt_name: 'bilancio' | 'fatturato' | 'magazzino' | 'contratto' | 'presentazione' | 'scadenzario' | 'generale'
     - prompt_text: string pronto da inviare al modello
     - debug_info: dizionario con punteggi e motivazioni
     """

@@ -2,7 +2,10 @@
 Multi-Tenant Login Page for Streamlit Application
 ==================================================
 
-Provides authentication and tenant management for the RAG system.
+⚠️ DEPRECATED: This page is deprecated in favor of the unified login system.
+Please use the main app.py login instead, which now supports multi-tenant authentication.
+
+Legacy page kept for backward compatibility only.
 """
 
 from typing import Optional
@@ -15,11 +18,9 @@ from src.domain.entities.tenant_context import TenantTier
 
 # Page configuration
 st.set_page_config(
-    page_title="Login - Business Intelligence RAG",
-    page_icon="🔐",
-    layout="wide",
-    initial_sidebar_state="collapsed"
+    page_title="Login - Business Intelligence RAG", page_icon="🔐", layout="wide", initial_sidebar_state="collapsed"
 )
+
 
 # Initialize multi-tenant manager
 @st.cache_resource
@@ -32,12 +33,7 @@ def login_via_api(email: str, password: str, tenant_id: Optional[str] = None) ->
     """Login via FastAPI backend."""
     try:
         response = requests.post(
-            "http://localhost:8000/auth/login",
-            json={
-                "email": email,
-                "password": password,
-                "tenant_id": tenant_id
-            }
+            "http://localhost:8000/auth/login", json={"email": email, "password": password, "tenant_id": tenant_id}
         )
 
         if response.status_code == 200:
@@ -64,10 +60,7 @@ def create_demo_tenant(email: str, company_name: str, tier: str) -> Optional[str
         # Create new tenant
         tier_enum = TenantTier[tier.upper()]
         tenant = manager.create_tenant(
-            tenant_id=tenant_id,
-            company_name=company_name,
-            tier=tier_enum,
-            admin_email=email
+            tenant_id=tenant_id, company_name=company_name, tier=tier_enum, admin_email=email
         )
 
         return tenant.tenant_id if tenant else None
@@ -80,8 +73,26 @@ def create_demo_tenant(email: str, company_name: str, tier: str) -> Optional[str
 def main():
     """Main login page."""
 
+    # Show deprecation warning and redirect
+    st.warning("⚠️ This login page is deprecated. Redirecting to the main application...")
+    st.info("The new unified login system supports multi-tenant authentication with the same username/password.")
+
+    if st.button("🔄 Go to Main Application", type="primary"):
+        # Clear any old session state
+        for key in list(st.session_state.keys()):
+            if key in ["tenant_context", "jwt_token", "user_email"]:
+                del st.session_state[key]
+        # Force show login
+        st.session_state.show_login = True
+        st.session_state.authenticated = False
+        st.switch_page("app.py")
+
+    st.divider()
+    st.caption("Legacy login interface below (for backward compatibility only)")
+
     # Custom CSS for login page
-    st.markdown("""
+    st.markdown(
+        """
     <style>
         .login-container {
             max-width: 500px;
@@ -109,10 +120,12 @@ def main():
         .tier-enterprise { background: #4169e1; color: white; }
         .tier-custom { background: #8b008b; color: white; }
     </style>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
     # Check if already logged in
-    if 'tenant_context' in st.session_state and st.session_state.tenant_context:
+    if "tenant_context" in st.session_state and st.session_state.tenant_context:
         tenant = st.session_state.tenant_context
 
         st.success(f"✅ Logged in as **{tenant.organization}**")
@@ -122,12 +135,14 @@ def main():
             st.metric("Tenant ID", tenant.tenant_id)
         with col2:
             tier_color = tenant.tier.value.lower()
-            st.markdown(f"**Tier:** <span class='tier-badge tier-{tier_color}'>{tenant.tier.value}</span>",
-                       unsafe_allow_html=True)
+            st.markdown(
+                f"**Tier:** <span class='tier-badge tier-{tier_color}'>{tenant.tier.value}</span>",
+                unsafe_allow_html=True,
+            )
         with col3:
             if st.button("🚪 Logout", use_container_width=True):
                 # Clear session
-                for key in ['tenant_context', 'jwt_token', 'user_email']:
+                for key in ["tenant_context", "jwt_token", "user_email"]:
                     if key in st.session_state:
                         del st.session_state[key]
                 st.rerun()
@@ -136,19 +151,21 @@ def main():
 
         # Show tenant info
         with st.expander("📊 Tenant Details", expanded=False):
-            st.json({
-                "tenant_id": tenant.tenant_id,
-                "company_name": tenant.organization,
-                "tier": tenant.tier.value,
-                "created_at": tenant.created_at.isoformat(),
-                "status": tenant.status.value,
-                "limits": {
-                    "max_documents_per_month": tenant.resource_limits.max_documents_per_month,
-                    "max_storage_gb": tenant.resource_limits.max_storage_gb,
-                    "max_queries_per_day": tenant.resource_limits.max_queries_per_day,
-                    "max_concurrent_users": tenant.resource_limits.max_concurrent_users
+            st.json(
+                {
+                    "tenant_id": tenant.tenant_id,
+                    "company_name": tenant.organization,
+                    "tier": tenant.tier.value,
+                    "created_at": tenant.created_at.isoformat(),
+                    "status": tenant.status.value,
+                    "limits": {
+                        "max_documents_per_month": tenant.resource_limits.max_documents_per_month,
+                        "max_storage_gb": tenant.resource_limits.max_storage_gb,
+                        "max_queries_per_day": tenant.resource_limits.max_queries_per_day,
+                        "max_concurrent_users": tenant.resource_limits.max_concurrent_users,
+                    },
                 }
-            })
+            )
 
         # Navigation
         st.info("👈 Use the sidebar to navigate to different sections of the application")
@@ -203,16 +220,14 @@ def main():
                                     tenant_id=tenant_id,
                                     company_name=f"{domain.title()} Company",
                                     tier=TenantTier.PREMIUM,
-                                    admin_email=email
+                                    admin_email=email,
                                 )
 
                             if tenant:
                                 # Create session
                                 user_id = f"user_{email.replace('@', '_').replace('.', '_')}"
                                 session_token = manager.create_session(
-                                    tenant_id=tenant_id,
-                                    user_id=user_id,
-                                    user_email=email
+                                    tenant_id=tenant_id, user_id=user_id, user_email=email
                                 )
 
                                 # Store in session state
@@ -235,7 +250,7 @@ def main():
                                     tenant_id=result["tenant_id"],
                                     company_name=f"Company {result['tenant_id']}",
                                     tier=TenantTier[result["tier"].upper()],
-                                    admin_email=email
+                                    admin_email=email,
                                 )
 
                             st.session_state.tenant_context = tenant
@@ -260,14 +275,12 @@ def main():
                         tenant_id=demo_tenant_id,
                         company_name="Demo Company",
                         tier=TenantTier.PREMIUM,
-                        admin_email=demo_email
+                        admin_email=demo_email,
                     )
 
                 # Create session
                 session_token = manager.create_session(
-                    tenant_id=demo_tenant_id,
-                    user_id="demo_user",
-                    user_email=demo_email
+                    tenant_id=demo_tenant_id, user_id="demo_user", user_email=demo_email
                 )
 
                 st.session_state.tenant_context = tenant
@@ -283,18 +296,14 @@ def main():
             with st.form("create_tenant_form"):
                 company_name = st.text_input("Company Name", placeholder="Acme Corporation")
                 admin_email = st.text_input("Admin Email", placeholder="admin@acme.com")
-                tier = st.selectbox(
-                    "Subscription Tier",
-                    ["BASIC", "PREMIUM", "ENTERPRISE", "CUSTOM"],
-                    index=1
-                )
+                tier = st.selectbox("Subscription Tier", ["BASIC", "PREMIUM", "ENTERPRISE", "CUSTOM"], index=1)
 
                 # Show tier details
                 tier_details = {
                     "BASIC": "100 docs/month, 1GB storage, 50 queries/day",
                     "PREMIUM": "1,000 docs/month, 10GB storage, 500 queries/day",
                     "ENTERPRISE": "10,000 docs/month, 100GB storage, 5,000 queries/day",
-                    "CUSTOM": "Unlimited resources"
+                    "CUSTOM": "Unlimited resources",
                 }
                 st.caption(f"📋 {tier_details[tier]}")
 

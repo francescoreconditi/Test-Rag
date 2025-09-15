@@ -1,0 +1,52 @@
+{
+  "summary": {
+    "date": "30/06/2025",
+    "currency": "EUR",
+    "totals": {
+      "gross": 12500000,
+      "allowance": 750000,
+      "net": 11750000,
+      "overdue": 6300000,
+      "overduePct": 50.4,
+      "dso": 68
+    },
+    "aging": [
+      { "bucket": "Non scaduto", "value": 0 },
+      { "bucket": "0–30 gg", "value": 6200000 },
+      { "bucket": "31–60 gg", "value": 3100000 },
+      { "bucket": "61–90 gg", "value": 2000000 },
+      { "bucket": ">90 gg", "value": 1200000 }
+    ]
+  },
+  "clients": [
+    { "name": "Cliente X", "total": 2000000, "gt90": 250000 },
+    { "name": "Cliente Y", "total": 1200000, "gt90": 180000 },
+    { "name": "Cliente Z", "total": 900000, "gt90": 90000 },
+    { "name": "Cliente A", "total": 800000, "gt90": 40000 },
+    { "name": "Cliente B", "total": 700000, "gt90": 0 },
+    { "name": "Cliente C", "total": 600000, "gt90": 60000 },
+    { "name": "Cliente D", "total": 500000, "gt90": 0 },
+    { "name": "Cliente E", "total": 450000, "gt90": 0 },
+    { "name": "Cliente F", "total": 400000, "gt90": 0 },
+    { "name": "Cliente G", "total": 350000, "gt90": 0 }
+  ],
+  "invoices": {
+    "Cliente X": [
+      { "docType": "FT", "docNo": "2025/001", "docDate": "27/01/2025", "dueDate": "05/03/2025", "residual": 500000, "bucket": "31–60 gg" },
+      { "docType": "FT", "docNo": "2025/034", "docDate": "27/01/2025", "dueDate": "30/04/2025", "residual": 800000, "bucket": "61–90 gg" },
+      { "docType": "FT", "docNo": "2025/322", "docDate": "02/07/2025", "dueDate": "30/09/2025", "residual": 450000, "bucket": "Non scaduto" },
+      { "docType": "FT", "docNo": "2025/199", "docDate": "11/03/2025", "dueDate": "31/03/2025", "residual": 250000, "bucket": ">90 gg" }
+    ],
+    "Cliente Y": [
+      { "docType": "FT", "docNo": "2025/105", "docDate": "15/04/2025", "dueDate": "30/04/2025", "residual": 400000, "bucket": "31–60 gg" },
+      { "docType": "FT", "docNo": "2025/267", "docDate": "16/05/2025", "dueDate": "03/07/2025", "residual": 620000, "bucket": "61–90 gg" },
+      { "docType": "FT", "docNo": "2025/177", "docDate": "11/03/2025", "dueDate": "31/03/2025", "residual": 180000, "bucket": ">90 gg" }
+    ],
+    "Cliente Z": [
+      { "docType": "FT", "docNo": "2025/201", "docDate": "27/02/2025", "dueDate": "27/04/2025", "residual": 300000, "bucket": "61–90 gg" },
+      { "docType": "FT", "docNo": "2025/202", "docDate": "27/02/2025", "dueDate": "27/05/2025", "residual": 510000, "bucket": "31–60 gg" },
+      { "docType": "FT", "docNo": "2025/203", "docDate": "27/02/2025", "dueDate": "27/06/2025", "residual": 90000, "bucket": ">90 gg" }
+    ]
+  },
+  "buckets": ["Tutti", "Non scaduto", "0–30 gg", "31–60 gg", "61–90 gg", ">90 gg"]
+}
