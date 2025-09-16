@@ -42,6 +42,15 @@ except ImportError:
     StreamingRAGEngine = None
     HyDEQueryEngine = None
 
+try:
+    from services.reranking_service import get_reranking_service
+    from services.contextual_retrieval_service import get_contextual_retrieval_service
+
+    QUALITY_FEATURES_AVAILABLE = True
+except ImportError:
+    logger.warning("Quality enhancement features (Reranking/Contextual) not available")
+    QUALITY_FEATURES_AVAILABLE = False
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -63,6 +72,9 @@ class RAGEngine:
         )
         # Initialize enterprise orchestrator
         self.enterprise_orchestrator = None
+        # Initialize quality enhancement services
+        self.reranking_service = None
+        self.contextual_service = None
         # Use connection pool for Qdrant
         self.connection_pool = get_qdrant_pool()
         self.query_optimizer = get_query_optimizer()
@@ -129,8 +141,24 @@ class RAGEngine:
             else:
                 self.enterprise_orchestrator = None
 
+            # Initialize quality enhancement services
+            if QUALITY_FEATURES_AVAILABLE:
+                try:
+                    # Initialize reranking service with default model
+                    self.reranking_service = get_reranking_service(model_name="default")
+                    logger.info("Reranking service initialized")
+
+                    # Initialize contextual retrieval service
+                    self.contextual_service = get_contextual_retrieval_service(window_size=1)
+                    logger.info("Contextual retrieval service initialized")
+                except Exception as e:
+                    logger.warning(f"Could not initialize quality enhancement services: {str(e)}")
+                    self.reranking_service = None
+                    self.contextual_service = None
+
             tenant_info = f" for tenant {self.tenant_context.tenant_id}" if self.tenant_context else ""
-            logger.info(f"RAG Engine initialized successfully with enterprise orchestrator{tenant_info}")
+            quality_info = " with quality enhancements" if self.reranking_service and self.contextual_service else ""
+            logger.info(f"RAG Engine initialized successfully with enterprise orchestrator{quality_info}{tenant_info}")
 
         except Exception as e:
             logger.error(f"Error initializing RAG Engine: {str(e)}")
@@ -843,6 +871,177 @@ class RAGEngine:
         except Exception as e:
             logger.error(f"Error querying index: {str(e)}")
             return {"answer": f"Error processing query: {str(e)}", "sources": [], "confidence": 0}
+
+    def query_enhanced(
+        self,
+        query_text: str,
+        top_k: int = 5,
+        filters: Optional[dict[str, Any]] = None,
+        analysis_type: Optional[str] = None,
+        use_reranking: bool = True,
+        use_contextual_chunks: bool = True,
+        rerank_top_k: int = 10,
+    ) -> dict[str, Any]:
+        """Enhanced query with reranking and contextual chunks retrieval.
+
+        Args:
+            query_text: Query text
+            top_k: Final number of results to return
+            filters: Optional filters for retrieval
+            analysis_type: Type of specialized analysis
+            use_reranking: Whether to use CrossEncoder reranking
+            use_contextual_chunks: Whether to include contextual chunks
+            rerank_top_k: Number of initial results for reranking
+
+        Returns:
+            Enhanced query results with improved relevance
+        """
+        try:
+            if not self.index:
+                return {"answer": "Nessun documento è stato ancora indicizzato.", "sources": [], "confidence": 0}
+
+            # Check cache first if enabled
+            cache_key = f"{query_text}_{top_k}_{analysis_type}_{use_reranking}_{use_contextual_chunks}"
+            if self.query_cache:
+                cached_result = self.query_cache.get(cache_key, top_k, analysis_type)
+                if cached_result:
+                    logger.info(f"Returning cached enhanced result for query: {query_text[:50]}...")
+                    return cached_result
+
+            # Get more initial results for reranking/contextual enhancement
+            initial_top_k = max(rerank_top_k, top_k * 2) if (use_reranking or use_contextual_chunks) else top_k
+
+            # Create query engine
+            query_engine = self.index.as_query_engine(
+                similarity_top_k=initial_top_k,
+                response_mode=settings.rag_response_mode,
+                verbose=settings.debug_mode,
+                streaming=False,
+            )
+
+            # Enhance query with analysis type if specified
+            if analysis_type and analysis_type != "standard":
+                query_text = self._enhance_query_with_analysis_type(query_text, analysis_type)
+
+            # Add Italian language prompt
+            query_text_it = f"Per favore rispondi in italiano. {query_text}"
+
+            # Execute initial query
+            response = query_engine.query(query_text_it)
+
+            # Extract initial source information
+            initial_sources = []
+            if hasattr(response, "source_nodes"):
+                for node in response.source_nodes:
+                    source_dict = {
+                        "id": getattr(node, "node_id", str(hash(node.node.text))),
+                        "content": node.node.text,
+                        "text": node.node.text[:200] + "...",
+                        "score": float(node.score),
+                        "metadata": node.node.metadata,
+                    }
+                    initial_sources.append(source_dict)
+
+            enhanced_sources = initial_sources
+            processing_stats = {"initial_sources": len(initial_sources)}
+
+            # Apply reranking if enabled and available
+            if use_reranking and self.reranking_service and self.reranking_service.is_available():
+                try:
+                    reranked_sources = self.reranking_service.rerank_rag_results(
+                        query_text, initial_sources, top_k=top_k
+                    )
+                    enhanced_sources = reranked_sources
+                    processing_stats["reranked_sources"] = len(reranked_sources)
+                    logger.info(f"Reranked {len(initial_sources)} to {len(reranked_sources)} sources")
+                except Exception as e:
+                    logger.warning(f"Reranking failed, using original sources: {e}")
+
+            # Apply contextual chunks retrieval if enabled and available
+            if use_contextual_chunks and self.contextual_service:
+                try:
+                    contextual_chunks = self.contextual_service.enhance_retrieval_results(
+                        enhanced_sources, self.vector_store, include_metadata=True
+                    )
+
+                    # Convert ChunkContext objects back to source format
+                    enhanced_sources = []
+                    for chunk in contextual_chunks[:top_k]:
+                        enhanced_sources.append(
+                            {
+                                "text": chunk.content[:200] + "...",
+                                "score": chunk.score,
+                                "metadata": chunk.metadata,
+                                "context_type": chunk.context_type,
+                                "source_file": chunk.source_file,
+                            }
+                        )
+
+                    processing_stats["contextual_sources"] = len(contextual_chunks)
+                    context_stats = self.contextual_service.get_context_statistics(contextual_chunks)
+                    processing_stats["context_stats"] = context_stats
+
+                    logger.info(f"Enhanced with {len(contextual_chunks)} contextual chunks")
+                except Exception as e:
+                    logger.warning(f"Contextual enhancement failed, using existing sources: {e}")
+
+            # Apply specialized analysis if requested
+            if analysis_type and analysis_type != "standard":
+                response_text = self._apply_specialized_analysis(
+                    str(response), enhanced_sources, query_text, analysis_type
+                )
+            else:
+                response_text = str(response)
+
+            # Calculate enhanced confidence score
+            confidence = self._calculate_enhanced_confidence(enhanced_sources)
+
+            result = {
+                "answer": response_text,
+                "sources": enhanced_sources,
+                "confidence": confidence,
+                "analysis_type": analysis_type or "standard",
+                "enhancement_used": {
+                    "reranking": use_reranking and self.reranking_service is not None,
+                    "contextual_chunks": use_contextual_chunks and self.contextual_service is not None,
+                },
+                "processing_stats": processing_stats,
+            }
+
+            # Cache the enhanced result
+            if self.query_cache:
+                self.query_cache.set(cache_key, top_k, result, analysis_type)
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error in enhanced query: {str(e)}")
+            # Fallback to standard query
+            return self.query(query_text, top_k, filters, analysis_type)
+
+    def _calculate_enhanced_confidence(self, sources: List[dict]) -> float:
+        """Calculate confidence score for enhanced results."""
+        if not sources:
+            return 0.0
+
+        try:
+            # Weight scores based on context type if available
+            weighted_scores = []
+            for source in sources:
+                score = source.get("score", 0)
+                context_type = source.get("context_type", "original")
+
+                # Original chunks get full weight, context chunks get reduced weight
+                weight = 1.0 if context_type == "original" else 0.7
+                weighted_scores.append(score * weight)
+
+            # Return weighted average
+            return sum(weighted_scores) / len(weighted_scores)
+
+        except Exception as e:
+            logger.warning(f"Error calculating enhanced confidence: {e}")
+            # Fallback to simple average
+            return sum(source.get("score", 0) for source in sources) / len(sources)
 
     async def enterprise_query(
         self, query_text: str, enable_enterprise_features: bool = True, **kwargs
