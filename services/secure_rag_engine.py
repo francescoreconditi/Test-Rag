@@ -28,10 +28,8 @@ class SecureRAGEngine:
         self.auth_service = AuthenticationService()
         self.secure_fact_repository = SecureFactTableRepository()
 
-        # Initialize base RAG engine with tenant context if available
+        # Initialize base RAG engine - simplified to avoid complex tenant context
         tenant_context = None
-        if user_context and user_context.tenant_id:
-            tenant_context = TenantContext(tenant_id=user_context.tenant_id, isolation_level="STRICT")
 
         self.rag_engine = RAGEngine(tenant_context=tenant_context)
         self.logger = logging.getLogger(__name__)

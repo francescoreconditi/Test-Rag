@@ -1318,6 +1318,15 @@ async def general_exception_handler(request, exc):
     )
 
 
+# Include Audio Routes
+try:
+    from src.presentation.api.audio_routes import router as audio_router, init_audio_routes
+    app.include_router(audio_router)
+    AUDIO_ROUTES_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"Audio routes not available: {e}")
+    AUDIO_ROUTES_AVAILABLE = False
+
 # Startup and Shutdown Events
 @app.on_event("startup")
 async def startup_event():
@@ -1326,11 +1335,19 @@ async def startup_event():
 
     # Initialize services
     try:
-        get_rag_engine()
+        rag = get_rag_engine()
         get_csv_analyzer()
         get_pdf_processor()
         get_calculation_engine()
         get_pdf_exporter()
+
+        # Initialize audio routes if available
+        if AUDIO_ROUTES_AVAILABLE:
+            from services.llm_service import LLMService
+            llm = LLMService()
+            init_audio_routes(rag, llm)
+            logger.info("Audio routes initialized")
+
         logger.info("All services initialized successfully")
     except Exception as e:
         logger.error(f"Service initialization failed: {str(e)}")

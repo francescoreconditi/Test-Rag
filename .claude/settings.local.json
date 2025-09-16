@@ -71,7 +71,9 @@
       "Bash(ng build)",
       "Bash(tasklist)",
       "Bash(del app.ts app.html app.scss app.spec.ts)",
-      "Bash(del \"C:\\Progetti\\Test-Rag\\test_format_presentazione.py\")"
+      "Bash(del \"C:\\Progetti\\Test-Rag\\test_format_presentazione.py\")",
+      "Bash(git restore:*)",
+      "Bash(start.bat)"
     ],
     "deny": [],
     "ask": []
