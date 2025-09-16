@@ -52,7 +52,6 @@ from .auth import (
     check_tenant_limits,
     get_current_tenant,
     get_optional_tenant,
-    login,
     multi_tenant_manager,
 )
 
@@ -330,23 +329,63 @@ add_scalar_docs(app)
     "/auth/login",
     response_model=LoginResponse,
     summary="Login Tenant",
-    description="""
-    Authenticate user and create tenant session.
-
-    Creates JWT token for multi-tenant access.
-
-    Example:
-    ```bash
-    curl -X POST "http://localhost:8000/auth/login" \\
-         -H "Content-Type: application/json" \\
-         -d '{"email": "admin@company.com", "password": "password123"}'
-    ```
-    """,
+    description="Autentica user e crea sessione tenant. Crea token JWT per accesso multi-tenant",
     tags=["Autenticazione"],
 )
-async def api_login(request: LoginRequest):
-    """Login endpoint for multi-tenant authentication."""
-    return await login(request)
+async def rest_login(request: LoginRequest):
+    from services.secure_rag_engine import SecureRAGEngine
+    from src.core.security import AuthenticationService
+    from src.core.security.multi_tenant_manager import MultiTenantManager
+    from src.domain.entities.tenant_context import TenantTier
+
+    auth_service = AuthenticationService()
+    manager = MultiTenantManager()
+
+    if not (request.email and request.password):
+        raise HTTPException(status_code=400, detail="Missing Login Parameters")
+
+    result = auth_service.authenticate(request.email, request.password, request.tenant_id)
+    if not result.success:
+        raise HTTPException(status_code=403, detail="Login Failed. Check username and/or password")
+
+    # Build secure RAG engine (for consistency with Streamlit)
+    sec_rag_engine = SecureRAGEngine(result.user_context)
+
+    # Ensure tenant_id is valid
+    effective_tenant_id = request.tenant_id or result.user_context.tenant_id
+    if not effective_tenant_id:
+        if "@" in request.email:
+            domain = request.email.split("@")[1].replace(".", "_")
+            effective_tenant_id = f"tenant_{domain}"
+        else:
+            effective_tenant_id = "tenant_default"
+
+    # Ensure tenant exists
+    tenant = manager.get_tenant(effective_tenant_id)
+    if not tenant:
+        tenant = manager.create_tenant(
+            tenant_id=effective_tenant_id,
+            company_name=f"Company {effective_tenant_id}",
+            tier=TenantTier.PREMIUM,
+            admin_email=request.email,
+        )
+
+    # Create tenant session and generate JWT
+    session_id = manager.create_session(
+        tenant_id=tenant.tenant_id,
+        user_id=result.user_context.user_id,
+        user_email=result.user_context.username,
+    )
+    session = await manager._get_session(session_id)
+    token = manager._generate_jwt_token(session)
+
+    return LoginResponse(
+        access_token=token,
+        token_type="bearer",
+        tenant_id=tenant.tenant_id,
+        tier=tenant.tier.value,
+        expires_in=int(manager.session_duration.total_seconds()),
+    )
 
 
 @app.get(

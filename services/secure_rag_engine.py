@@ -1,19 +1,21 @@
 """Secure RAG Engine with Row-level Security integration."""
 
-import logging
-from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime
+import logging
+from typing import Any, Dict, List, Optional
 
-from .rag_engine import RAGEngine
 from src.core.security import (
-    UserContext,
     AccessControlService,
     AuthenticationService,
-    SecurityViolationError,
     DataClassification,
+    SecurityViolationError,
+    UserContext,
 )
-from src.infrastructure.repositories.secure_fact_table import SecureFactTableRepository
+from src.core.security.multi_tenant_manager import MultiTenantManager
 from src.domain.entities.tenant_context import TenantContext
+from src.infrastructure.repositories.secure_fact_table import SecureFactTableRepository
+
+from .rag_engine import RAGEngine
 
 logger = logging.getLogger(__name__)
 
@@ -27,13 +29,15 @@ class SecureRAGEngine:
         self.access_control = AccessControlService()
         self.auth_service = AuthenticationService()
         self.secure_fact_repository = SecureFactTableRepository()
+        self.logger = logging.getLogger(__name__)
 
         # Initialize base RAG engine - simplified to avoid complex tenant context
         tenant_context = None
+        if user_context and user_context.tenant_id:
+            manager = MultiTenantManager()
+            tenant_context = manager.get_tenant(user_context.tenant_id)
 
         self.rag_engine = RAGEngine(tenant_context=tenant_context)
-        self.logger = logging.getLogger(__name__)
-
         # Track access for audit
         if user_context:
             self.logger.info(
@@ -52,7 +56,7 @@ class SecureRAGEngine:
 
             # Reinitialize with tenant context if needed
             if user_context.tenant_id:
-                tenant_context = TenantContext(tenant_id=user_context.tenant_id, isolation_level="STRICT")
+                tenant_context = TenantContext(tenant_id=user_context.tenant_id)
                 self.rag_engine = RAGEngine(tenant_context=tenant_context)
 
             self.logger.info(f"Authenticated user {user_context.user_id} via session token")
