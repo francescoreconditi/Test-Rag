@@ -1054,6 +1054,33 @@ def show_document_rag():
         with col2_query:
             use_context = st.checkbox("Includi contesto analisi CSV", value=bool(st.session_state.csv_analysis))
 
+        # Quality Enhancement Controls
+        st.subheader("🎯 Miglioramenti di Qualità")
+        col1_quality, col2_quality, col3_quality = st.columns([1, 1, 1])
+
+        with col1_quality:
+            use_enhanced_quality = st.checkbox(
+                "Abilita miglioramenti qualità",
+                value=True,
+                help="Utilizza reranking e contextual chunks per migliorare la rilevanza dei risultati"
+            )
+
+        with col2_quality:
+            use_reranking = st.checkbox(
+                "Reranking CrossEncoder",
+                value=use_enhanced_quality,
+                disabled=not use_enhanced_quality,
+                help="Riordina i risultati usando modelli CrossEncoder per maggiore precisione"
+            )
+
+        with col3_quality:
+            use_contextual_chunks = st.checkbox(
+                "Chunks contestuali",
+                value=use_enhanced_quality,
+                disabled=not use_enhanced_quality,
+                help="Include chunks adiacenti per mantenere il contesto delle tabelle e strutture"
+            )
+
         # Execute query either manually or automatically
         execute_query = st.button("🤔 Fai Domanda", type="primary", disabled=not query) or auto_execute
 
@@ -1107,21 +1134,59 @@ def show_document_rag():
 
                         except Exception as e:
                             st.warning(f"Enterprise mode fallback: {e}")
-                            # Fallback to standard mode
-                            if use_context and st.session_state.csv_analysis:
+                            # Fallback to enhanced mode if available, otherwise standard
+                            if use_enhanced_quality:
+                                response = rag_engine.query_enhanced(
+                                    query_text=query,
+                                    top_k=top_k,
+                                    analysis_type=query_analysis_type,
+                                    use_reranking=use_reranking,
+                                    use_contextual_chunks=use_contextual_chunks,
+                                    rerank_top_k=min(top_k * 2, 10)
+                                )
+                            elif use_context and st.session_state.csv_analysis:
                                 response = rag_engine.query_with_context(
                                     query, st.session_state.csv_analysis, top_k=top_k, analysis_type=query_analysis_type
                                 )
                             else:
                                 response = rag_engine.query(query, top_k=top_k, analysis_type=query_analysis_type)
                     else:
-                        # Standard mode
-                        if use_context and st.session_state.csv_analysis:
-                            response = rag_engine.query_with_context(
-                                query, st.session_state.csv_analysis, top_k=top_k, analysis_type=query_analysis_type
+                        # Standard mode with quality enhancements
+                        if use_enhanced_quality:
+                            # Use enhanced query with quality improvements
+                            response = rag_engine.query_enhanced(
+                                query_text=query,
+                                top_k=top_k,
+                                analysis_type=query_analysis_type,
+                                use_reranking=use_reranking,
+                                use_contextual_chunks=use_contextual_chunks,
+                                rerank_top_k=min(top_k * 2, 10)  # Get more initial results for reranking
                             )
+
+                            # Show quality enhancement stats
+                            if "enhancement_used" in response:
+                                with st.sidebar:
+                                    st.header("🎯 Stats Qualità")
+                                    enhancement = response["enhancement_used"]
+                                    st.metric("Reranking", "✅ Attivo" if enhancement.get("reranking") else "❌ Disattivo")
+                                    st.metric("Contextual Chunks", "✅ Attivo" if enhancement.get("contextual_chunks") else "❌ Disattivo")
+
+                                    if "processing_stats" in response:
+                                        stats = response["processing_stats"]
+                                        st.metric("Fonti Iniziali", stats.get("initial_sources", 0))
+                                        if "reranked_sources" in stats:
+                                            st.metric("Fonti Reranked", stats.get("reranked_sources", 0))
+                                        if "contextual_sources" in stats:
+                                            st.metric("Chunks Contestuali", stats.get("contextual_sources", 0))
+
                         else:
-                            response = rag_engine.query(query, top_k=top_k, analysis_type=query_analysis_type)
+                            # Standard mode without quality enhancements
+                            if use_context and st.session_state.csv_analysis:
+                                response = rag_engine.query_with_context(
+                                    query, st.session_state.csv_analysis, top_k=top_k, analysis_type=query_analysis_type
+                                )
+                            else:
+                                response = rag_engine.query(query, top_k=top_k, analysis_type=query_analysis_type)
 
                 except Exception as e:
                     st.error(f"Errore durante la query: {e}")
@@ -1132,6 +1197,20 @@ def show_document_rag():
     # Display RAG response
     if st.session_state.rag_response:
         st.divider()
+
+        # Show quality enhancement indicators
+        response = st.session_state.rag_response
+        if "enhancement_used" in response:
+            enhancement = response["enhancement_used"]
+            if enhancement.get("reranking") or enhancement.get("contextual_chunks"):
+                quality_indicators = []
+                if enhancement.get("reranking"):
+                    quality_indicators.append("🎯 Reranking")
+                if enhancement.get("contextual_chunks"):
+                    quality_indicators.append("🔗 Chunks Contestuali")
+
+                st.info(f"✨ Miglioramenti attivi: {' + '.join(quality_indicators)}")
+
         st.subheader("📝 Risposta")
         st.markdown(st.session_state.rag_response["answer"])
 

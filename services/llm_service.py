@@ -23,7 +23,38 @@ class LLMService:
         self.temperature = settings.temperature
         self.max_tokens = settings.max_tokens
 
-    def generate_business_insights(self, csv_analysis: dict[str, Any], rag_context: Optional[str] = None, document_name: Optional[str] = None) -> str:
+    def generate(self, prompt: str) -> str:
+        """Generate a generic response from the LLM.
+
+        Args:
+            prompt: The input prompt for the LLM
+
+        Returns:
+            Generated text response
+        """
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "Sei un assistente AI professionale che genera dialoghi naturali e coinvolgenti. Rispondi sempre in italiano a meno che non sia richiesto diversamente.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+            )
+
+            return response.choices[0].message.content
+
+        except Exception as e:
+            logger.error(f"Error generating response: {str(e)}")
+            raise
+
+    def generate_business_insights(
+        self, csv_analysis: dict[str, Any], rag_context: Optional[str] = None, document_name: Optional[str] = None
+    ) -> str:
         """Generate comprehensive business insights from analysis data."""
         try:
             # Prepare the prompt
@@ -49,7 +80,9 @@ class LLMService:
             logger.error(f"Error generating insights: {str(e)}")
             return f"Unable to generate insights: {str(e)}"
 
-    def _build_insights_prompt(self, csv_analysis: dict[str, Any], rag_context: Optional[str], document_name: Optional[str] = None) -> str:
+    def _build_insights_prompt(
+        self, csv_analysis: dict[str, Any], rag_context: Optional[str], document_name: Optional[str] = None
+    ) -> str:
         """Build comprehensive prompt for insights generation."""
         prompt_parts = ["Per favore analizza i seguenti dati aziendali e fornisci approfondimenti strategici:\n"]
 
@@ -356,6 +389,7 @@ Concentrati su azioni realistiche e implementabili che affrontino direttamente g
 
             # Extract JSON section
             import re
+
             json_match = re.search(r"<JSON>(.*?)</JSON>", content, re.DOTALL)
             if json_match:
                 try:
@@ -373,7 +407,7 @@ Concentrati su azioni realistiche e implementabili che affrontino direttamente g
                 "structured_data": json_data,
                 "summary": summary or content,
                 "raw_response": content,
-                "debug_info": debug_info
+                "debug_info": debug_info,
             }
 
         except Exception as e:
@@ -383,5 +417,5 @@ Concentrati su azioni realistiche e implementabili che affrontino direttamente g
                 "structured_data": None,
                 "summary": f"Errore nell'analisi del documento: {str(e)}",
                 "raw_response": "",
-                "debug_info": {}
+                "debug_info": {},
             }

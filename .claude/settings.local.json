@@ -73,7 +73,9 @@
       "Bash(del app.ts app.html app.scss app.spec.ts)",
       "Bash(del \"C:\\Progetti\\Test-Rag\\test_format_presentazione.py\")",
       "Bash(git restore:*)",
-      "Bash(start.bat)"
+      "Bash(start.bat)",
+      "Bash(ffmpeg:*)",
+      "Bash(powershell:*)"
     ],
     "deny": [],
     "ask": []

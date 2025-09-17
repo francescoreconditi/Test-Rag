@@ -15,6 +15,7 @@ from datetime import datetime
 import hashlib
 import logging
 from pathlib import Path
+import platform
 from typing import Any, Dict, List, Optional, Tuple
 import uuid
 
@@ -50,6 +51,42 @@ def clean_markdown(text: str) -> str:
     text = re.sub(r">\s*", "", text)  # blockquotes
     text = re.sub(r"-\s*", "", text)  # lists
     return text.strip()
+
+
+# Configure ffmpeg for Windows
+if platform.system() == "Windows":
+    # Try to find ffmpeg installed via winget
+    possible_paths = [
+        os.path.expanduser(r"~\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe"),
+        os.path.expanduser(
+            r"~\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.0-full_build\bin\ffmpeg.exe"
+        ),
+        r"C:\ProgramData\ffmpeg\bin\ffmpeg.exe",
+        r"C:\Program Files\FFmpeg\bin\ffmpeg.exe",
+        r"C:\ffmpeg\bin\ffmpeg.exe",
+    ]
+
+    ffmpeg_path = None
+    for path in possible_paths:
+        if os.path.exists(path):
+            ffmpeg_path = path
+            ffmpeg_dir = os.path.dirname(path)
+            # Add to PATH
+            os.environ["PATH"] = ffmpeg_dir + ";" + os.environ.get("PATH", "")
+            logger.info(f"Found ffmpeg at: {path}")
+
+            # Configure pydub to use found ffmpeg
+            try:
+                from pydub import AudioSegment
+                from pydub.utils import which
+
+                AudioSegment.converter = ffmpeg_path
+                AudioSegment.ffmpeg = ffmpeg_path
+                AudioSegment.ffprobe = os.path.join(ffmpeg_dir, "ffprobe.exe")
+                logger.info(f"Configured pydub with ffmpeg at: {ffmpeg_path}")
+            except ImportError:
+                pass
+            break
 
 
 class AudioOverviewService:
@@ -277,18 +314,68 @@ RULES:
     def _parse_llm_dialogue(self, response: str) -> List[Tuple[str, str]]:
         """Parse LLM response into dialogue turns."""
         dialogue = []
-        lines = response.split("\n")
 
-        for line in lines:
-            line = line.strip()
-            if line.startswith("HOST1:"):
-                text = line.replace("HOST1:", "").strip()
-                if text:
-                    dialogue.append(("host1", text))
-            elif line.startswith("HOST2:"):
-                text = line.replace("HOST2:", "").strip()
-                if text:
-                    dialogue.append(("host2", text))
+        # First try to parse with "/" separator (common in LLM responses)
+        if "/" in response and ("HOST1:" in response or "HOST2:" in response):
+            # Split by "/" and process each segment
+            segments = response.split("/")
+
+            current_speaker = "host1"  # Start with host1
+            for segment in segments:
+                segment = segment.strip()
+                if not segment:
+                    continue
+
+                # Check if segment starts with HOST marker
+                if segment.upper().startswith("HOST1:") or segment.upper().startswith("HOST 1:"):
+                    text = segment[segment.find(":") + 1 :].strip()
+                    if text:
+                        dialogue.append(("host1", text))
+                        current_speaker = "host1"
+                elif segment.upper().startswith("HOST2:") or segment.upper().startswith("HOST 2:"):
+                    text = segment[segment.find(":") + 1 :].strip()
+                    if text:
+                        dialogue.append(("host2", text))
+                        current_speaker = "host2"
+                # Handle cases where HOST marker might be inside the segment
+                elif "HOST1:" in segment.upper():
+                    idx = segment.upper().find("HOST1:")
+                    text = segment[idx + 6 :].strip()
+                    if text:
+                        dialogue.append(("host1", text))
+                        current_speaker = "host1"
+                elif "HOST2:" in segment.upper():
+                    idx = segment.upper().find("HOST2:")
+                    text = segment[idx + 6 :].strip()
+                    if text:
+                        dialogue.append(("host2", text))
+                        current_speaker = "host2"
+                else:
+                    # No HOST marker - alternate speakers or use opposite of last speaker
+                    if segment and len(segment) > 10:  # Only add meaningful segments
+                        # Alternate speaker
+                        next_speaker = "host2" if current_speaker == "host1" else "host1"
+                        dialogue.append((next_speaker, segment))
+                        current_speaker = next_speaker
+
+        # Fallback to line-by-line parsing
+        if not dialogue:
+            lines = response.split("\n")
+            for line in lines:
+                line = line.strip()
+                if line.upper().startswith("HOST1:"):
+                    text = line[6:].strip()
+                    if text:
+                        dialogue.append(("host1", text))
+                elif line.upper().startswith("HOST2:"):
+                    text = line[6:].strip()
+                    if text:
+                        dialogue.append(("host2", text))
+
+        # Log the parsed dialogue for debugging
+        logger.info(f"Parsed {len(dialogue)} dialogue turns")
+        for i, (speaker, text) in enumerate(dialogue[:3]):  # Log first 3 turns
+            logger.info(f"Turn {i}: {speaker} - {text[:50]}...")
 
         return dialogue
 
@@ -348,6 +435,10 @@ RULES:
 
     async def _generate_with_edge_tts(self, dialogue_turns: List[Tuple[str, str]], language: str, output_path: Path):
         """Generate audio using Edge TTS."""
+        import uuid
+
+        import edge_tts
+
         temp_files = []
 
         try:
@@ -355,12 +446,10 @@ RULES:
             voices = self.VOICES.get(language, self.VOICES["en"])["edge"]
 
             # Generate audio for each turn with unique filenames
-            import time
-
-            timestamp = int(time.time() * 1000)  # millisecond timestamp
+            session_id = uuid.uuid4().hex[:8]
 
             for i, (speaker, text) in enumerate(dialogue_turns):
-                temp_file = self.cache_dir / f"temp_{timestamp}_{i}_{speaker}.mp3"
+                temp_file = self.cache_dir / f"temp_{session_id}_{i}_{speaker}.mp3"
                 temp_files.append(temp_file)
 
                 # Ensure file doesn't exist
@@ -368,9 +457,26 @@ RULES:
                     try:
                         temp_file.unlink()
                     except:
-                        pass
+                        # Use new filename if can't delete
+                        temp_file = self.cache_dir / f"temp_{session_id}_{i}_{speaker}_{uuid.uuid4().hex[:4]}.mp3"
+                        temp_files[-1] = temp_file
 
-                voice = voices.get(speaker, voices["host1"])
+                # Fix voice selection - ensure we use different voices for host1 and host2
+                # Clean the speaker name in case it has extra spaces or characters
+                speaker_clean = speaker.strip().lower()
+
+                # Get the appropriate voice
+                if "host1" in speaker_clean or speaker_clean == "host1":
+                    voice = voices["host1"]
+                elif "host2" in speaker_clean or speaker_clean == "host2":
+                    voice = voices["host2"]
+                else:
+                    # Default to host1 if speaker format is unexpected
+                    voice = voices["host1"]
+
+                # Debug logging
+                logger.info(f"Speaker: '{speaker}' -> Voice: '{voice}'")
+
                 communicate = edge_tts.Communicate(text, voice)
                 await communicate.save(str(temp_file))
 
@@ -422,16 +528,51 @@ RULES:
         """Combine multiple audio files into one."""
         try:
             from pydub import AudioSegment
+            from pydub.utils import which
+
+            # Check if ffmpeg is available
+            if not which("ffmpeg"):
+                # Try to set ffmpeg path for Windows if installed via winget
+                import os
+                import platform
+
+                if platform.system() == "Windows":
+                    possible_paths = [
+                        r"C:\ProgramData\ffmpeg\bin\ffmpeg.exe",
+                        r"C:\Program Files\FFmpeg\bin\ffmpeg.exe",
+                        r"C:\ffmpeg\bin\ffmpeg.exe",
+                        os.path.expanduser(r"~\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe"),
+                    ]
+
+                    for path in possible_paths:
+                        if os.path.exists(path):
+                            AudioSegment.converter = path
+                            AudioSegment.ffmpeg = path
+                            AudioSegment.ffprobe = path.replace("ffmpeg.exe", "ffprobe.exe")
+                            break
 
             combined = AudioSegment.empty()
 
             for audio_file in audio_files:
                 if audio_file.exists():
-                    audio_segment = AudioSegment.from_mp3(str(audio_file))
-                    combined += audio_segment
-                    combined += AudioSegment.silent(duration=300)  # 300ms pause
+                    try:
+                        audio_segment = AudioSegment.from_mp3(str(audio_file))
+                        combined += audio_segment
+                        combined += AudioSegment.silent(duration=300)  # 300ms pause
+                    except Exception as e:
+                        logger.warning(f"Error processing audio file {audio_file}: {e}")
+                        continue
 
-            combined.export(str(output_path), format="mp3")
+            if len(combined) > 0:
+                combined.export(str(output_path), format="mp3")
+            else:
+                # If no audio combined, copy first available file
+                for audio_file in audio_files:
+                    if audio_file.exists():
+                        import shutil
+
+                        shutil.copy(audio_file, output_path)
+                        break
 
         except ImportError:
             # Fallback: just copy first file
