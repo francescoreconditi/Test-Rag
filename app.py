@@ -13,11 +13,11 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
+from components.security_ui import init_security_session, security_ui
 from config.settings import settings
 from services.csv_analyzer import CSVAnalyzer
 from services.llm_service import LLMService
 from services.rag_engine import RAGEngine
-from components.security_ui import security_ui, require_authentication, init_security_session
 from services.secure_rag_engine import SecureRAGEngine
 
 # Page configuration
@@ -261,23 +261,23 @@ def show_intelligent_faq():
 
 def main():
     """Main application function."""
-    
+
     # Initialize security session
     init_security_session()
-    
+
     # Check for RLS authentication first
-    if st.session_state.get('show_login', True) or not st.session_state.get('authenticated', False):
+    if st.session_state.get("show_login", True) or not st.session_state.get("authenticated", False):
         if security_ui.render_login_form():
             st.rerun()
         return
-    
+
     # Add user info to sidebar
     security_ui.render_user_info_sidebar()
 
     # Ensure tenant context exists (created during login)
     if "tenant_context" not in st.session_state:
         # Create default tenant context for users without specific tenant
-        user_context = st.session_state.get('user_context')
+        user_context = st.session_state.get("user_context")
         if user_context:
             from src.core.security.multi_tenant_manager import MultiTenantManager
             from src.domain.entities.tenant_context import TenantTier
@@ -292,7 +292,7 @@ def main():
                     tenant_id=tenant_id,
                     company_name=f"Organization {tenant_id}",
                     tier=TenantTier.PREMIUM,
-                    admin_email=f"{user_context.username}@company.com"
+                    admin_email=f"{user_context.username}@company.com",
                 )
 
             st.session_state.tenant_context = tenant
@@ -316,10 +316,10 @@ def main():
         with st.spinner("Initializing tenant services..."):
             st.session_state.services = init_services(tenant.tenant_id)
             st.session_state.current_tenant_id = tenant.tenant_id
-    
+
     # Initialize or update secure RAG engine with current user context
     if "secure_rag_engine" not in st.session_state:
-        user_context = st.session_state.get('user_context')
+        user_context = st.session_state.get("user_context")
         if user_context:
             st.session_state.secure_rag_engine = SecureRAGEngine(user_context)
 
@@ -618,16 +618,16 @@ def display_analysis_results(analysis, df):
 
         # Simula una risposta RAG per l'audio overview
         mock_rag_response = {
-            'answer': analysis_summary,
-            'sources': [{'type': 'analysis', 'name': 'Analisi Dati'}],
-            'confidence': 0.9
+            "answer": analysis_summary,
+            "sources": [{"type": "analysis", "name": "Analisi Dati"}],
+            "confidence": 0.9,
         }
 
         render_audio_overview_widget(
             query="Riassunto analisi dati finanziari",
             rag_response=mock_rag_response,
             rag_engine=st.session_state.services["rag_engine"],
-            container_key="data_analysis"
+            container_key="data_analysis",
         )
     except Exception as e:
         with st.expander("🎙️ Audio Overview Analisi (Debug)"):
@@ -637,7 +637,7 @@ def display_analysis_results(analysis, df):
 
 def get_real_document_analysis():
     """Get the real document analysis from session state."""
-    if not hasattr(st.session_state, 'document_analyses') or not st.session_state.document_analyses:
+    if not hasattr(st.session_state, "document_analyses") or not st.session_state.document_analyses:
         return None
 
     # Recupera tutte le analisi dei documenti
@@ -649,9 +649,9 @@ def get_real_document_analysis():
     for filename, analysis in analyses.items():
         if isinstance(analysis, dict):
             # Se l'analisi ha una struttura, estrai i campi principali
-            if 'summary' in analysis:
+            if "summary" in analysis:
                 combined_analysis.append(f"Analisi di {filename}: {analysis['summary']}")
-            elif 'content' in analysis:
+            elif "content" in analysis:
                 combined_analysis.append(f"Contenuto di {filename}: {analysis['content']}")
             else:
                 # Prendi tutti i campi dell'analisi
@@ -678,23 +678,25 @@ def create_indexed_documents_summary(results, csv_files):
     indexed_count = len(results["indexed_files"])
     chunks_count = results["total_chunks"]
 
-    summary_parts.append(f"Sono stati analizzati e indicizzati {indexed_count} documenti, suddivisi in {chunks_count} blocchi di contenuto.")
+    summary_parts.append(
+        f"Sono stati analizzati e indicizzati {indexed_count} documenti, suddivisi in {chunks_count} blocchi di contenuto."
+    )
 
     # Document types analysis
     if results["indexed_files"]:
         doc_types = []
         for filename in results["indexed_files"]:
-            ext = filename.split('.')[-1].lower()
-            if ext == 'pdf':
-                doc_types.append('PDF')
-            elif ext in ['csv', 'xlsx', 'xls']:
-                doc_types.append('dati finanziari')
-            elif ext in ['docx', 'doc']:
-                doc_types.append('documenti Word')
-            elif ext in ['txt', 'md']:
-                doc_types.append('documenti di testo')
+            ext = filename.split(".")[-1].lower()
+            if ext == "pdf":
+                doc_types.append("PDF")
+            elif ext in ["csv", "xlsx", "xls"]:
+                doc_types.append("dati finanziari")
+            elif ext in ["docx", "doc"]:
+                doc_types.append("documenti Word")
+            elif ext in ["txt", "md"]:
+                doc_types.append("documenti di testo")
             else:
-                doc_types.append('documenti vari')
+                doc_types.append("documenti vari")
 
         unique_types = list(set(doc_types))
         if unique_types:
@@ -702,17 +704,21 @@ def create_indexed_documents_summary(results, csv_files):
 
     # CSV specific info
     if csv_files:
-        summary_parts.append(f"Tra questi, {len(csv_files)} file CSV sono stati processati con analisi automatica dei dati finanziari.")
+        summary_parts.append(
+            f"Tra questi, {len(csv_files)} file CSV sono stati processati con analisi automatica dei dati finanziari."
+        )
 
     # Document analyses preview
     document_analyses = results.get("document_analyses", {})
     if document_analyses:
-        summary_parts.append("Ogni documento è stato analizzato automaticamente per estrarre insights e contenuti chiave.")
+        summary_parts.append(
+            "Ogni documento è stato analizzato automaticamente per estrarre insights e contenuti chiave."
+        )
 
         # Add a sample of analyses if available
         sample_analyses = list(document_analyses.values())[:2]  # First 2 analyses
         for analysis in sample_analyses:
-            if isinstance(analysis, dict) and 'summary' in analysis:
+            if isinstance(analysis, dict) and "summary" in analysis:
                 summary_parts.append(f"Un documento mostra: {analysis['summary'][:100]}...")
 
     # Conclude
@@ -772,7 +778,17 @@ def show_document_rag():
         prompt_options = ["Automatico (raccomandato)"] + [
             f"{prompt_type.capitalize()} - {desc}"
             for prompt_type, desc in zip(
-                ["bilancio", "fatturato", "magazzino", "contratto", "presentazione", "scadenzario", "cdc", "csv", "generale"],
+                [
+                    "bilancio",
+                    "fatturato",
+                    "magazzino",
+                    "contratto",
+                    "presentazione",
+                    "scadenzario",
+                    "cdc",
+                    "csv",
+                    "generale",
+                ],
                 [
                     "Analisi finanziaria per bilanci e report finanziari",
                     "Analisi vendite e ricavi",
@@ -883,10 +899,10 @@ def show_document_rag():
 
                         # Store indexing results for persistence across refreshes
                         st.session_state.last_indexing_results = {
-                            'results': results,
-                            'csv_files': csv_files,
-                            'indexed_files': results["indexed_files"],
-                            'total_chunks': results["total_chunks"]
+                            "results": results,
+                            "csv_files": csv_files,
+                            "indexed_files": results["indexed_files"],
+                            "total_chunks": results["total_chunks"],
                         }
 
                     if results["failed_files"]:
@@ -926,7 +942,7 @@ def show_document_rag():
                 st.warning("⚠️ Seleziona un tipo di prompt specifico per ri-analizzare i documenti")
 
         # Show Audio Overview if documents were indexed (persistent across refreshes)
-        if hasattr(st.session_state, 'last_indexing_results') and st.session_state.last_indexing_results:
+        if hasattr(st.session_state, "last_indexing_results") and st.session_state.last_indexing_results:
             indexing_data = st.session_state.last_indexing_results
             st.divider()
             st.subheader("📊 Documenti Indicizzati")
@@ -934,14 +950,14 @@ def show_document_rag():
             # Show summary of indexed documents
             col_info1, col_info2 = st.columns(2)
             with col_info1:
-                st.metric("Documenti indicizzati", len(indexing_data['indexed_files']))
+                st.metric("Documenti indicizzati", len(indexing_data["indexed_files"]))
             with col_info2:
-                st.metric("Blocchi di contenuto", indexing_data['total_chunks'])
+                st.metric("Blocchi di contenuto", indexing_data["total_chunks"])
 
             # Show list of files
-            if indexing_data['indexed_files']:
+            if indexing_data["indexed_files"]:
                 st.write("**File indicizzati:**")
-                for filename in indexing_data['indexed_files']:
+                for filename in indexing_data["indexed_files"]:
                     st.write(f"- 📄 {filename}")
 
             # Audio Overview per i documenti indicizzati (persistent)
@@ -958,23 +974,22 @@ def show_document_rag():
                 else:
                     # Fallback al riassunto generico solo se non c'è analisi
                     analysis_content = create_indexed_documents_summary(
-                        indexing_data['results'],
-                        indexing_data['csv_files']
+                        indexing_data["results"], indexing_data["csv_files"]
                     )
                     query_text = "Riassunto dei documenti indicizzati"
 
                 # Simula una risposta RAG per l'audio overview
                 mock_rag_response = {
-                    'answer': analysis_content,
-                    'sources': [{'type': 'document', 'name': name} for name in indexing_data['indexed_files']],
-                    'confidence': 0.85
+                    "answer": analysis_content,
+                    "sources": [{"type": "document", "name": name} for name in indexing_data["indexed_files"]],
+                    "confidence": 0.85,
                 }
 
                 render_audio_overview_widget(
                     query=query_text,
                     rag_response=mock_rag_response,
                     rag_engine=st.session_state.services["rag_engine"],
-                    container_key="document_indexing_persistent"
+                    container_key="document_indexing_persistent",
                 )
             except Exception as e:
                 with st.expander("🎙️ Audio Overview Documenti (Debug)"):
@@ -983,7 +998,7 @@ def show_document_rag():
 
             # Button to clear indexing results
             if st.button("🗑️ Pulisci documenti indicizzati", key="clear_indexed_docs"):
-                if 'last_indexing_results' in st.session_state:
+                if "last_indexing_results" in st.session_state:
                     del st.session_state.last_indexing_results
                 st.rerun()
 
@@ -1123,11 +1138,12 @@ def show_document_rag():
         # Audio Overview Widget
         try:
             from components.audio_overview_widget import render_audio_overview_widget
+
             render_audio_overview_widget(
-                query=st.session_state.get('last_query', ''),
+                query=st.session_state.get("last_query", ""),
                 rag_response=st.session_state.rag_response,
                 rag_engine=st.session_state.services["rag_engine"],
-                container_key="rag_query"
+                container_key="rag_query",
             )
         except Exception as e:
             # Fallback: show a simple audio section if widget fails
@@ -2013,7 +2029,7 @@ def show_database_explorer():
                                 mime="text/csv",
                                 key="download_selected_csv",
                             )
-                            st.success(f"✅ CSV pronto per il download")
+                            st.success("✅ CSV pronto per il download")
                         except Exception as e:
                             st.error(f"❌ Errore nell'export: {str(e)}")
 

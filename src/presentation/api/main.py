@@ -333,44 +333,23 @@ add_scalar_docs(app)
     tags=["Autenticazione"],
 )
 async def rest_login(request: LoginRequest):
-    from services.secure_rag_engine import SecureRAGEngine
     from src.core.security import AuthenticationService
     from src.core.security.multi_tenant_manager import MultiTenantManager
-    from src.domain.entities.tenant_context import TenantTier
+    from src.core.security.sec_utils import initialize_secure_rag
 
     auth_service = AuthenticationService()
     manager = MultiTenantManager()
-
-    if not (request.email and request.password):
-        raise HTTPException(status_code=400, detail="Missing Login Parameters")
-
     result = auth_service.authenticate(request.email, request.password, request.tenant_id)
     if not result.success:
         raise HTTPException(status_code=403, detail="Login Failed. Check username and/or password")
 
-    # Build secure RAG engine (for consistency with Streamlit)
-    sec_rag_engine = SecureRAGEngine(result.user_context)
+    sec_rag_engine, tenant = initialize_secure_rag(result.user_context, fallback_email=request.email)
 
-    # Ensure tenant_id is valid
-    effective_tenant_id = request.tenant_id or result.user_context.tenant_id
-    if not effective_tenant_id:
-        if "@" in request.email:
-            domain = request.email.split("@")[1].replace(".", "_")
-            effective_tenant_id = f"tenant_{domain}"
-        else:
-            effective_tenant_id = "tenant_default"
-
-    # Ensure tenant exists
-    tenant = manager.get_tenant(effective_tenant_id)
     if not tenant:
-        tenant = manager.create_tenant(
-            tenant_id=effective_tenant_id,
-            company_name=f"Company {effective_tenant_id}",
-            tier=TenantTier.PREMIUM,
-            admin_email=request.email,
-        )
+        raise HTTPException(status_code=500, detail="Tenant could not be initialized")
 
-    # Create tenant session and generate JWT
+    # Create tenant session + JWT
+    manager = MultiTenantManager()
     session_id = manager.create_session(
         tenant_id=tenant.tenant_id,
         user_id=result.user_context.user_id,
@@ -1359,12 +1338,15 @@ async def general_exception_handler(request, exc):
 
 # Include Audio Routes
 try:
-    from src.presentation.api.audio_routes import router as audio_router, init_audio_routes
+    from src.presentation.api.audio_routes import init_audio_routes
+    from src.presentation.api.audio_routes import router as audio_router
+
     app.include_router(audio_router)
     AUDIO_ROUTES_AVAILABLE = True
 except ImportError as e:
     logger.warning(f"Audio routes not available: {e}")
     AUDIO_ROUTES_AVAILABLE = False
+
 
 # Startup and Shutdown Events
 @app.on_event("startup")
@@ -1383,6 +1365,7 @@ async def startup_event():
         # Initialize audio routes if available
         if AUDIO_ROUTES_AVAILABLE:
             from services.llm_service import LLMService
+
             llm = LLMService()
             init_audio_routes(rag, llm)
             logger.info("Audio routes initialized")

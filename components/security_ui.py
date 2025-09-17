@@ -1,11 +1,10 @@
 """Security UI components for Streamlit authentication and RLS."""
 
-import streamlit as st
-from typing import Optional, Dict, Any
 from datetime import datetime
 
-from src.core.security import AuthenticationService, UserContext, UserRole, AccessControlService, SecurityViolationError
-from services.secure_rag_engine import SecureRAGEngine
+import streamlit as st
+
+from src.core.security import AccessControlService, AuthenticationService
 
 
 class SecurityUI:
@@ -18,6 +17,7 @@ class SecurityUI:
     def render_login_form(self) -> bool:
         """Render login form and handle authentication."""
         st.title("🔐 Login - Business Intelligence RAG System")
+        from src.core.security.sec_utils import initialize_secure_rag
 
         # Check if already logged in
         if self._is_authenticated():
@@ -46,8 +46,11 @@ class SecurityUI:
             with col1:
                 username = st.text_input("👤 Username", placeholder="Enter your username")
                 password = st.text_input("🔑 Password", type="password", placeholder="Enter your password")
-                tenant_id = st.text_input("🏢 Tenant ID (optional)", placeholder="Leave empty for default tenant",
-                                        help="Specify tenant ID if you have access to multiple tenants")
+                tenant_id = st.text_input(
+                    "🏢 Tenant ID (optional)",
+                    placeholder="Leave empty for default tenant",
+                    help="Specify tenant ID if you have access to multiple tenants",
+                )
 
             with col2:
                 st.markdown("<br>", unsafe_allow_html=True)  # Spacing
@@ -80,14 +83,17 @@ class SecurityUI:
                     st.session_state.session_token = result.session_token
                     st.session_state.authenticated = True
                     st.session_state.show_login = False
-
                     # Initialize secure RAG engine
-                    st.session_state.secure_rag_engine = SecureRAGEngine(result.user_context)
-
+                    sec_rag_engine, tenant = initialize_secure_rag(
+                        result.user_context, fallback_email=f"{username}@company.com"
+                    )
+                    st.session_state.secure_rag_engine = sec_rag_engine
+                    if tenant:
+                        st.session_state.tenant_context = tenant
                     # Create tenant context for compatibility with multi-tenant system
                     if tenant_id or result.user_context.tenant_id:
                         from src.core.security.multi_tenant_manager import MultiTenantManager
-                        from src.domain.entities.tenant_context import TenantContext, TenantTier
+                        from src.domain.entities.tenant_context import TenantTier
 
                         manager = MultiTenantManager()
                         effective_tenant_id = tenant_id or result.user_context.tenant_id
@@ -100,7 +106,7 @@ class SecurityUI:
                                 tenant_id=effective_tenant_id,
                                 company_name=f"Company {effective_tenant_id}",
                                 tier=TenantTier.PREMIUM,
-                                admin_email=f"{username}@company.com"
+                                admin_email=f"{username}@company.com",
                             )
 
                         st.session_state.tenant_context = tenant
