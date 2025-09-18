@@ -348,22 +348,29 @@ async def rest_login(request: LoginRequest):
     if not tenant:
         raise HTTPException(status_code=500, detail="Tenant could not be initialized")
 
-    # Create tenant session + JWT
+    # Create JWT token using the auth module's create_access_token
+    from .auth import create_access_token, JWT_EXPIRATION_HOURS
+
+    token = create_access_token(
+        tenant_context=tenant,
+        user_id=result.user_context.user_id,
+        email=result.user_context.username or request.email
+    )
+
+    # Also create session in MultiTenantManager for compatibility
     manager = MultiTenantManager()
     session_id = manager.create_session(
         tenant_id=tenant.tenant_id,
         user_id=result.user_context.user_id,
-        user_email=result.user_context.username,
+        user_email=result.user_context.username or request.email,
     )
-    session = await manager._get_session(session_id)
-    token = manager._generate_jwt_token(session)
 
     return LoginResponse(
         access_token=token,
         token_type="bearer",
         tenant_id=tenant.tenant_id,
         tier=tenant.tier.value,
-        expires_in=int(manager.session_duration.total_seconds()),
+        expires_in=JWT_EXPIRATION_HOURS * 3600,  # Convert hours to seconds
     )
 
 

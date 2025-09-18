@@ -5,7 +5,7 @@ Authentication and Multi-Tenant Middleware for FastAPI
 JWT authentication and tenant context management for API endpoints.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os
 from typing import Optional
 
@@ -56,7 +56,8 @@ class LoginResponse(BaseModel):
 
 def create_access_token(tenant_context: TenantContext, user_id: str, email: str) -> str:
     """Create JWT access token for tenant."""
-    expire = datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS)
+    now = datetime.now(timezone.utc)
+    expire = now + timedelta(hours=JWT_EXPIRATION_HOURS)
 
     payload = {
         "tenant_id": tenant_context.tenant_id,
@@ -64,7 +65,7 @@ def create_access_token(tenant_context: TenantContext, user_id: str, email: str)
         "email": email,
         "tier": tenant_context.tier.value,
         "exp": expire.timestamp(),
-        "iat": datetime.utcnow().timestamp(),
+        "iat": now.timestamp(),
         "iss": "zcs-rag-api"
     }
 
@@ -88,7 +89,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
         )
 
         # Check expiration
-        if datetime.utcnow() > token_data.exp:
+        if datetime.now(timezone.utc) > token_data.exp.replace(tzinfo=timezone.utc):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token expired",

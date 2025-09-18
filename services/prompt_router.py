@@ -99,72 +99,105 @@ Scrivi 120–200 parole con tono da analista professionale, richiamando "p. X" d
 
 
 def PROMPT_BILANCIO(file_name: str, analysis_text: str) -> str:
-    return f"""
-Sei un equity/credit analyst esperto specializzato in documenti finanziari italiani. Analizza il documento "{file_name}" applicando le seguenti competenze:
+    # Per il momento non gestito
+    client_adapter_json = None
 
-COMPETENZE SPECIALIZZATE:
-- **Numeri italiani**: 1.234,56 = milleduecentotrentaquattro virgola cinquantasei
-- **Negativi**: (123) = numero negativo, -123
-- **Percentuali**: 5,2% = cinque virgola due per cento
-- **Scale**: "valori in migliaia" significa moltiplicare × 1.000
-- **Sinonimi**: fatturato = ricavi = vendite; EBITDA = MOL; PFN = posizione finanziaria netta
-- **Validazioni**: Attivo = Passivo; PFN = Debito lordo - Cassa; Margine lordo = Ricavi - COGS
+    from string import Template
 
-=== DOCUMENTO ===
-{analysis_text}
-=== FINE DOCUMENTO ===
+    PROMPT_TMPL = Template(r"""
+    Sei un equity/credit analyst esperto in documenti finanziari italiani. Analizza il documento "$FILE_NAME" e, se fornito, usa anche l'adapter opzionale in fondo.
 
-ISTRUZIONI OPERATIVE:
-1. **Parsing accurato**: Riconosci formato numerico italiano (es. 1.234.567,89)
-2. **Provenienza precisa**: Cita sempre "p. X" o "tab. Y" per ogni numero
-3. **Controlli coerenza**: Verifica equazioni contabili basilari
-4. **Scale applicate**: Se dichiarato "in migliaia", converti automaticamente
-5. **Sinonimi**: Normalizza "fatturato" → "ricavi", "MOL" → "EBITDA"
+    COMPETENZE SPECIALIZZATE
+    - Numeri italiani: 1.234,56 -> 1234.56; (123) o -123 -> numero negativo
+    - Percentuali: 5,2% -> 5.2%
+    - Scale: "valori in migliaia/milioni" => moltiplica x1.000 / x1.000.000
+    - Sinonimi (parziali): fatturato=ricavi=vendite; PFN=posizione finanziaria netta; MOL=EBITDA; risultato operativo=EBIT; utile=utile netto=risultato netto; costi del personale=costo del lavoro; Opex=spese operative; costi materie/merci=consumi/COGS
+    - Validazioni: Attivo=Passivo; PFN=Debito lordo-Cassa; Margine lordo=Ricavi-COGS
 
-PRODUCI due sezioni nell'ordine:
-1) <KPI_JSON> … </KPI_JSON>
-2) <SINTESI> … </SINTESI>
+    === DOCUMENTO ===
+    $ANALYSIS_TEXT
+    === FINE DOCUMENTO ===
 
-<KPI_JSON>
-{{
-  "periodi_coperti": [],
-  "conto_economico": {{
-    "ricavi": [{{"periodo":"", "valore":"","unita":"", "fonte_pagina":""}}],
-    "ebitda": [],
-    "ebit": [],
-    "utile_netto": []
-  }},
-  "stato_patrimoniale": {{
-    "cassa_e_equivalenti": [],
-    "debito_finanziario_totale": [],
-    "patrimonio_netto": []
-  }},
-  "cash_flow": {{
-    "cfo": [],
-    "cfi": [],
-    "cff": [],
-    "capex": []
-  }},
-  "margini_e_ratios": [
-    {{"nome":"margine EBITDA","periodo":"","valore":"","unita":"%","fonte_pagina":""}},
-    {{"nome":"PFN","periodo":"","valore":"","unita":"","fonte_pagina":""}},
-    {{"nome":"PFN/EBITDA","periodo":"","valore":"","unita":"x","fonte_pagina":""}}
-  ],
-  "guidance_o_outlook": [{{"testo":"","periodo":"","fonte_pagina":""}}],
-  "eventi_straordinari": [{{"descrizione":"","impatto":"","fonte_pagina":""}}],
-  "rischi": [{{"descrizione":"","impatto":"","probabilita":"","fonte_pagina":""}}],
-  "note": ""
-}}
-</KPI_JSON>
+    === ADAPTER_OPZIONALE ===
+    $CLIENT_ADAPTER_JSON
+    === FINE ADAPTER ===
 
-<SINTESI>
-In 150–250 parole, evidenzia crescita/contrazione, driver principali, rischi finanziari, outlook e covenant. Usa "p. X" accanto ai numeri specifici.
-</SINTESI>
+    ISTRUZIONI OPERATIVE (schema-agnostiche)
+    1) Riconoscimento sezioni: individua blocchi "Ricavi/Revenue/Fatturato", "Costi/COGS/Opex", "Stato patrimoniale/Attivo/Passivo/Posizione finanziaria", "Cash flow", "Indicatori (EBITDA/EBIT/Margini)", "Guidance/Rischi/Eventi". Se l'ADAPTER è presente, usa le sue mappature come prioritarie; altrimenti usa sinonimi/regex/contesto tabellare.
+    2) Parsing numeri & scale: rispetta il formato italiano e applica la scala dichiarata nella stessa tabella/sezione (es. "valori in migliaia"). Se più scale compaiono, applica quella più vicina alla tabella/valore.
+    3) Provenienza: per ogni numero estratto indica sempre "p. X" o "tab. Y" (se non reperibile, lascia vuoto).
+    4) Periodi: normalizza etichette a {"Consuntivo/Actual", "Budget", "AnnoPrecedente/Prev. Year"}. Se più periodi sono presenti (trimestre, YTD, FY), mantieni quello esplicitamente richiesto dal documento o il più vicino al titolo; in dubbio, privilegia YTD/Consuntivo.
+    5) Coerenza: verifica Attivo=Passivo; PFN=Debito lordo-Cassa; Gross margin=Ricavi-COGS. Se mismatch, segnala in "note" e NON correggere i numeri.
+    6) Confronti: calcola Δ e Δ% solo quando entrambe le grandezze sono presenti nel documento. Per sottoricavi, riporta anche incidenza % sul totale ricavi del periodo.
+    7) Rigidità dati: NON inventare. Campi non reperiti restano vuoti. Indica la scala applicata in "note".
+    8) Output: produci ESATTAMENTE due sezioni nell'ordine:
+    a) <KPI_JSON> … </KPI_JSON>
+    b) <SINTESI> … </SINTESI>
 
-REGOLE
-- Compila solo ciò che è presente nel documento
-- Non calcolare ratios se non sono nel testo, a meno che tutte le grandezze per un calcolo semplice siano presenti
-"""
+    <KPI_JSON>
+    {
+    "periodi_coperti": [],
+    "conto_economico": {
+        "ricavi": [{"periodo":"","valore":"","unita":"EUR","fonte_pagina":""}],
+        "ebitda": [],
+        "ebit": [],
+        "utile_netto": []
+    },
+    "dettaglio_ricavi": [
+        {"nome":"vendite","periodo":"","valore":"","unita":"EUR","incidenza_pct":"","fonte_pagina":"","confidence":""},
+        {"nome":"servizi","periodo":"","valore":"","unita":"EUR","incidenza_pct":"","fonte_pagina":"","confidence":""},
+        {"nome":"assistenze","periodo":"","valore":"","unita":"EUR","incidenza_pct":"","fonte_pagina":"","confidence":""},
+        {"nome":"altri_ricavi","periodo":"","valore":"","unita":"EUR","incidenza_pct":"","fonte_pagina":"","confidence":""},
+        {"nome":"recupero_spese_trasporto","periodo":"","valore":"","unita":"EUR","incidenza_pct":"","fonte_pagina":"","confidence":""}
+    ],
+    "costi": {
+        "consumi_cogs": [],
+        "costo_del_lavoro": [],
+        "opex": [
+        {"nome":"industriali","periodo":"","valore":"","unita":"EUR","fonte_pagina":"","confidence":""},
+        {"nome":"commerciali","periodo":"","valore":"","unita":"EUR","fonte_pagina":"","confidence":""},
+        {"nome":"amministrative","periodo":"","valore":"","unita":"EUR","fonte_pagina":"","confidence":""},
+        {"nome":"totali_opex","periodo":"","valore":"","unita":"EUR","fonte_pagina":"","confidence":""}
+        ],
+        "accantonamenti_e_svalutazioni": [],
+        "ammortamenti": [],
+        "oneri_finanziari": []
+    },
+    "stato_patrimoniale": {
+        "cassa_e_equivalenti": [],
+        "debito_finanziario_totale": [],
+        "patrimonio_netto": [],
+        "pfn": []
+    },
+    "cash_flow": { "cfo": [], "cfi": [], "cff": [], "capex": [] },
+    "margini_e_ratios": [
+        {"nome":"gross_margin","periodo":"","valore":"","unita":"EUR","fonte_pagina":"","confidence":""},
+        {"nome":"gross_margin_pct","periodo":"","valore":"","unita":"%","fonte_pagina":"","confidence":""},
+        {"nome":"margine EBITDA","periodo":"","valore":"","unita":"%","fonte_pagina":"","confidence":""},
+        {"nome":"PFN/EBITDA","periodo":"","valore":"","unita":"x","fonte_pagina":"","confidence":""}
+    ],
+    "guidance_o_outlook": [{"testo":"","periodo":"","fonte_pagina":""}],
+    "eventi_straordinari": [{"descrizione":"","impatto":"","fonte_pagina":""}],
+    "rischi": [{"descrizione":"","impatto":"","probabilita":"","fonte_pagina":""}],
+    "raw_fields": [{"label_originale":"","valore":"","periodo":"","unita":"","fonte_pagina":""}],
+    "note": ""
+    }
+    </KPI_JSON>
+
+    <SINTESI>
+    (150–250 parole; blocchi: Ricavi, Costi, Indicatori, Stato Patrimoniale/Consolidato se presenti. Per ogni numero specifico: "p. X/tab. Y". Evidenzia driver, Δ vs AnnoPrecedente e vs Budget quando disponibili, rischi e outlook. Non dedurre oltre i dati disponibili.)
+    </SINTESI>
+
+    REGOLE FINALI
+    - Compila solo ciò che è presente nel documento/adapter. In caso di ambiguità, riporta il campo in "raw_fields" e non forzare la mappatura.
+    - Non calcolare ratios se mancano le grandezze necessarie. Indica sempre la scala applicata in "note".
+    """)
+
+    prompt = PROMPT_TMPL.substitute(
+        FILE_NAME=file_name, ANALYSIS_TEXT=analysis_text, CLIENT_ADAPTER_JSON=client_adapter_json or ""
+    )
+
+    return prompt
 
 
 def PROMPT_FATTURATO(file_name: str, analysis_text: str) -> str:
@@ -949,7 +982,7 @@ ROUTER: dict[str, CaseRule] = {
         builder=PROMPT_CDC,
         keywords=[
             "centri di costo",
-            "centro di costo", 
+            "centro di costo",
             "cdc",
             "cost center",
             "cost centres",
@@ -972,7 +1005,7 @@ ROUTER: dict[str, CaseRule] = {
             "overhead",
             "costi indiretti",
             "indirect costs",
-            "costi diretti", 
+            "costi diretti",
             "direct costs",
             "fte",
             "full time equivalent",
@@ -1003,7 +1036,7 @@ ROUTER: dict[str, CaseRule] = {
             "ratei",
             "accruals",
             "risconti",
-            "deferrals"
+            "deferrals",
         ],
         patterns=[
             r"\bCDC[\s\-_]*\d+",  # CDC001, CDC-001, CDC_001
@@ -1011,7 +1044,7 @@ ROUTER: dict[str, CaseRule] = {
             r"\bCentro[\s]+\d+",  # Centro 001
             r"\b[A-Z]{2,4}[\-_]\d{3,4}\b",  # IT-001, HR_002
             r"\bbudget\s+vs\s+consuntivo\b",
-            r"\bbudget\s+vs\s+actual\b", 
+            r"\bbudget\s+vs\s+actual\b",
             r"\bvariance\s+analysis\b",
             r"\bscostamento\s+\d+",
             r"\balloca(zione|tion)\s+\d+",
@@ -1025,7 +1058,7 @@ ROUTER: dict[str, CaseRule] = {
             r"\b(fixed|variable|direct|indirect)\s+costs?\b",
             r"\bresponsabile\s+centro\b",
             r"\bcenter\s+manager\b",
-            r"\bcontroller\s+gestionale\b"
+            r"\bcontroller\s+gestionale\b",
         ],
         min_score_to_win=1.2,
         boost_if_filename=1.8,
