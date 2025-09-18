@@ -45,14 +45,15 @@ from src.application.services.pdf_processor import PDFProcessor
 from src.domain.entities.tenant_context import TenantContext
 from src.presentation.streamlit.pdf_exporter import PDFExporter
 
-# Multi-tenant authentication
+# Multi-tenant authentication (v2 based on MultiTenantManager)
 from .auth import (
     LoginRequest,
     LoginResponse,
+    TokenData,
     check_tenant_limits,
     get_current_tenant,
     get_optional_tenant,
-    multi_tenant_manager,
+    verify_token,
 )
 
 # Scalar documentation
@@ -333,45 +334,22 @@ add_scalar_docs(app)
     tags=["Autenticazione"],
 )
 async def rest_login(request: LoginRequest):
-    from src.core.security import AuthenticationService
-    from src.core.security.multi_tenant_manager import MultiTenantManager
-    from src.core.security.sec_utils import initialize_secure_rag
+    # Use the new auth system based on MultiTenantManager
+    from .auth import login
 
-    auth_service = AuthenticationService()
-    manager = MultiTenantManager()
-    result = auth_service.authenticate(request.email, request.password, request.tenant_id)
-    if not result.success:
-        raise HTTPException(status_code=403, detail="Login Failed. Check username and/or password")
+    # Delegate to the new auth.login function
+    return await login(request)
 
-    sec_rag_engine, tenant = initialize_secure_rag(result.user_context, fallback_email=request.email)
 
-    if not tenant:
-        raise HTTPException(status_code=500, detail="Tenant could not be initialized")
-
-    # Create JWT token using the auth module's create_access_token
-    from .auth import create_access_token, JWT_EXPIRATION_HOURS
-
-    token = create_access_token(
-        tenant_context=tenant,
-        user_id=result.user_context.user_id,
-        email=result.user_context.username or request.email
-    )
-
-    # Also create session in MultiTenantManager for compatibility
-    manager = MultiTenantManager()
-    session_id = manager.create_session(
-        tenant_id=tenant.tenant_id,
-        user_id=result.user_context.user_id,
-        user_email=result.user_context.username or request.email,
-    )
-
-    return LoginResponse(
-        access_token=token,
-        token_type="bearer",
-        tenant_id=tenant.tenant_id,
-        tier=tenant.tier.value,
-        expires_in=JWT_EXPIRATION_HOURS * 3600,  # Convert hours to seconds
-    )
+@app.post(
+    "/auth/logout",
+    summary="Logout",
+    description="Logout current user and invalidate session.",
+    tags=["Autenticazione"],
+)
+async def rest_logout(token_data: TokenData = Depends(verify_token)):
+    from .auth import logout
+    return await logout(token_data)
 
 
 @app.get(
@@ -382,7 +360,9 @@ async def rest_login(request: LoginRequest):
 )
 async def get_tenant_info(tenant: TenantContext = Depends(get_current_tenant)):
     """Get current tenant information."""
-    usage = multi_tenant_manager.get_tenant_usage(tenant.tenant_id)
+    from .auth import get_manager
+    manager = get_manager()
+    usage = manager.get_tenant_usage(tenant.tenant_id)
 
     return {
         "tenant_id": tenant.tenant_id,
@@ -765,7 +745,9 @@ async def analyze_pdf(
             raise HTTPException(status_code=403, detail=f"Document limit exceeded for {tenant.tier.value} tier")
 
         # Track usage
-        multi_tenant_manager.track_usage(tenant.tenant_id, "documents", 1)
+        from .auth import get_manager
+        manager = get_manager()
+        manager.track_usage(tenant.tenant_id, "documents", 1)
 
     try:
         # Save uploaded file temporarily

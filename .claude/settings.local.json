@@ -75,7 +75,8 @@
       "Bash(git restore:*)",
       "Bash(start.bat)",
       "Bash(ffmpeg:*)",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(del srcpresentationapiauth_old_backup.py)"
     ],
     "deny": [],
     "ask": []

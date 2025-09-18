@@ -361,8 +361,8 @@ class MultiTenantManager:
     async def create_tenant_user(self, tenant_id: str, email: str, password: str, permissions: list[str]) -> bool:
         """Create a new user for a tenant."""
         try:
-            # Verify tenant exists
-            tenant = await self.get_tenant(tenant_id)
+            # Verify tenant exists (get_tenant is sync, not async)
+            tenant = self.get_tenant(tenant_id)
             if not tenant:
                 return False
 
@@ -420,8 +420,8 @@ class MultiTenantManager:
                     )
                     return None
 
-                # Check tenant is active
-                tenant = await self.get_tenant(tenant_id)
+                # Check tenant is active (get_tenant is sync, not async)
+                tenant = self.get_tenant(tenant_id)
                 if not tenant or tenant.status != TenantStatus.ACTIVE:
                     await self._log_security_event(
                         tenant_id, "login_failed", {"email": email, "reason": "inactive_tenant", "ip": ip_address}
