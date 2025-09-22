@@ -13,6 +13,7 @@ import { Subject, takeUntil } from 'rxjs';
 import { ThemeService } from '../../core/services/theme.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { ApiService } from '../../core/services/api.service';
+import { AuthService, CurrentUser } from '../../core/services/auth.service';
 import { Theme, NotificationMessage } from '../../core/models/ui.model';
 
 @Component({
@@ -71,9 +72,10 @@ import { Theme, NotificationMessage } from '../../core/models/ui.model';
 
           <!-- User Menu -->
           <button
+            *ngIf="currentUser"
             mat-icon-button
             [matMenuTriggerFor]="userMenu"
-            matTooltip="User Menu">
+            [matTooltip]="currentUser.username + '@' + currentUser.tenant_id">
             <mat-icon>account_circle</mat-icon>
           </button>
 
@@ -113,20 +115,26 @@ import { Theme, NotificationMessage } from '../../core/models/ui.model';
 
     <!-- User Menu -->
     <mat-menu #userMenu="matMenu">
-      <button mat-menu-item>
+      <div class="user-info" *ngIf="currentUser">
+        <div class="user-name">{{ currentUser.username }}</div>
+        <div class="user-tenant">{{ currentUser.tenant_id }}</div>
+        <div class="user-roles">{{ currentUser.roles.join(', ') }}</div>
+      </div>
+      <mat-divider *ngIf="currentUser"></mat-divider>
+      <button mat-menu-item (click)="openProfile()">
         <mat-icon>person</mat-icon>
         <span>Profilo</span>
       </button>
-      <button mat-menu-item>
+      <button mat-menu-item (click)="openSettings()">
         <mat-icon>settings</mat-icon>
         <span>Impostazioni</span>
       </button>
       <mat-divider></mat-divider>
-      <button mat-menu-item>
+      <button mat-menu-item (click)="openHelp()">
         <mat-icon>help</mat-icon>
         <span>Aiuto</span>
       </button>
-      <button mat-menu-item>
+      <button mat-menu-item (click)="logout()">
         <mat-icon>logout</mat-icon>
         <span>Logout</span>
       </button>
@@ -252,6 +260,46 @@ import { Theme, NotificationMessage } from '../../core/models/ui.model';
       font-style: italic;
     }
 
+    .user-info {
+      padding: 12px 16px;
+      background: #f5f5f5;
+    }
+
+    .user-name {
+      font-weight: 600;
+      font-size: 14px;
+      color: #333;
+    }
+
+    .user-tenant {
+      font-size: 12px;
+      color: #666;
+      margin-top: 2px;
+    }
+
+    .user-roles {
+      font-size: 11px;
+      color: #888;
+      margin-top: 2px;
+      font-style: italic;
+    }
+
+    body.dark-theme .user-info {
+      background: #424242;
+    }
+
+    body.dark-theme .user-name {
+      color: #fff;
+    }
+
+    body.dark-theme .user-tenant {
+      color: #ccc;
+    }
+
+    body.dark-theme .user-roles {
+      color: #aaa;
+    }
+
     @media (max-width: 768px) {
       .app-title {
         display: none;
@@ -270,13 +318,15 @@ export class HeaderComponent implements OnInit, OnDestroy {
   isLoading = false;
   notifications: NotificationMessage[] = [];
   notificationCount = 0;
+  currentUser: CurrentUser | null = null;
 
   private destroy$ = new Subject<void>();
 
   constructor(
     private themeService: ThemeService,
     private notificationService: NotificationService,
-    private apiService: ApiService
+    private apiService: ApiService,
+    private authService: AuthService
   ) {}
 
   ngOnInit(): void {
@@ -300,6 +350,13 @@ export class HeaderComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(loading => {
         this.isLoading = loading;
+      });
+
+    // Subscribe to current user
+    this.authService.currentUser$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(user => {
+        this.currentUser = user;
       });
 
     // Initial health check
@@ -361,5 +418,28 @@ export class HeaderComponent implements OnInit, OnDestroy {
     } else {
       return 'Ora';
     }
+  }
+
+  openProfile(): void {
+    this.notificationService.showInfo('Profilo', 'Apertura profilo utente...');
+    // TODO: Navigate to profile page or open profile dialog
+  }
+
+  openSettings(): void {
+    this.notificationService.showInfo('Impostazioni', 'Apertura impostazioni...');
+    // TODO: Navigate to settings page
+    document.dispatchEvent(new CustomEvent('navigate-to-settings'));
+  }
+
+  openHelp(): void {
+    this.notificationService.showInfo('Aiuto', 'Apertura documentazione...');
+    // TODO: Open help documentation or dialog
+    window.open('https://docs.example.com', '_blank');
+  }
+
+  logout(): void {
+    this.notificationService.showInfo('Logout', 'Disconnessione in corso...');
+    this.authService.logout();
+    window.location.href = '/login';
   }
 }

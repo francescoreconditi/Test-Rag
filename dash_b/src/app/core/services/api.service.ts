@@ -28,7 +28,7 @@ export class ApiService {
 
   // Health Check
   getHealthCheck(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/health`)
+    return this.http.get(`${this.baseUrl.replace('/api/v1', '')}/health`)
       .pipe(
         catchError(this.handleError('Health Check'))
       );
@@ -134,9 +134,18 @@ export class ApiService {
       );
   }
 
-  getIndexStats(): Observable<IndexStats> {
-    return this.http.get<IndexStats>(`${this.baseUrl}/documents/stats`)
+  getIndexStats(): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl.replace('/api/v1', '')}/documents`)
       .pipe(
+        map(response => {
+          // Transform documents list into stats format
+          return {
+            total_documents: response?.documents?.length || 0,
+            total_vectors: response?.vectors || 0,
+            collection_status: response?.status || 'unknown',
+            last_updated: new Date().toISOString()
+          };
+        }),
         catchError(this.handleError('Index Stats'))
       );
   }

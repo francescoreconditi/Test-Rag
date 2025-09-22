@@ -78,7 +78,8 @@
       "Bash(powershell:*)",
       "Bash(del srcpresentationapiauth_old_backup.py)",
       "Bash(ng add:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []
