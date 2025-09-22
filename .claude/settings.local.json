@@ -76,7 +76,9 @@
       "Bash(start.bat)",
       "Bash(ffmpeg:*)",
       "Bash(powershell:*)",
-      "Bash(del srcpresentationapiauth_old_backup.py)"
+      "Bash(del srcpresentationapiauth_old_backup.py)",
+      "Bash(ng add:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []
