@@ -119,10 +119,22 @@ export class ApiService {
   // RAG Query
   queryRAG(request: QueryRequest): Observable<QueryResponse> {
     this.setLoading(true);
-    return this.http.post<QueryResponse>(`${this.baseUrl}/query`, request, {
+    // Transform request to match API format
+    const apiRequest = {
+      question: request.query,
+      enterprise_mode: request.enterprise_mode || false
+    };
+    return this.http.post<any>(`${this.baseUrl}/query`, apiRequest, {
       headers: this.defaultHeaders
     })
       .pipe(
+        map(apiResponse => ({
+          response: apiResponse.answer,
+          confidence: apiResponse.confidence,
+          sources: apiResponse.sources || [],
+          processing_time: apiResponse.processing_time || 0,
+          enterprise_stats: apiResponse.enterprise_stats
+        })),
         tap(() => this.setLoading(false)),
         catchError(error => {
           this.setLoading(false);
@@ -170,8 +182,8 @@ export class ApiService {
         map(response => {
           // Transform documents list into stats format
           return {
-            total_documents: response?.documents?.length || 0,
-            total_vectors: response?.vectors || 0,
+            total_documents: response?.total_documents || 0,
+            total_vectors: response?.indexed_vectors || 0,
             collection_status: response?.status || 'unknown',
             last_updated: new Date().toISOString()
           };

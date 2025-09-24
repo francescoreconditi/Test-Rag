@@ -1162,7 +1162,7 @@ async def list_documents():
         return {
             "total_documents": collection_info["result"]["points_count"],
             "status": collection_info["result"]["status"],
-            "indexed_vectors": collection_info["result"]["indexed_vectors_count"],
+            "indexed_vectors": collection_info["result"]["points_count"],
             "collection_info": collection_info["result"]["config"],
         }
 
