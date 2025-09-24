@@ -27,6 +27,337 @@ body {
 body.dark-theme {
   background: #303030;
   color: #ffffff;
+
+  // Fix Material components backgrounds
+  .mat-card,
+  .mat-expansion-panel,
+  .mat-menu-panel,
+  .mat-select-panel,
+  .mat-option,
+  .mat-dialog-container,
+  .mat-tab-body,
+  .mat-paginator,
+  .mat-form-field-wrapper,
+  .main-content,
+  .content-container,
+  .dashboard-content,
+  .mat-drawer-content,
+  .mat-sidenav-content {
+    background-color: #424242 !important;
+    color: #ffffff !important;
+  }
+
+  // Fix text colors - more comprehensive
+  .mat-form-field-label,
+  .mat-hint,
+  .mat-error,
+  .mat-option-text,
+  .mat-select-value-text,
+  .mat-expansion-panel-header-title,
+  .mat-expansion-panel-header-description,
+  .mat-tab-label,
+  .mat-paginator-range-label,
+  .mat-card-title,
+  .mat-card-subtitle,
+  .mat-card-content,
+  .mat-list-item-content,
+  .mat-menu-item,
+  .mat-button,
+  .mat-raised-button,
+  .mat-stroked-button,
+  .mat-flat-button,
+  .mat-icon-button,
+  .mat-fab,
+  .mat-mini-fab,
+  h1, h2, h3, h4, h5, h6, p, span, div, label, small {
+    color: #ffffff !important;
+  }
+
+  // Fix dropzone and upload areas
+  .upload-area,
+  .dropzone,
+  .file-drop-area,
+  .mat-form-field-infix,
+  .mat-input-element {
+    background-color: #424242 !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.3) !important;
+  }
+
+  // Fix placeholder text
+  .mat-input-element::placeholder,
+  input::placeholder,
+  textarea::placeholder {
+    color: rgba(255, 255, 255, 0.6) !important;
+  }
+
+  // Fix borders and outlines
+  .mat-form-field-appearance-outline .mat-form-field-outline {
+    color: rgba(255, 255, 255, 0.3) !important;
+  }
+
+  .mat-form-field-appearance-outline.mat-focused .mat-form-field-outline {
+    color: rgba(255, 255, 255, 0.7) !important;
+  }
+
+  // Fix button text and icons
+  button, .mat-button, .mat-raised-button {
+    color: #ffffff !important;
+
+    mat-icon {
+      color: inherit !important;
+    }
+  }
+
+  // Fix tables and lists
+  .mat-table,
+  .mat-row,
+  .mat-cell,
+  .mat-header-cell,
+  .mat-header-row {
+    background-color: #424242 !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+  }
+
+  // Fix mat-toolbar in dark mode
+  .mat-toolbar {
+    background-color: #424242 !important;
+    color: #ffffff !important;
+  }
+
+  input, textarea, select {
+    color: #ffffff !important;
+    background-color: transparent !important;
+  }
+
+  // Fix specific problematic areas from screenshots
+  .upload-section,
+  .file-upload-area,
+  .drag-drop-area,
+  .dropzone,
+  .file-dropzone,
+  .upload-dropzone {
+    background-color: #424242 !important;
+    color: #ffffff !important;
+    border: 2px dashed rgba(255, 255, 255, 0.3) !important;
+  }
+
+  // Fix white background areas that become invisible
+  .mat-card,
+  .content-area,
+  .upload-container,
+  .file-upload-container,
+  .query-container,
+  .results-container {
+    background-color: #424242 !important;
+    color: #ffffff !important;
+
+    // Ensure all child elements are also visible
+    div, span, p, label, input, textarea {
+      background-color: inherit !important;
+      color: #ffffff !important;
+    }
+  }
+
+  // Fix dropdown/select overlapping issues
+  .mat-select-panel,
+  .mat-option-panel,
+  .cdk-overlay-pane {
+    background-color: #424242 !important;
+    color: #ffffff !important;
+    z-index: 9999 !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+  }
+
+  // Fix select dropdown options
+  .mat-option {
+    background-color: #424242 !important;
+    color: #ffffff !important;
+
+    &:hover, &.mat-option-highlighted {
+      background-color: rgba(255, 255, 255, 0.1) !important;
+      color: #ffffff !important;
+    }
+
+    &.mat-selected {
+      background-color: rgba(63, 81, 181, 0.3) !important;
+      color: #ffffff !important;
+    }
+  }
+
+  // Fix mat-select trigger
+  .mat-select-trigger,
+  .mat-select-value {
+    color: #ffffff !important;
+  }
+
+  .mat-select-arrow {
+    color: rgba(255, 255, 255, 0.7) !important;
+  }
+
+  // Fix text in cards and content areas
+  .mat-card-content,
+  .content-section,
+  .info-section,
+  .tab-content,
+  .page-content {
+    * {
+      color: #ffffff !important;
+    }
+  }
+
+  // Fix textarea and input areas specifically
+  textarea,
+  .mat-input-element,
+  .mat-form-field-infix {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  }
+
+  // Fix any remaining white backgrounds
+  [style*="background-color: white"],
+  [style*="background-color: #ffffff"],
+  [style*="background: white"],
+  [style*="background: #ffffff"] {
+    background-color: #424242 !important;
+    color: #ffffff !important;
+  }
+
+  // Fix file upload component specifically
+  .file-upload-card {
+    background-color: #424242 !important;
+    color: #ffffff !important;
+
+    .mat-card-header,
+    .mat-card-content,
+    .mat-card-actions {
+      background-color: inherit !important;
+      color: #ffffff !important;
+    }
+
+    .drop-zone {
+      background: rgba(255, 255, 255, 0.05) !important;
+      border-color: rgba(255, 255, 255, 0.3) !important;
+      color: #ffffff !important;
+
+      &:hover:not(.disabled) {
+        background: rgba(255, 255, 255, 0.1) !important;
+        border-color: rgba(63, 81, 181, 0.7) !important;
+      }
+
+      &.drag-over {
+        background: rgba(63, 81, 181, 0.2) !important;
+        border-color: rgba(63, 81, 181, 0.8) !important;
+      }
+    }
+
+    .upload-text .primary-text,
+    .upload-text .secondary-text {
+      color: #ffffff !important;
+    }
+
+    .file-info {
+      background: rgba(255, 255, 255, 0.05) !important;
+      color: #ffffff !important;
+
+      h5 {
+        color: #ffffff !important;
+      }
+    }
+
+    .file-details {
+      color: rgba(255, 255, 255, 0.8) !important;
+    }
+  }
+
+  // Fix document-rag component specific elements
+  .document-rag-container {
+    background-color: inherit !important;
+    color: #ffffff !important;
+
+    .page-header {
+      h1, p {
+        color: #ffffff !important;
+      }
+    }
+
+    .query-response {
+      background: rgba(255, 255, 255, 0.05) !important;
+      color: #ffffff !important;
+      border-left-color: rgba(63, 81, 181, 0.7) !important;
+
+      p {
+        color: #ffffff !important;
+      }
+    }
+
+    .stat-item {
+      background: rgba(255, 255, 255, 0.05) !important;
+      color: #ffffff !important;
+
+      .stat-content {
+        .stat-value,
+        .stat-label {
+          color: #ffffff !important;
+        }
+      }
+    }
+
+    .source-metadata span {
+      background: rgba(255, 255, 255, 0.1) !important;
+      color: #ffffff !important;
+    }
+  }
+
+  // Force sidebar active state styling with higher specificity
+  .app-sidenav .mat-mdc-list-item.nav-item.active,
+  .app-sidenav .mat-list-item.nav-item.active,
+  .sidenav-container .nav-item.active {
+    background: #ff4081 !important;
+    color: white !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+    margin: 4px 8px !important;
+    transform: translateX(4px) !important;
+    box-shadow: 0 4px 12px rgba(255, 64, 129, 0.5) !important;
+    border: 2px solid rgba(255, 255, 255, 0.4) !important;
+    position: relative !important;
+
+    &::before {
+      content: '' !important;
+      position: absolute !important;
+      left: -2px !important;
+      top: -2px !important;
+      bottom: -2px !important;
+      width: 6px !important;
+      background: #ffffff !important;
+      border-radius: 0 8px 8px 0 !important;
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.8) !important;
+      z-index: 10 !important;
+    }
+
+    .mat-icon,
+    mat-icon {
+      color: white !important;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    .nav-label,
+    .mat-mdc-list-item-title,
+    .mat-list-item-content {
+      color: white !important;
+      font-weight: 800 !important;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    &:hover {
+      background: #e91e63 !important;
+      transform: translateX(6px) !important;
+    }
+  }
 }
 
 // Custom scrollbar

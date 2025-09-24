@@ -27,26 +27,26 @@ import { ThemeService } from '../../core/services/theme.service';
         <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
 
           <div style="margin-bottom: 20px;">
-            <label style="display: block; margin-bottom: 5px; font-weight: 500; color: #333;">Tenant ID</label>
-            <select formControlName="tenantId" required
-                    style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 16px; background: white;">
-              <option value="">Seleziona Tenant</option>
-              <option value="zcs-company">ZCS Company</option>
-              <option value="demo-company">Demo Company</option>
-              <option value="test-tenant">Test Tenant</option>
-            </select>
-          </div>
-
-          <div style="margin-bottom: 20px;">
             <label style="display: block; margin-bottom: 5px; font-weight: 500; color: #333;">Username</label>
             <input type="text" formControlName="username" required
                    style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 16px; box-sizing: border-box;">
           </div>
 
-          <div style="margin-bottom: 30px;">
+          <div style="margin-bottom: 20px;">
             <label style="display: block; margin-bottom: 5px; font-weight: 500; color: #333;">Password</label>
             <input type="password" formControlName="password" required
                    style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 16px; box-sizing: border-box;">
+          </div>
+
+          <div style="margin-bottom: 30px;">
+            <label style="display: block; margin-bottom: 5px; font-weight: 500; color: #333;">Tenant ID (opzionale)</label>
+            <select formControlName="tenantId"
+                    style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 16px; background: white;">
+              <option value="">Default</option>
+              <option value="zcs-company">ZCS Company</option>
+              <option value="demo-company">Demo Company</option>
+              <option value="test-tenant">Test Tenant</option>
+            </select>
           </div>
 
           <button type="button" [disabled]="loginForm.invalid || isLogging" (click)="onSubmit()"
@@ -120,7 +120,7 @@ export class LoginComponent implements OnInit {
     private snackBar: MatSnackBar
   ) {
     this.loginForm = this.fb.group({
-      tenantId: ['', Validators.required],
+      tenantId: [''],  // Optional field
       username: ['', Validators.required],
       password: ['', Validators.required]
     });

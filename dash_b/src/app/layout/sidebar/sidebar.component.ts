@@ -26,7 +26,9 @@ import { ApiService } from '../../core/services/api.service';
     MatDividerModule
   ],
   template: `
-    <mat-sidenav-container class="sidenav-container">
+    <mat-sidenav-container class="sidenav-container"
+                          [class.sidebar-collapsed]="isCollapsed"
+                          [class.sidebar-closed]="!isOpen">
       <mat-sidenav
         #sidenav
         [opened]="isOpen"
@@ -40,13 +42,6 @@ import { ApiService } from '../../core/services/api.service';
             <mat-icon class="logo-icon">dashboard</mat-icon>
             <span class="logo-text" *ngIf="!isCollapsed">RAG Dashboard</span>
           </div>
-          <button
-            mat-icon-button
-            (click)="toggleCollapse()"
-            class="collapse-btn"
-            matTooltip="{{ isCollapsed ? 'Espandi' : 'Riduci' }}">
-            <mat-icon>{{ isCollapsed ? 'chevron_right' : 'chevron_left' }}</mat-icon>
-          </button>
         </div>
 
         <!-- Navigation Menu -->
@@ -63,14 +58,13 @@ import { ApiService } from '../../core/services/api.service';
               matTooltipPosition="right"
               [disabled]="item.disabled">
 
-              <mat-icon matListItemIcon [matBadge]="item.badge" [matBadgeHidden]="!item.badge">
+              <mat-icon matListItemIcon [attr.aria-hidden]="item.badge ? 'false' : 'true'">
                 {{ item.icon }}
               </mat-icon>
 
-              <span matListItemTitle *ngIf="!isCollapsed">{{ item.label }}</span>
-
-              <span matListItemLine *ngIf="!isCollapsed && item.badge" class="badge-line">
-                {{ getBadgeText(item.badge) }}
+              <span matListItemTitle *ngIf="!isCollapsed" class="nav-label">
+                {{ item.label }}
+                <span *ngIf="item.badge" class="pro-badge">{{ getBadgeText(item.badge) }}</span>
               </span>
             </a>
 
@@ -173,19 +167,63 @@ import { ApiService } from '../../core/services/api.service';
       }
 
       &.active {
-        background: rgba(255, 255, 255, 0.15);
-        color: white;
+        background: #ff4081 !important;
+        color: white !important;
+        font-weight: 600;
         position: relative;
+        box-shadow:
+          inset 0 0 0 2px rgba(255, 255, 255, 0.2),
+          0 4px 12px rgba(255, 64, 129, 0.4) !important;
+        border-radius: 8px !important;
+        transform: translateX(4px);
+        border: 2px solid rgba(255, 255, 255, 0.3) !important;
 
         &::before {
           content: '';
           position: absolute;
-          left: 0;
-          top: 0;
-          bottom: 0;
-          width: 4px;
-          background: #ff4081;
-          border-radius: 0 4px 4px 0;
+          left: -2px;
+          top: -2px;
+          bottom: -2px;
+          width: 8px;
+          background: #ffffff;
+          border-radius: 0 10px 10px 0;
+          box-shadow: 0 0 16px rgba(255, 255, 255, 0.8);
+          z-index: 1;
+        }
+
+        &::after {
+          content: '●';
+          position: absolute;
+          right: 12px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: #ffffff;
+          font-size: 8px;
+          text-shadow: 0 0 8px rgba(255, 255, 255, 1);
+          z-index: 2;
+        }
+
+        mat-icon {
+          color: white !important;
+          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+          z-index: 2;
+          position: relative;
+        }
+
+        .nav-label {
+          color: white !important;
+          font-weight: 800;
+          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+          z-index: 2;
+          position: relative;
+        }
+
+        &:hover {
+          background: #e91e63 !important;
+          transform: translateX(6px);
+          box-shadow:
+            inset 0 0 0 2px rgba(255, 255, 255, 0.3),
+            0 6px 16px rgba(255, 64, 129, 0.6) !important;
         }
       }
 
@@ -199,9 +237,21 @@ import { ApiService } from '../../core/services/api.service';
       }
     }
 
-    .badge-line {
-      font-size: 0.75rem;
-      opacity: 0.8;
+    .nav-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+    }
+
+    .pro-badge {
+      font-size: 0.65rem;
+      background: rgba(255, 255, 255, 0.2);
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 8px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
     }
 
     .sidenav-footer {
@@ -243,6 +293,19 @@ import { ApiService } from '../../core/services/api.service';
 
       &.collapsed {
         margin-left: 60px;
+      }
+    }
+
+    // Dynamic content adjustment based on sidebar state
+    .sidenav-container.sidebar-collapsed {
+      .sidenav-content {
+        margin-left: 60px;
+      }
+    }
+
+    .sidenav-container.sidebar-closed {
+      .sidenav-content {
+        margin-left: 0;
       }
     }
 
@@ -369,16 +432,23 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
   toggleSidebar(): void {
     this.isOpen = !this.isOpen;
+    // Force update of content margin when sidebar is toggled
+    this.updateContentMargin();
   }
 
   toggleCollapse(): void {
     this.isCollapsed = !this.isCollapsed;
     this.sidenavWidth = this.isCollapsed ? 60 : 280;
+    this.updateContentMargin();
+  }
 
-    // Update content margin
-    const content = document.querySelector('.sidenav-content') as HTMLElement;
-    if (content) {
-      content.style.marginLeft = `${this.sidenavWidth}px`;
+  private updateContentMargin(): void {
+    // Update content margin based on sidebar state
+    const container = document.querySelector('.sidenav-container') as HTMLElement;
+    if (container) {
+      // Use CSS classes for better responsive behavior
+      container.classList.toggle('sidebar-collapsed', this.isCollapsed);
+      container.classList.toggle('sidebar-closed', !this.isOpen);
     }
   }
 
