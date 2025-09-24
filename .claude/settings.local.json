@@ -79,7 +79,8 @@
       "Bash(del srcpresentationapiauth_old_backup.py)",
       "Bash(ng add:*)",
       "Bash(findstr:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(start cmd /k:*)"
     ],
     "deny": [],
     "ask": []

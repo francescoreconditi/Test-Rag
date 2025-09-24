@@ -508,31 +508,48 @@ export class DocumentRagComponent implements OnInit, OnDestroy {
     if (this.selectedFiles.length === 0) return;
 
     this.isAnalyzing = true;
-    this.loadingMessage = 'Analizzando documenti...';
+    this.loadingMessage = 'Caricamento documenti nel database...';
 
-    // Simulate analysis for multiple files
-    const analysisPromises = this.selectedFiles.map(file =>
-      this.apiService.analyzeDocument(file, this.analysisForm.value.analysisType).toPromise()
+    // First upload all files to vector DB
+    const uploadPromises = this.selectedFiles.map(file =>
+      this.apiService.uploadFileToVectorDB(file).toPromise()
     );
 
-    Promise.all(analysisPromises).then(results => {
-      this.analysisResults = results.filter(r => r) as DocumentAnalysis[];
-      this.isAnalyzing = false;
-      this.loadingMessage = '';
+    Promise.all(uploadPromises).then(() => {
+      this.loadingMessage = 'Analizzando documenti...';
 
-      this.notificationService.showSuccess(
-        'Analisi Completata',
-        `${this.analysisResults.length} documenti analizzati con successo`
-      );
+      // Then analyze all stored documents at once
+      this.apiService.analyzeStoredDocuments()
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (result) => {
+            this.analysisResults = [result];
+            this.isAnalyzing = false;
+            this.loadingMessage = '';
 
-      this.loadIndexStats();
-      this.selectedTabIndex = 1; // Switch to query tab
+            this.notificationService.showSuccess(
+              'Analisi Completata',
+              `Documenti caricati e analizzati con successo`
+            );
+
+            this.loadIndexStats();
+            this.selectedTabIndex = 1; // Switch to query tab
+          },
+          error: (error) => {
+            this.isAnalyzing = false;
+            this.loadingMessage = '';
+            this.notificationService.showError(
+              'Errore Analisi',
+              error.message || 'Errore durante l\'analisi dei documenti'
+            );
+          }
+        });
     }).catch(error => {
       this.isAnalyzing = false;
       this.loadingMessage = '';
       this.notificationService.showError(
-        'Errore Analisi',
-        'Errore durante l\'analisi dei documenti'
+        'Errore Upload',
+        'Errore durante il caricamento dei documenti'
       );
     });
   }

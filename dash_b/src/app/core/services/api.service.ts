@@ -1,7 +1,7 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, throwError } from 'rxjs';
-import { catchError, map, tap } from 'rxjs/operators';
+import { catchError, map, tap, switchMap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import {
     CSVAnalysis,
@@ -33,14 +33,28 @@ export class ApiService {
       );
   }
 
-  // Document Analysis
-  analyzeDocument(file: File, analysisType: string = 'automatic'): Observable<DocumentAnalysis> {
+  // Upload file to vector DB first
+  uploadFileToVectorDB(file: File): Observable<any> {
     const formData = new FormData();
-    formData.append('file', file);
-    formData.append('analysis_type', analysisType);
+    formData.append('files', file);
 
+    return this.http.post<any>(`${this.baseUrl.replace('/api/v1', '')}/upload/file`, formData)
+      .pipe(
+        catchError(this.handleError('File Upload to Vector DB'))
+      );
+  }
+
+  // Document Analysis - now analyzes documents already in vector DB
+  analyzeStoredDocuments(): Observable<DocumentAnalysis> {
     this.setLoading(true);
-    return this.http.post<any>(`${this.baseUrl}/analyze/stored`, formData)
+
+    // Get auth token for the request
+    const token = localStorage.getItem('authToken');
+    const headers = token
+      ? new HttpHeaders({ 'Authorization': `Bearer ${token}` })
+      : new HttpHeaders();
+
+    return this.http.post<any>(`${this.baseUrl.replace('/api/v1', '')}/analyze/stored`, {}, { headers })
       .pipe(
         map(response => response.analysis || response),
         tap(() => this.setLoading(false)),
@@ -49,6 +63,23 @@ export class ApiService {
           return this.handleError('Document Analysis')(error);
         })
       );
+  }
+
+  // Combined upload and analyze workflow
+  analyzeDocument(file: File, analysisType: string = 'automatic'): Observable<DocumentAnalysis> {
+    this.setLoading(true);
+
+    // First upload the file to vector DB
+    return this.uploadFileToVectorDB(file).pipe(
+      switchMap(() => {
+        // Then analyze the stored documents
+        return this.analyzeStoredDocuments();
+      }),
+      catchError(error => {
+        this.setLoading(false);
+        return this.handleError('Document Upload and Analysis')(error);
+      })
+    );
   }
 
   // CSV Analysis
