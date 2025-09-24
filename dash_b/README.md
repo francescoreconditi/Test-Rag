@@ -65,7 +65,7 @@ ng serve
 
 ### Backend Requirements
 L'applicazione si connette al backend FastAPI su:
-- **Base URL**: `http://localhost:8000/api/v1`
+- **Base URL**: `http://localhost:8000`
 - **Health Check**: `/health`
 - **Documentazione**: `http://localhost:8000/docs`
 

@@ -559,8 +559,8 @@ async def upload_documents(
 )
 async def analyze_stored_documents(
     enterprise_mode: bool = Query(False, description="Enable enterprise features"),
-    tenant: TenantContext = Depends(get_current_tenant),
-    rag_engine: RAGEngine = Depends(get_tenant_rag_engine),
+    tenant: Optional[TenantContext] = Depends(get_optional_tenant),
+    rag_engine: RAGEngine = Depends(get_optional_rag_engine),
     pdf_exporter: PDFExporter = Depends(get_pdf_exporter),
 ):
     import base64
@@ -625,8 +625,8 @@ async def analyze_stored_documents(
 )
 async def generate_faqs_endpoint(
     num_questions: int = Query(10, description="Numero di FAQs da generare"),
-    tenant: TenantContext = Depends(get_current_tenant),
-    rag_engine: RAGEngine = Depends(get_tenant_rag_engine),
+    tenant: Optional[TenantContext] = Depends(get_optional_tenant),
+    rag_engine: RAGEngine = Depends(get_optional_rag_engine),
     pdf_exporter: PDFExporter = Depends(get_pdf_exporter),
 ):
     import base64
@@ -650,7 +650,7 @@ async def generate_faqs_endpoint(
     faq_text = "\n\n".join([f"Q: {f.question}\nA: {f.answer}" for f in faq_items])
     pdf_bytes = pdf_exporter.export_document_analysis(
         document_analyses={"FAQs": f"{faq_text}"},
-        metadata={"generated_for": tenant.organization, "faq_count": len(faq_text)},
+        metadata={"generated_for": tenant.organization if tenant else "Default", "faq_count": len(faq_text)},
         filename="faqs_report",
     ).getvalue()
     pdf_b64 = base64.b64encode(pdf_bytes).decode("utf-8")

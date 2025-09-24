@@ -3,6 +3,8 @@ import { DOCUMENT } from '@angular/common';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { Theme } from '../models/ui.model';
 
+export type ThemeMode = 'light' | 'dark' | 'system';
+
 @Injectable({
   providedIn: 'root'
 })
@@ -47,11 +49,18 @@ export class ThemeService {
   private currentThemeSubject = new BehaviorSubject<Theme>(this.defaultTheme);
   public currentTheme$ = this.currentThemeSubject.asObservable();
 
+  private currentModeSubject = new BehaviorSubject<ThemeMode>('system');
+  public currentMode$ = this.currentModeSubject.asObservable();
+
+  private mediaQuery: MediaQueryList;
+
   constructor(
     private rendererFactory: RendererFactory2,
     @Inject(DOCUMENT) private document: Document
   ) {
     this.renderer = this.rendererFactory.createRenderer(null, null);
+    this.mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    this.mediaQuery.addEventListener('change', () => this.onSystemThemeChange());
     this.loadSavedTheme();
   }
 
@@ -73,15 +82,66 @@ export class ThemeService {
   }
 
   toggleDarkMode(): void {
-    const currentTheme = this.getCurrentTheme();
-    const darkTheme = this.themes.find(t => t.isDark !== currentTheme.isDark);
-    if (darkTheme) {
-      this.setTheme(darkTheme.name);
+    const currentMode = this.currentModeSubject.value;
+    let nextMode: ThemeMode;
+
+    switch (currentMode) {
+      case 'light':
+        nextMode = 'dark';
+        break;
+      case 'dark':
+        nextMode = 'system';
+        break;
+      case 'system':
+        nextMode = 'light';
+        break;
+      default:
+        nextMode = 'light';
     }
+
+    this.setThemeMode(nextMode);
+  }
+
+  setThemeMode(mode: ThemeMode): void {
+    this.currentModeSubject.next(mode);
+    this.saveThemeMode(mode);
+    this.applyThemeBasedOnMode(mode);
+  }
+
+  getCurrentMode(): ThemeMode {
+    return this.currentModeSubject.value;
   }
 
   isDarkMode(): boolean {
     return this.getCurrentTheme().isDark;
+  }
+
+  private applyThemeBasedOnMode(mode: ThemeMode): void {
+    let shouldUseDark: boolean;
+
+    switch (mode) {
+      case 'light':
+        shouldUseDark = false;
+        break;
+      case 'dark':
+        shouldUseDark = true;
+        break;
+      case 'system':
+        shouldUseDark = this.mediaQuery.matches;
+        break;
+      default:
+        shouldUseDark = false;
+    }
+
+    const theme = this.themes.find(t => t.isDark === shouldUseDark) || this.defaultTheme;
+    this.applyTheme(theme);
+    this.currentThemeSubject.next(theme);
+  }
+
+  private onSystemThemeChange(): void {
+    if (this.getCurrentMode() === 'system') {
+      this.applyThemeBasedOnMode('system');
+    }
   }
 
   private applyTheme(theme: Theme): void {
@@ -110,17 +170,13 @@ export class ThemeService {
     localStorage.setItem('selectedTheme', theme.name);
   }
 
+  private saveThemeMode(mode: ThemeMode): void {
+    localStorage.setItem('themeMode', mode);
+  }
+
   private loadSavedTheme(): void {
-    const savedThemeName = localStorage.getItem('selectedTheme');
-    if (savedThemeName) {
-      const savedTheme = this.themes.find(t => t.name === savedThemeName);
-      if (savedTheme) {
-        this.applyTheme(savedTheme);
-        this.currentThemeSubject.next(savedTheme);
-        return;
-      }
-    }
-    // Apply default theme
-    this.applyTheme(this.defaultTheme);
+    const savedMode = localStorage.getItem('themeMode') as ThemeMode || 'system';
+    this.currentModeSubject.next(savedMode);
+    this.applyThemeBasedOnMode(savedMode);
   }
 }

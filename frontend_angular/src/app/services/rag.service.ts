@@ -3,9 +3,9 @@
  * Handles all RAG-related API calls and document processing
  */
 
-import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, BehaviorSubject } from 'rxjs';
+import { Injectable } from '@angular/core';
+import { BehaviorSubject, Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
 export interface RagQuery {
@@ -228,7 +228,7 @@ export class RagService {
       params = params.set('enterprise_mode', options.enterprise_mode.toString());
     }
 
-    return this.http.post<any>(`${this.apiBaseUrl}/analyze/pdf`, formData, { params });
+    return this.http.post<any>(`${this.apiBaseUrl}/analyze/stored`, formData, { params });
   }
 
   /**

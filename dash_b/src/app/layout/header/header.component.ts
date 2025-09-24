@@ -10,7 +10,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
 import { Subject, takeUntil } from 'rxjs';
 
-import { ThemeService } from '../../core/services/theme.service';
+import { ThemeService, ThemeMode } from '../../core/services/theme.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService, CurrentUser } from '../../core/services/auth.service';
@@ -56,8 +56,8 @@ import { Theme, NotificationMessage } from '../../core/models/ui.model';
           <button
             mat-icon-button
             (click)="toggleTheme()"
-            matTooltip="Toggle Dark Mode">
-            <mat-icon>{{ isDarkMode ? 'light_mode' : 'dark_mode' }}</mat-icon>
+            [matTooltip]="themeTooltip">
+            <mat-icon>{{ themeIcon }}</mat-icon>
           </button>
 
           <!-- Notifications -->
@@ -148,6 +148,13 @@ import { Theme, NotificationMessage } from '../../core/models/ui.model';
       right: 0;
       z-index: 1000;
       height: 64px;
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%) !important;
+      color: white !important;
+    }
+
+    body.dark-theme .app-toolbar {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     .toolbar-content {
@@ -313,6 +320,7 @@ import { Theme, NotificationMessage } from '../../core/models/ui.model';
 })
 export class HeaderComponent implements OnInit, OnDestroy {
   isDarkMode = false;
+  currentThemeMode: ThemeMode = 'system';
   isHealthy = false;
   healthTooltip = 'Checking...';
   isLoading = false;
@@ -321,6 +329,32 @@ export class HeaderComponent implements OnInit, OnDestroy {
   currentUser: CurrentUser | null = null;
 
   private destroy$ = new Subject<void>();
+
+  get themeIcon(): string {
+    switch (this.currentThemeMode) {
+      case 'light':
+        return 'light_mode';
+      case 'dark':
+        return 'dark_mode';
+      case 'system':
+        return 'brightness_auto';
+      default:
+        return 'brightness_auto';
+    }
+  }
+
+  get themeTooltip(): string {
+    switch (this.currentThemeMode) {
+      case 'light':
+        return 'Tema: Chiaro (clicca per scuro)';
+      case 'dark':
+        return 'Tema: Scuro (clicca per sistema)';
+      case 'system':
+        return 'Tema: Sistema (clicca per chiaro)';
+      default:
+        return 'Cambia tema';
+    }
+  }
 
   constructor(
     private themeService: ThemeService,
@@ -335,6 +369,13 @@ export class HeaderComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(theme => {
         this.isDarkMode = theme.isDark;
+      });
+
+    // Subscribe to theme mode changes
+    this.themeService.currentMode$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(mode => {
+        this.currentThemeMode = mode;
       });
 
     // Subscribe to notifications

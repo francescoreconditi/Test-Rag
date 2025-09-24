@@ -1,22 +1,21 @@
+import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
-import { Observable, throwError, BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Observable, throwError } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import {
-  DocumentAnalysis,
-  CSVAnalysis,
-  FAQResponse,
-  IndexStats,
-  QueryRequest,
-  QueryResponse
+    CSVAnalysis,
+    DocumentAnalysis,
+    FAQResponse,
+    QueryRequest,
+    QueryResponse
 } from '../models/analysis.model';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ApiService {
-  private readonly baseUrl = environment.apiUrl || 'http://localhost:8000/api/v1';
+  private readonly baseUrl = environment.apiUrl || 'http://localhost:8000';
   private loadingSubject = new BehaviorSubject<boolean>(false);
   public loading$ = this.loadingSubject.asObservable();
 
@@ -41,7 +40,7 @@ export class ApiService {
     formData.append('analysis_type', analysisType);
 
     this.setLoading(true);
-    return this.http.post<any>(`${this.baseUrl}/analyze/pdf`, formData)
+    return this.http.post<any>(`${this.baseUrl}/analyze/stored`, formData)
       .pipe(
         map(response => response.analysis || response),
         tap(() => this.setLoading(false)),
