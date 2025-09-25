@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test Client</title>
+</head>
+<body>
+    <h1>WebSocket Connection Test</h1>
+    <button id="connect">Connect to WebSocket</button>
+    <button id="send" disabled>Send Test Message</button>
+    <div id="status">Not connected</div>
+    <div id="messages"></div>
+
+    <script>
+        let websocket = null;
+        const connectBtn = document.getElementById('connect');
+        const sendBtn = document.getElementById('send');
+        const status = document.getElementById('status');
+        const messages = document.getElementById('messages');
+
+        connectBtn.addEventListener('click', () => {
+            const clientId = 'client_test_' + Date.now();
+            const wsUrl = `ws://localhost:8000/voice/realtime/${clientId}`;
+
+            console.log('Connecting to:', wsUrl);
+            status.textContent = 'Connecting...';
+
+            websocket = new WebSocket(wsUrl);
+
+            websocket.onopen = (event) => {
+                console.log('✅ WebSocket connected!');
+                status.textContent = 'Connected!';
+                connectBtn.disabled = true;
+                sendBtn.disabled = false;
+            };
+
+            websocket.onmessage = (event) => {
+                console.log('📨 Received:', event.data);
+                const div = document.createElement('div');
+                div.textContent = `Received: ${event.data}`;
+                messages.appendChild(div);
+            };
+
+            websocket.onerror = (error) => {
+                console.error('❌ WebSocket error:', error);
+                status.textContent = 'Connection error!';
+            };
+
+            websocket.onclose = () => {
+                console.log('🔌 WebSocket closed');
+                status.textContent = 'Disconnected';
+                connectBtn.disabled = false;
+                sendBtn.disabled = true;
+            };
+        });
+
+        sendBtn.addEventListener('click', () => {
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                const message = {
+                    type: 'test_message',
+                    data: 'Hello from test client!'
+                };
+                websocket.send(JSON.stringify(message));
+            }
+        });
+    </script>
+</body>
+</html>

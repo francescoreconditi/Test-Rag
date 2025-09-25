@@ -295,7 +295,14 @@ export class VoiceInputComponent implements OnInit, OnDestroy {
   }
 
   async toggleVoiceInput(): Promise<void> {
+    console.log('🎤 toggleVoiceInput() called', {
+      disabled: this.disabled,
+      isProcessing: this.isProcessing,
+      sessionState: this.session
+    });
+
     if (this.disabled || this.isProcessing) {
+      console.log('⚠️ Voice input disabled or processing');
       return;
     }
 
@@ -303,27 +310,34 @@ export class VoiceInputComponent implements OnInit, OnDestroy {
 
     try {
       if (!this.session.isActive) {
+        console.log('🚀 Starting voice session...');
         // Start voice session
         await this.voiceChatService.startVoiceSession();
+        console.log('✅ Voice session started successfully');
         this.snackBar.open('Sessione vocale avviata', 'Chiudi', {
           duration: 2000,
           panelClass: ['success-snack']
         });
       } else if (this.session.isRecording) {
+        console.log('🔴 Stopping recording...');
         // Stop recording
         await this.voiceChatService.stopRecording();
+        console.log('✅ Recording stopped');
       } else {
+        console.log('🎙️ Starting recording...');
         // Start recording
         await this.voiceChatService.startRecording();
+        console.log('✅ Recording started');
       }
     } catch (error) {
-      console.error('Voice input error:', error);
+      console.error('❌ Voice input error:', error);
       this.snackBar.open('Errore nell\'input vocale', 'Chiudi', {
         duration: 3000,
         panelClass: ['error-snack']
       });
     } finally {
       this.isProcessing = false;
+      console.log('🏁 toggleVoiceInput() completed');
     }
   }
 

@@ -25,6 +25,10 @@ from pathlib import Path
 import tempfile
 from typing import Any, Optional
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
 # FastAPI imports
 from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -58,6 +62,9 @@ from .auth import (
 
 # Scalar documentation
 from .config.scalar_docs import add_scalar_docs
+
+# WebSocket routes for voice communication
+from . import websocket_routes
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -1335,6 +1342,18 @@ try:
 except ImportError as e:
     logger.warning(f"Audio routes not available: {e}")
     AUDIO_ROUTES_AVAILABLE = False
+
+# Include WebSocket Routes for Voice Communication
+try:
+    app.include_router(websocket_routes.router)
+    logger.info("✅ WebSocket voice routes registered")
+    WEBSOCKET_ROUTES_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"WebSocket routes not available: {e}")
+    WEBSOCKET_ROUTES_AVAILABLE = False
+except Exception as e:
+    logger.error(f"Error registering WebSocket routes: {e}")
+    WEBSOCKET_ROUTES_AVAILABLE = False
 
 
 # Startup and Shutdown Events

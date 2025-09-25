@@ -55,6 +55,11 @@ dependencies = [
     "flower>=2.0.1",
     "edge-tts>=7.2.3",
     "pydub>=0.25.1",
+    # WebSocket and Realtime API support
+    "websockets>=12.0",
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "aiofiles>=23.2.1",
 ]
 
 [project.optional-dependencies]
