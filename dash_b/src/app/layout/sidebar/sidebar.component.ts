@@ -111,7 +111,6 @@ import { ApiService } from '../../core/services/api.service';
       background: linear-gradient(180deg, #3f51b5 0%, #303f9f 100%);
       color: white;
       border-right: none;
-      transition: none !important;
     }
 
     .sidenav-header {
@@ -288,11 +287,9 @@ import { ApiService } from '../../core/services/api.service';
     }
 
     .sidenav-content {
-      width: 100% !important;
-      height: 100% !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      transition: none !important;
+      width: 100%;
+      height: 100%;
+      padding: 0;
     }
 
     mat-divider {
@@ -300,15 +297,13 @@ import { ApiService } from '../../core/services/api.service';
       margin: 8px 0;
     }
 
-    // Disabilita completamente le animazioni del sidenav
+    // Riduce le animazioni del sidenav mantenendo la funzionalit\u00e0
     ::ng-deep .mat-drawer-transition .mat-drawer-content {
-      transition: none !important;
-      transform: none !important;
+      transition: transform 0.1s ease !important;
     }
 
     ::ng-deep .mat-drawer-transition .mat-drawer {
-      transition: none !important;
-      transform: none !important;
+      transition: transform 0.1s ease !important;
     }
 
     ::ng-deep .mat-sidenav-container {
@@ -316,8 +311,7 @@ import { ApiService } from '../../core/services/api.service';
     }
 
     ::ng-deep .mat-sidenav-content {
-      transition: none !important;
-      margin-left: 0 !important;
+      transition: margin 0.1s ease !important;
     }
 
     @media (max-width: 768px) {

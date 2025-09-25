@@ -676,6 +676,37 @@ import { LoadingComponent } from '../../shared/components/loading/loading.compon
       }
     }
 
+    // Light Mode fixes per mat-select
+    ::ng-deep .mat-mdc-select-panel {
+      background: white !important;
+      border: 1px solid #e0e0e0 !important;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    ::ng-deep .mat-mdc-option {
+      background: white !important;
+      color: #333 !important;
+
+      &:hover {
+        background: #f5f5f5 !important;
+      }
+
+      &.mdc-list-item--selected {
+        background: #e3f2fd !important;
+        color: #1976d2 !important;
+      }
+    }
+
+    ::ng-deep .mat-mdc-form-field {
+      .mat-mdc-select-value-text {
+        color: #333 !important;
+      }
+
+      .mat-mdc-select-arrow {
+        color: #666 !important;
+      }
+    }
+
     @media (max-width: 768px) {
       .stats-grid {
         grid-template-columns: 1fr !important;
