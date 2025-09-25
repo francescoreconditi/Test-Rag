@@ -4,7 +4,7 @@ export const environment = {
   appName: 'RAG Dashboard',
   version: '1.0.0',
   // OpenAI API Key for voice features - ADD YOUR KEY HERE
-  openaiApiKey: '', // Add your OpenAI API key here for voice functionality
+
   features: {
     enterprise: true,
     audioGeneration: true,
