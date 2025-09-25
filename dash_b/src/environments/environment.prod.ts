@@ -1,9 +1,9 @@
 export const environment = {
-  production: false,
-  apiUrl: 'http://localhost:8000',
+  production: true,
+  apiUrl: 'https://api.your-production-domain.com',
   appName: 'RAG Dashboard',
   version: '1.0.0',
-  // OpenAI API Key for voice features - ADD YOUR KEY HERE
+  // OpenAI API Key for voice features - SET THIS IN PRODUCTION BUILD
   openaiApiKey: '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',
   features: {
     enterprise: true,
