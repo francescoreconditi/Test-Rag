@@ -18,6 +18,7 @@ import { ApiService } from '../../core/services/api.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { LoadingComponent } from '../../shared/components/loading/loading.component';
 import { FileUploadComponent } from '../../shared/components/file-upload/file-upload.component';
+import { VoiceInputComponent } from '../../shared/components/voice-input/voice-input.component';
 import { DocumentAnalysis, IndexStats, QueryRequest, QueryResponse } from '../../core/models/analysis.model';
 import { FileUploadProgress } from '../../core/models/ui.model';
 
@@ -39,7 +40,8 @@ import { FileUploadProgress } from '../../core/models/ui.model';
     MatDividerModule,
     MatSnackBarModule,
     LoadingComponent,
-    FileUploadComponent
+    FileUploadComponent,
+    VoiceInputComponent
   ],
   template: `
     <div class="document-rag-container">
@@ -122,16 +124,28 @@ import { FileUploadProgress } from '../../core/models/ui.model';
                   </mat-card-header>
                   <mat-card-content>
                     <form [formGroup]="queryForm" class="query-form">
-                      <mat-form-field appearance="outline" class="full-width field-enhanced">
-                        <mat-label>Inserisci la tua domanda</mat-label>
-                        <textarea
-                          matInput
-                          formControlName="query"
-                          placeholder="Es: Qual è l'EBITDA dell'azienda negli ultimi tre anni?"
-                          rows="3">
-                        </textarea>
-                        <mat-hint>Poni domande specifiche sui tuoi documenti caricati</mat-hint>
-                      </mat-form-field>
+                      <div class="query-input-container">
+                        <mat-form-field appearance="outline" class="full-width field-enhanced query-field">
+                          <mat-label>Inserisci la tua domanda</mat-label>
+                          <textarea
+                            matInput
+                            formControlName="query"
+                            placeholder="Es: Qual è l'EBITDA dell'azienda negli ultimi tre anni?"
+                            rows="3">
+                          </textarea>
+                          <mat-hint>Poni domande specifiche sui tuoi documenti caricati</mat-hint>
+                        </mat-form-field>
+
+                        <!-- Voice Input Button -->
+                        <div class="voice-input-wrapper">
+                          <app-voice-input
+                            [disabled]="isQuerying || indexStats.total_documents === 0"
+                            [showMessages]="false"
+                            (transcriptReceived)="onVoiceTranscriptReceived($event)"
+                            (voiceSessionStateChanged)="onVoiceSessionChanged($event)">
+                          </app-voice-input>
+                        </div>
+                      </div>
 
                       <div class="query-options">
                         <mat-form-field appearance="outline" class="field-enhanced">
@@ -328,6 +342,24 @@ import { FileUploadProgress } from '../../core/models/ui.model';
       gap: 16px;
     }
 
+    .query-input-container {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      width: 100%;
+    }
+
+    .query-field {
+      flex: 1;
+    }
+
+    .voice-input-wrapper {
+      display: flex;
+      align-items: center;
+      padding-top: 8px;
+      min-width: 64px;
+    }
+
     .query-options {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -461,6 +493,16 @@ import { FileUploadProgress } from '../../core/models/ui.model';
         padding: 16px;
       }
 
+      .query-input-container {
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .voice-input-wrapper {
+        align-self: center;
+        padding-top: 0;
+      }
+
       .query-options {
         grid-template-columns: 1fr;
       }
@@ -480,6 +522,7 @@ export class DocumentRagComponent implements OnInit, OnDestroy {
 
   isAnalyzing = false;
   isQuerying = false;
+  isVoiceSessionActive = false;
   loadingMessage = '';
 
   analysisForm: FormGroup;
@@ -723,5 +766,39 @@ export class DocumentRagComponent implements OnInit, OnDestroy {
     if (count < 1000) return count.toString();
     if (count < 1000000) return `${(count / 1000).toFixed(1)}K`;
     return `${(count / 1000000).toFixed(1)}M`;
+  }
+
+  // Voice Input Event Handlers
+  onVoiceTranscriptReceived(transcript: string): void {
+    if (transcript && transcript.trim()) {
+      // Set the transcript in the query form
+      this.queryForm.patchValue({ query: transcript });
+
+      // Show notification
+      this.notificationService.showSuccess(
+        'Trascrizione Vocale',
+        'Domanda trascritta con successo'
+      );
+
+      // Optionally auto-execute the query
+      // Uncomment the line below if you want automatic query execution
+      // this.executeQuery();
+    }
+  }
+
+  onVoiceSessionChanged(isActive: boolean): void {
+    this.isVoiceSessionActive = isActive;
+
+    if (isActive) {
+      this.notificationService.showInfo(
+        'Sessione Vocale',
+        'Ora puoi parlare per inserire la tua domanda'
+      );
+    } else {
+      this.notificationService.showInfo(
+        'Sessione Vocale',
+        'Sessione vocale terminata'
+      );
+    }
   }
 }
