@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard, loginGuard } from './core/guards/auth.guard';
+import { MainLayoutComponent } from './layout/main-layout.component';
 
 export const routes: Routes = [
   {
@@ -14,18 +15,36 @@ export const routes: Routes = [
   },
   {
     path: 'dashboard',
-    loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent),
-    canActivate: [authGuard]
+    component: MainLayoutComponent,
+    canActivate: [authGuard],
+    children: [
+      {
+        path: '',
+        loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent)
+      }
+    ]
   },
   {
     path: 'documents',
-    loadComponent: () => import('./features/document-rag/document-rag.component').then(m => m.DocumentRagComponent),
-    canActivate: [authGuard]
+    component: MainLayoutComponent,
+    canActivate: [authGuard],
+    children: [
+      {
+        path: '',
+        loadComponent: () => import('./features/document-rag/document-rag.component').then(m => m.DocumentRagComponent)
+      }
+    ]
   },
   {
     path: 'csv-analysis',
-    loadComponent: () => import('./features/csv-analysis/csv-analysis.component').then(m => m.CsvAnalysisComponent),
-    canActivate: [authGuard]
+    component: MainLayoutComponent,
+    canActivate: [authGuard],
+    children: [
+      {
+        path: '',
+        loadComponent: () => import('./features/csv-analysis/csv-analysis.component').then(m => m.CsvAnalysisComponent)
+      }
+    ]
   },
   {
     path: 'query',
@@ -34,23 +53,47 @@ export const routes: Routes = [
   },
   {
     path: 'faq',
-    loadComponent: () => import('./features/faq-generation/faq-generation.component').then(m => m.FaqGenerationComponent),
-    canActivate: [authGuard]
+    component: MainLayoutComponent,
+    canActivate: [authGuard],
+    children: [
+      {
+        path: '',
+        loadComponent: () => import('./features/faq-generation/faq-generation.component').then(m => m.FaqGenerationComponent)
+      }
+    ]
   },
   {
     path: 'enterprise',
-    loadComponent: () => import('./features/enterprise/enterprise.component').then(m => m.EnterpriseComponent),
-    canActivate: [authGuard]
+    component: MainLayoutComponent,
+    canActivate: [authGuard],
+    children: [
+      {
+        path: '',
+        loadComponent: () => import('./features/enterprise/enterprise.component').then(m => m.EnterpriseComponent)
+      }
+    ]
   },
   {
     path: 'analytics',
-    loadComponent: () => import('./features/analytics/analytics.component').then(m => m.AnalyticsComponent),
-    canActivate: [authGuard]
+    component: MainLayoutComponent,
+    canActivate: [authGuard],
+    children: [
+      {
+        path: '',
+        loadComponent: () => import('./features/analytics/analytics.component').then(m => m.AnalyticsComponent)
+      }
+    ]
   },
   {
     path: 'settings',
-    loadComponent: () => import('./features/settings/settings.component').then(m => m.SettingsComponent),
-    canActivate: [authGuard]
+    component: MainLayoutComponent,
+    canActivate: [authGuard],
+    children: [
+      {
+        path: '',
+        loadComponent: () => import('./features/settings/settings.component').then(m => m.SettingsComponent)
+      }
+    ]
   },
   {
     path: '**',

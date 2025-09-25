@@ -104,9 +104,8 @@ export class ApiService {
   // FAQ Generation
   generateFAQ(numQuestions: number = 10): Observable<FAQResponse> {
     this.setLoading(true);
-    return this.http.post<FAQResponse>(`${this.baseUrl}/generate/faq`, {
-      num_questions: numQuestions
-    }, { headers: this.defaultHeaders })
+    return this.http.post<FAQResponse>(`${this.baseUrl}/analyze/faqs?num_questions=${numQuestions}`, {},
+      { headers: this.defaultHeaders })
       .pipe(
         tap(() => this.setLoading(false)),
         catchError(error => {

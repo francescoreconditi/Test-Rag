@@ -98,8 +98,8 @@ import { ApiService } from '../../core/services/api.service';
   `,
   styles: [`
     .sidenav-container {
-      height: 100vh;
-      position: fixed;
+      height: calc(100vh - 64px);
+      position: absolute;
       top: 64px;
       left: 0;
       right: 0;
@@ -111,7 +111,7 @@ import { ApiService } from '../../core/services/api.service';
       background: linear-gradient(180deg, #3f51b5 0%, #303f9f 100%);
       color: white;
       border-right: none;
-      transition: width 0.3s ease;
+      transition: none !important;
     }
 
     .sidenav-header {
@@ -288,30 +288,36 @@ import { ApiService } from '../../core/services/api.service';
     }
 
     .sidenav-content {
-      margin-left: 280px;
-      transition: margin-left 0.3s ease;
-
-      &.collapsed {
-        margin-left: 60px;
-      }
-    }
-
-    // Dynamic content adjustment based on sidebar state
-    .sidenav-container.sidebar-collapsed {
-      .sidenav-content {
-        margin-left: 60px;
-      }
-    }
-
-    .sidenav-container.sidebar-closed {
-      .sidenav-content {
-        margin-left: 0;
-      }
+      width: 100% !important;
+      height: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      transition: none !important;
     }
 
     mat-divider {
       background-color: rgba(255, 255, 255, 0.12);
       margin: 8px 0;
+    }
+
+    // Disabilita completamente le animazioni del sidenav
+    ::ng-deep .mat-drawer-transition .mat-drawer-content {
+      transition: none !important;
+      transform: none !important;
+    }
+
+    ::ng-deep .mat-drawer-transition .mat-drawer {
+      transition: none !important;
+      transform: none !important;
+    }
+
+    ::ng-deep .mat-sidenav-container {
+      transition: none !important;
+    }
+
+    ::ng-deep .mat-sidenav-content {
+      transition: none !important;
+      margin-left: 0 !important;
     }
 
     @media (max-width: 768px) {
@@ -322,10 +328,6 @@ import { ApiService } from '../../core/services/api.service';
       .app-sidenav {
         position: fixed;
         z-index: 1001;
-      }
-
-      .sidenav-content {
-        margin-left: 0;
       }
     }
   `]

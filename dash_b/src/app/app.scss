@@ -2,25 +2,3 @@
   height: 100vh;
   overflow: hidden;
 }
-
-.main-content {
-  padding-top: 64px; // Header height
-  height: 100vh;
-  overflow-y: auto;
-  background: #fafafa;
-}
-
-// Dark theme styles
-.dark-theme {
-  .main-content {
-    background: #303030;
-    color: #ffffff;
-  }
-}
-
-// Responsive adjustments
-@media (max-width: 768px) {
-  .main-content {
-    padding-top: 56px; // Smaller header on mobile
-  }
-}

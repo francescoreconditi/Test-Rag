@@ -62,6 +62,7 @@ export interface FAQItem {
 export interface FAQResponse {
   success: boolean;
   faqs: FAQItem[];
+  processing_time: number;
   metadata: {
     generated_at: string;
     document_types: string[];

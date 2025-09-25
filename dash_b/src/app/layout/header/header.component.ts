@@ -78,9 +78,6 @@ import { Theme, NotificationMessage } from '../../core/models/ui.model';
             [matTooltip]="currentUser.username + '@' + currentUser.tenant_id">
             <mat-icon>account_circle</mat-icon>
           </button>
-
-          <!-- Loading Indicator -->
-          <mat-icon *ngIf="isLoading" class="loading-spinner">refresh</mat-icon>
         </div>
       </div>
     </mat-toolbar>
@@ -183,15 +180,6 @@ import { Theme, NotificationMessage } from '../../core/models/ui.model';
       font-weight: 500;
     }
 
-    .loading-spinner {
-      animation: spin 1s linear infinite;
-      color: rgba(255, 255, 255, 0.7);
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
 
     .notification-menu {
       min-width: 320px;
@@ -291,20 +279,35 @@ import { Theme, NotificationMessage } from '../../core/models/ui.model';
       font-style: italic;
     }
 
-    body.dark-theme .user-info {
-      background: #424242;
-    }
+    ::ng-deep {
+      .dark-theme .mat-mdc-menu-panel {
+        background: #424242 !important;
+      }
 
-    body.dark-theme .user-name {
-      color: #fff;
-    }
+      .dark-theme .mat-mdc-menu-item {
+        color: rgba(255, 255, 255, 0.87) !important;
+      }
 
-    body.dark-theme .user-tenant {
-      color: #ccc;
-    }
+      .dark-theme .user-info {
+        background: #525252 !important;
+        color: white !important;
+      }
 
-    body.dark-theme .user-roles {
-      color: #aaa;
+      .dark-theme .user-name {
+        color: #fff !important;
+      }
+
+      .dark-theme .user-tenant {
+        color: #ccc !important;
+      }
+
+      .dark-theme .user-roles {
+        color: #aaa !important;
+      }
+
+      .dark-theme .mat-divider {
+        border-top-color: rgba(255, 255, 255, 0.12) !important;
+      }
     }
 
     @media (max-width: 768px) {
@@ -323,7 +326,6 @@ export class HeaderComponent implements OnInit, OnDestroy {
   currentThemeMode: ThemeMode = 'system';
   isHealthy = false;
   healthTooltip = 'Checking...';
-  isLoading = false;
   notifications: NotificationMessage[] = [];
   notificationCount = 0;
   currentUser: CurrentUser | null = null;
@@ -384,13 +386,6 @@ export class HeaderComponent implements OnInit, OnDestroy {
       .subscribe(notifications => {
         this.notifications = notifications;
         this.notificationCount = notifications.length;
-      });
-
-    // Subscribe to loading state
-    this.apiService.loading$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(loading => {
-        this.isLoading = loading;
       });
 
     // Subscribe to current user
