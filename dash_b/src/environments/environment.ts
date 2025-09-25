@@ -3,7 +3,6 @@ export const environment = {
   apiUrl: 'http://localhost:8000',
   appName: 'RAG Dashboard',
   version: '1.0.0',
-  // OpenAI API Key for voice features - ADD YOUR KEY HERE
 
   features: {
     enterprise: true,
