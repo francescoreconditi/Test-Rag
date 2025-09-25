@@ -216,18 +216,115 @@ export class ApiService {
       );
   }
 
-  // PDF Export
+  // PDF Export - Client-side generation since backend endpoint doesn't exist
   exportToPDF(data: any, type: 'analysis' | 'faq' | 'report'): Observable<Blob> {
-    return this.http.post(`${this.baseUrl}/export/pdf`, {
-      data,
-      type
-    }, {
-      headers: this.defaultHeaders,
-      responseType: 'blob'
-    })
-      .pipe(
-        catchError(this.handleError('PDF Export'))
-      );
+    // Create a client-side PDF generation using browser APIs
+    return new Observable(observer => {
+      try {
+        // Create HTML content for the PDF
+        const htmlContent = this.generatePDFHTML(data, type);
+
+        // Convert HTML to blob
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+
+        // For now, return HTML that can be printed to PDF
+        // In production, you would use a library like jsPDF or pdfmake
+        observer.next(blob);
+        observer.complete();
+      } catch (error) {
+        observer.error(error);
+      }
+    });
+  }
+
+  private generatePDFHTML(data: any, type: string): string {
+    const timestamp = new Date().toLocaleString('it-IT');
+    let content = '';
+
+    if (type === 'report' && data.result) {
+      content = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Query Report - RAG Dashboard</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
+            h1 { color: #667eea; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+            h2 { color: #333; margin-top: 30px; }
+            .header { margin-bottom: 30px; }
+            .query-box { background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0; }
+            .response-box { background: #e8f5e8; padding: 15px; border-radius: 5px; margin: 20px 0; }
+            .source { background: #f9f9f9; padding: 10px; margin: 10px 0; border-left: 3px solid #667eea; }
+            .confidence { color: #2e7d32; font-weight: bold; }
+            .metadata { color: #666; font-size: 0.9em; margin-top: 10px; }
+            .footer { margin-top: 50px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 0.9em; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>🚀 RAG Dashboard - Query Report</h1>
+            <div class="metadata">Generated: ${timestamp}</div>
+          </div>
+
+          <div class="query-box">
+            <h2>Query</h2>
+            <p>${data.query || 'N/A'}</p>
+          </div>
+
+          <div class="response-box">
+            <h2>Response</h2>
+            <p>${data.result?.response || 'N/A'}</p>
+            <div class="metadata">
+              Confidence: <span class="confidence">${((data.result?.confidence || 0) * 100).toFixed(1)}%</span> |
+              Processing Time: ${(data.result?.processing_time || 0).toFixed(2)}s
+            </div>
+          </div>
+
+          <h2>Sources</h2>
+          ${(data.result?.sources || []).map((source: any, index: number) => `
+            <div class="source">
+              <strong>Source ${index + 1}:</strong> ${source.source || 'N/A'}
+              <div class="metadata">
+                Confidence: <span class="confidence">${((source.confidence || 0) * 100).toFixed(0)}%</span>
+                ${source.page ? ` | Page: ${source.page}` : ''}
+              </div>
+              <p>${source.text || ''}</p>
+            </div>
+          `).join('')}
+
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} ZCS Company - RAG Dashboard</p>
+            <p>This report was automatically generated and is confidential.</p>
+          </div>
+        </body>
+        </html>
+      `;
+    } else {
+      // Generic fallback
+      content = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Export - RAG Dashboard</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 40px; }
+            h1 { color: #667eea; }
+            pre { background: #f5f5f5; padding: 15px; border-radius: 5px; }
+          </style>
+        </head>
+        <body>
+          <h1>RAG Dashboard Export</h1>
+          <p>Type: ${type}</p>
+          <p>Generated: ${timestamp}</p>
+          <pre>${JSON.stringify(data, null, 2)}</pre>
+        </body>
+        </html>
+      `;
+    }
+
+    return content;
   }
 
   // Audio Features

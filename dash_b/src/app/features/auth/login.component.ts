@@ -40,13 +40,8 @@ import { ThemeService } from '../../core/services/theme.service';
 
           <div style="margin-bottom: 30px;">
             <label style="display: block; margin-bottom: 5px; font-weight: 500; color: #333;">Tenant ID (opzionale)</label>
-            <select formControlName="tenantId"
-                    style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 16px; background: white;">
-              <option value="">Default</option>
-              <option value="zcs-company">ZCS Company</option>
-              <option value="demo-company">Demo Company</option>
-              <option value="test-tenant">Test Tenant</option>
-            </select>
+            <input type="text" formControlName="tenantId" placeholder="Inserisci Tenant ID o lascia vuoto per Default"
+                   style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 16px; box-sizing: border-box;">
           </div>
 
           <button type="button" [disabled]="loginForm.invalid || isLogging" (click)="onSubmit()"

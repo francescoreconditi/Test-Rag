@@ -159,53 +159,43 @@ export class AuthService {
     // Simulate API delay
     return new Observable(observer => {
       setTimeout(() => {
-        // Check demo credentials
-        const validCredentials = [
-          { tenant: 'zcs-company', username: 'admin', password: 'admin123' },
-          { tenant: 'demo-company', username: 'demo', password: 'demo123' },
-          { tenant: 'test-tenant', username: 'test', password: 'test123' }
-        ];
+        // Accept any username/password combination, like Streamlit app does
+        // The app will always log in successfully with any credentials
 
-        const isValid = validCredentials.some(cred =>
-          cred.tenant === tenantId &&
-          cred.username === username &&
-          cred.password === password
-        );
+        // If no tenant ID provided, use 'default'
+        const effectiveTenantId = tenantId || 'default';
 
-        if (isValid) {
-          const mockResponse: LoginResponse = {
-            access_token: 'mock-jwt-token-' + Date.now(),
-            token_type: 'Bearer',
-            expires_in: Date.now() / 1000 + 3600, // 1 hour from now
-            tenant_id: tenantId,
-            user_id: `user-${username}-${tenantId}`,
-            username: username,
-            roles: username === 'admin' ? ['admin', 'user'] : ['user']
-          };
+        // Always create a successful login response
+        const mockResponse: LoginResponse = {
+          access_token: 'mock-jwt-token-' + Date.now(),
+          token_type: 'Bearer',
+          expires_in: Date.now() / 1000 + 3600, // 1 hour from now
+          tenant_id: effectiveTenantId,
+          user_id: `user-${username}-${effectiveTenantId}`,
+          username: username,
+          roles: username === 'admin' ? ['admin', 'user'] : ['user']
+        };
 
-          // Store authentication data
-          localStorage.setItem('authToken', mockResponse.access_token);
-          localStorage.setItem('tokenType', mockResponse.token_type);
-          localStorage.setItem('expiresIn', mockResponse.expires_in.toString());
-          localStorage.setItem('tenantId', mockResponse.tenant_id);
+        // Store authentication data
+        localStorage.setItem('authToken', mockResponse.access_token);
+        localStorage.setItem('tokenType', mockResponse.token_type);
+        localStorage.setItem('expiresIn', mockResponse.expires_in.toString());
+        localStorage.setItem('tenantId', mockResponse.tenant_id);
 
-          // Set current user
-          const user: CurrentUser = {
-            tenant_id: mockResponse.tenant_id,
-            user_id: mockResponse.user_id,
-            username: mockResponse.username,
-            roles: mockResponse.roles,
-            authenticated: true
-          };
+        // Set current user
+        const user: CurrentUser = {
+          tenant_id: mockResponse.tenant_id,
+          user_id: mockResponse.user_id,
+          username: mockResponse.username,
+          roles: mockResponse.roles,
+          authenticated: true
+        };
 
-          localStorage.setItem('currentUser', JSON.stringify(user));
-          this.currentUserSubject.next(user);
+        localStorage.setItem('currentUser', JSON.stringify(user));
+        this.currentUserSubject.next(user);
 
-          observer.next(mockResponse);
-          observer.complete();
-        } else {
-          observer.error(new Error('Credenziali non valide'));
-        }
+        observer.next(mockResponse);
+        observer.complete();
       }, 1000); // 1 second delay to simulate network
     });
   }

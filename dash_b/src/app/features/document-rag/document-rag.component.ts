@@ -69,7 +69,7 @@ import { FileUploadProgress } from '../../core/models/ui.model';
                   </mat-card-header>
                   <mat-card-content>
                     <form [formGroup]="analysisForm" class="analysis-form">
-                      <mat-form-field appearance="outline" class="full-width">
+                      <mat-form-field appearance="outline" class="full-width field-enhanced">
                         <mat-label>Tipo di Analisi</mat-label>
                         <mat-select formControlName="analysisType">
                           <mat-option value="automatic">Automatico (raccomandato)</mat-option>
@@ -82,7 +82,7 @@ import { FileUploadProgress } from '../../core/models/ui.model';
                         </mat-select>
                       </mat-form-field>
 
-                      <mat-form-field appearance="outline" class="full-width">
+                      <mat-form-field appearance="outline" class="full-width field-enhanced">
                         <mat-label>Note aggiuntive (opzionale)</mat-label>
                         <textarea
                           matInput
@@ -122,7 +122,7 @@ import { FileUploadProgress } from '../../core/models/ui.model';
                   </mat-card-header>
                   <mat-card-content>
                     <form [formGroup]="queryForm" class="query-form">
-                      <mat-form-field appearance="outline" class="full-width">
+                      <mat-form-field appearance="outline" class="full-width field-enhanced">
                         <mat-label>Inserisci la tua domanda</mat-label>
                         <textarea
                           matInput
@@ -134,7 +134,7 @@ import { FileUploadProgress } from '../../core/models/ui.model';
                       </mat-form-field>
 
                       <div class="query-options">
-                        <mat-form-field appearance="outline">
+                        <mat-form-field appearance="outline" class="field-enhanced">
                           <mat-label>Formato Output</mat-label>
                           <mat-select formControlName="outputFormat">
                             <mat-option value="json">JSON Strutturato</mat-option>
@@ -143,7 +143,7 @@ import { FileUploadProgress } from '../../core/models/ui.model';
                           </mat-select>
                         </mat-form-field>
 
-                        <mat-form-field appearance="outline">
+                        <mat-form-field appearance="outline" class="field-enhanced">
                           <mat-label>Risultati Max</mat-label>
                           <mat-select formControlName="maxResults">
                             <mat-option value="3">3 (Veloce)</mat-option>
@@ -331,11 +331,37 @@ import { FileUploadProgress } from '../../core/models/ui.model';
     .query-options {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 16px;
+      gap: 24px;
+      margin-top: 8px;
     }
 
     .full-width {
       width: 100%;
+    }
+
+    /* Enhanced field padding for better UX */
+    .field-enhanced {
+      ::ng-deep .mat-mdc-form-field-wrapper {
+        padding: 8px 0;
+      }
+
+      ::ng-deep .mat-mdc-text-field-wrapper {
+        padding: 16px 20px;
+      }
+
+      ::ng-deep .mat-mdc-form-field-infix {
+        padding: 20px 0;
+        min-height: 60px;
+      }
+
+      ::ng-deep .mat-mdc-select-trigger {
+        padding: 20px 16px;
+      }
+
+      ::ng-deep textarea.mat-mdc-input-element {
+        padding: 12px 0;
+        line-height: 1.6;
+      }
     }
 
     .results-card {
@@ -609,22 +635,31 @@ export class DocumentRagComponent implements OnInit, OnDestroy {
 
     this.apiService.exportToPDF(data, 'report').subscribe({
       next: (blob) => {
+        // Create a new window to display the HTML and allow printing to PDF
         const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `query-result-${new Date().getTime()}.pdf`;
-        a.click();
-        window.URL.revokeObjectURL(url);
+        const printWindow = window.open(url, '_blank');
+
+        // Auto-print after a short delay to allow the page to load
+        if (printWindow) {
+          setTimeout(() => {
+            printWindow.print();
+          }, 1000);
+        }
+
+        // Clean up
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url);
+        }, 5000);
 
         this.notificationService.showSuccess(
-          'Export Completato',
-          'Report PDF scaricato con successo'
+          'Export Pronto',
+          'Usa la finestra di stampa per salvare come PDF'
         );
       },
       error: (error) => {
         this.notificationService.showError(
           'Errore Export',
-          'Errore durante l\'esportazione del PDF'
+          'Errore durante l\'esportazione del report'
         );
       }
     });
