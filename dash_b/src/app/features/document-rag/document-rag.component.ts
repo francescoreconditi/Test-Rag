@@ -172,6 +172,15 @@ import { VoiceInputComponent } from '../../shared/components/voice-input/voice-i
                       <mat-icon>record_voice_over</mat-icon>
                       Test Transcript
                     </button>
+
+                    <!-- Test Voice Quality Button -->
+                    <button
+                      mat-button
+                      color="accent"
+                      (click)="testVoiceQuality()">
+                      <mat-icon>volume_up</mat-icon>
+                      Test Voce
+                    </button>
                     <div class="results-selector">
                       <mat-form-field appearance="outline" class="compact-field">
                         <mat-label>Risultati</mat-label>
@@ -885,6 +894,39 @@ export class DocumentRagComponent implements OnInit, OnDestroy {
     this.onVoiceTranscriptReceived(testTranscript);
 
     console.log('🧪 Test completed - check console for onVoiceTranscriptReceived log');
+  }
+
+  testVoiceQuality(): void {
+    console.log('🎙️ Testing voice quality...');
+
+    if (this.voiceInputComponent?.voiceChatService) {
+      // Show available voices in console
+      const voices = this.voiceInputComponent.voiceChatService.getAvailableItalianVoices();
+      console.log('🎙️ Available Italian voices:', voices.map(v => `${v.name} (${v.lang}) - Local: ${v.localService}`));
+
+      // Test voice with a comprehensive sample text showcasing improvements
+      const testText = `Benvenuto al sistema avanzato di sintesi vocale!
+
+      Questo test dimostra i miglioramenti implementati:
+
+      1. Pronuncia più naturale con pause appropriate.
+      2. Gestione migliorata di numeri come 1.234 euro e percentuali come 15 per cento.
+      3. Acronimi finanziari come E-BIT-DA, R-O-I ed E-BIT vengono pronunciati correttamente.
+
+      La voce risulta ora meno robotica e più professionale per l'analisi finanziaria aziendale.`;
+
+      this.voiceInputComponent.voiceChatService.speakText(testText);
+
+      this.notificationService.showSuccess(
+        'Test Voce',
+        'Prova della qualità vocale in corso. Controlla la console per i dettagli delle voci disponibili.'
+      );
+    } else {
+      this.notificationService.showError(
+        'Errore',
+        'Servizio vocale non disponibile'
+      );
+    }
   }
 
   onVoiceSessionChanged(isActive: boolean): void {

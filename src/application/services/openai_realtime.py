@@ -10,13 +10,13 @@ import asyncio
 import json
 import logging
 import os
-import uuid
 from typing import Any, Callable, Dict, Optional
+import uuid
 
+from dotenv import load_dotenv
 import websockets
 from websockets.client import WebSocketClientProtocol
 from websockets.exceptions import ConnectionClosed, WebSocketException
-from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
@@ -67,18 +67,11 @@ class OpenAIRealtimeService:
             url = f"{self.realtime_url}?model={self.model}"
 
             # Headers per autenticazione
-            headers = {
-                "Authorization": f"Bearer {self.api_key}",
-                "OpenAI-Beta": "realtime=v1"
-            }
+            headers = {"Authorization": f"Bearer {self.api_key}", "OpenAI-Beta": "realtime=v1"}
 
             # Connetti via WebSocket
             self.websocket = await websockets.connect(
-                url,
-                additional_headers=headers,
-                ping_interval=20,
-                ping_timeout=10,
-                close_timeout=10
+                url, additional_headers=headers, ping_interval=20, ping_timeout=10, close_timeout=10
             )
 
             self.is_connected = True
@@ -138,21 +131,18 @@ class OpenAIRealtimeService:
                         "parameters": {
                             "type": "object",
                             "properties": {
-                                "query": {
-                                    "type": "string",
-                                    "description": "La domanda da porre al sistema RAG"
-                                },
+                                "query": {"type": "string", "description": "La domanda da porre al sistema RAG"},
                                 "enterprise_mode": {
                                     "type": "boolean",
                                     "description": "Se usare la modalità enterprise per analisi avanzate",
-                                    "default": True
-                                }
+                                    "default": True,
+                                },
                             },
-                            "required": ["query"]
-                        }
+                            "required": ["query"],
+                        },
                     }
-                ]
-            }
+                ],
+            },
         }
 
         await self._send_message(session_config)
@@ -251,7 +241,7 @@ class OpenAIRealtimeService:
             logger.info(f"📝 Conversation item created: {item.get('type')} from {item.get('role')}")
 
             # Se è un messaggio utente (audio o testo), forza una risposta
-            if (item.get("role") == "user" and item.get("type") == "message"):
+            if item.get("role") == "user" and item.get("type") == "message":
                 content_types = [content.get("type") for content in item.get("content", [])]
                 logger.info(f"🚀 Forcing response creation for user message with content: {content_types}")
                 await self._create_response()
@@ -288,27 +278,21 @@ class OpenAIRealtimeService:
                 "response": f"Ho trovato informazioni relative a: {query}. Questa è una risposta di esempio dal sistema RAG.",
                 "sources": [
                     {"source": "documento_esempio.pdf", "confidence": 0.85},
-                    {"source": "report_finanziario.xlsx", "confidence": 0.72}
+                    {"source": "report_finanziario.xlsx", "confidence": 0.72},
                 ],
-                "confidence": 0.78
+                "confidence": 0.78,
             }
 
             # Invia il risultato della function call
             function_call_output = {
                 "type": "conversation.item.create",
-                "item": {
-                    "type": "function_call_output",
-                    "call_id": call_id,
-                    "output": json.dumps(mock_result)
-                }
+                "item": {"type": "function_call_output", "call_id": call_id, "output": json.dumps(mock_result)},
             }
 
             await self._send_message(function_call_output)
 
             # Genera la risposta
-            response_create = {
-                "type": "response.create"
-            }
+            response_create = {"type": "response.create"}
 
             await self._send_message(response_create)
 
@@ -321,10 +305,8 @@ class OpenAIRealtimeService:
                 "item": {
                     "type": "function_call_output",
                     "call_id": call_id,
-                    "output": json.dumps({
-                        "error": f"Errore nell'esecuzione della query RAG: {str(e)}"
-                    })
-                }
+                    "output": json.dumps({"error": f"Errore nell'esecuzione della query RAG: {str(e)}"}),
+                },
             }
 
             await self._send_message(error_output)
@@ -342,6 +324,7 @@ class OpenAIRealtimeService:
         # Log audio info for debugging
         try:
             import base64
+
             audio_bytes = base64.b64decode(audio_base64)
 
             # Calculate duration for PCM16 mono at 24kHz (2 bytes per sample)
@@ -359,10 +342,7 @@ class OpenAIRealtimeService:
             logger.warning(f"Could not decode audio for validation: {e}")
             return
 
-        message = {
-            "type": "input_audio_buffer.append",
-            "audio": audio_base64
-        }
+        message = {"type": "input_audio_buffer.append", "audio": audio_base64}
 
         await self._send_message(message)
 
@@ -371,9 +351,7 @@ class OpenAIRealtimeService:
         if not self.is_connected:
             raise ConnectionError("Not connected to OpenAI Realtime API")
 
-        message = {
-            "type": "input_audio_buffer.commit"
-        }
+        message = {"type": "input_audio_buffer.commit"}
 
         await self._send_message(message)
 
@@ -390,24 +368,13 @@ class OpenAIRealtimeService:
         # Crea l'item del messaggio utente
         user_message = {
             "type": "conversation.item.create",
-            "item": {
-                "type": "message",
-                "role": "user",
-                "content": [
-                    {
-                        "type": "input_text",
-                        "text": text
-                    }
-                ]
-            }
+            "item": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": text}]},
         }
 
         await self._send_message(user_message)
 
         # Richiedi una risposta
-        response_create = {
-            "type": "response.create"
-        }
+        response_create = {"type": "response.create"}
 
         await self._send_message(response_create)
 
@@ -435,7 +402,7 @@ class OpenAIRealtimeService:
         on_user_transcript: Optional[Callable] = None,
         on_assistant_response: Optional[Callable] = None,
         on_audio_response: Optional[Callable] = None,
-        on_error: Optional[Callable] = None
+        on_error: Optional[Callable] = None,
     ):
         """
         Imposta le callback per gli eventi.
@@ -458,9 +425,7 @@ class OpenAIRealtimeService:
         if not self.is_connected:
             return
 
-        response_create = {
-            "type": "response.create"
-        }
+        response_create = {"type": "response.create"}
 
         await self._send_message(response_create)
         logger.info("📤 Forced response.create sent to OpenAI")
