@@ -280,6 +280,15 @@ import { Theme, NotificationMessage } from '../../core/models/ui.model';
     }
 
     ::ng-deep {
+      /* Fix z-index for mat-menu to appear above all content */
+      .mat-mdc-menu-panel {
+        z-index: 1100 !important; /* Higher than toolbar (1000) */
+      }
+
+      .cdk-overlay-pane {
+        z-index: 1100 !important; /* Ensure overlay container is also high */
+      }
+
       .dark-theme .mat-mdc-menu-panel {
         background: #424242 !important;
       }

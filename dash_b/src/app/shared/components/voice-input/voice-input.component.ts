@@ -77,6 +77,8 @@ import { VoiceChatService, VoiceSession, VoiceMessage } from '../../../core/serv
       flex-direction: column;
       align-items: center;
       gap: 16px;
+      width: 100%;
+      max-width: 100%;
     }
 
     .voice-button {
@@ -138,19 +140,23 @@ import { VoiceChatService, VoiceSession, VoiceMessage } from '../../../core/serv
     }
 
     .voice-messages {
-      position: absolute;
-      top: 80px;
-      left: 50%;
-      transform: translateX(-50%);
-      min-width: 300px;
-      max-width: 400px;
+      position: relative;
+      top: 0;
+      left: 0;
+      transform: none;
+      width: 100%;
+      max-width: 100%;
+      min-width: unset;
       background: white;
       border-radius: 12px;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
       border: 1px solid #e0e0e0;
-      max-height: 200px;
+      max-height: 400px;
       overflow-y: auto;
+      overflow-x: hidden;
       z-index: 20;
+      margin-top: 16px;
+      word-wrap: break-word;
     }
 
     .message {
@@ -190,6 +196,11 @@ import { VoiceChatService, VoiceSession, VoiceMessage } from '../../../core/serv
       font-size: 0.9rem;
       line-height: 1.4;
       flex: 1;
+      word-wrap: break-word;
+      word-break: break-word;
+      white-space: pre-wrap;
+      overflow-wrap: break-word;
+      hyphens: auto;
     }
 
     .message-time {
@@ -224,9 +235,17 @@ import { VoiceChatService, VoiceSession, VoiceMessage } from '../../../core/serv
     /* Mobile responsive */
     @media (max-width: 768px) {
       .voice-messages {
-        left: -150px;
-        min-width: 280px;
-        max-width: 320px;
+        width: 100%;
+        max-width: 100%;
+        margin-top: 12px;
+      }
+
+      .message {
+        padding: 10px 12px;
+      }
+
+      .message-text {
+        font-size: 0.85rem;
       }
     }
   `]
@@ -236,6 +255,8 @@ export class VoiceInputComponent implements OnInit, OnDestroy {
   @Input() showMessages: boolean = true;
   @Output() transcriptReceived = new EventEmitter<string>();
   @Output() voiceSessionStateChanged = new EventEmitter<boolean>();
+  @Output() sessionStarted = new EventEmitter<void>();
+  @Output() sessionEnded = new EventEmitter<void>();
 
   session: VoiceSession = {
     isActive: false,
@@ -249,7 +270,7 @@ export class VoiceInputComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   constructor(
-    private voiceChatService: VoiceChatService,
+    public voiceChatService: VoiceChatService,
     private snackBar: MatSnackBar
   ) {}
 
@@ -273,13 +294,19 @@ export class VoiceInputComponent implements OnInit, OnDestroy {
         this.isProcessing = false;
       });
 
-    // Listen for new user messages to emit transcript
+    // Listen for new messages to emit transcript and log assistant responses
     this.voiceChatService.session$
       .pipe(takeUntil(this.destroy$))
       .subscribe(session => {
         const lastMessage = session.messages[session.messages.length - 1];
-        if (lastMessage && lastMessage.type === 'user' && lastMessage.content) {
-          this.transcriptReceived.emit(lastMessage.content);
+        if (lastMessage) {
+          console.log('🎯 New message added to session:', lastMessage);
+
+          if (lastMessage.type === 'user' && lastMessage.content) {
+            this.transcriptReceived.emit(lastMessage.content);
+          } else if (lastMessage.type === 'assistant') {
+            console.log('🤖 Assistant response received:', lastMessage.content);
+          }
         }
       });
   }
@@ -314,6 +341,7 @@ export class VoiceInputComponent implements OnInit, OnDestroy {
         // Start voice session
         await this.voiceChatService.startVoiceSession();
         console.log('✅ Voice session started successfully');
+        this.sessionStarted.emit();
         this.snackBar.open('Sessione vocale avviata', 'Chiudi', {
           duration: 2000,
           panelClass: ['success-snack']
@@ -346,6 +374,7 @@ export class VoiceInputComponent implements OnInit, OnDestroy {
       this.isProcessing = true;
       try {
         await this.voiceChatService.stopVoiceSession();
+        this.sessionEnded.emit();
         this.snackBar.open('Sessione vocale terminata', 'Chiudi', {
           duration: 2000
         });
@@ -398,7 +427,13 @@ export class VoiceInputComponent implements OnInit, OnDestroy {
   }
 
   getRecentMessages(): VoiceMessage[] {
-    return this.session.messages.slice(-3); // Show last 3 messages
+    const recentMessages = this.session.messages.slice(-3); // Show last 3 messages
+    console.log('📋 getRecentMessages called:', {
+      showMessages: this.showMessages,
+      totalMessages: this.session.messages.length,
+      recentMessages: recentMessages
+    });
+    return recentMessages;
   }
 
   formatTime(timestamp: Date): string {

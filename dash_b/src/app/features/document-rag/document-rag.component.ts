@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -20,6 +20,7 @@ import { ApiService } from '../../core/services/api.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { FileUploadComponent } from '../../shared/components/file-upload/file-upload.component';
 import { LoadingComponent } from '../../shared/components/loading/loading.component';
+import { VoiceInputComponent } from '../../shared/components/voice-input/voice-input.component';
 
 @Component({
   selector: 'app-document-rag',
@@ -131,7 +132,7 @@ import { LoadingComponent } from '../../shared/components/loading/loading.compon
                     <button
                       mat-raised-button
                       color="primary"
-                      (click)="executeQuery()"
+                      (click)="executeManualQuery()"
                       [disabled]="isQuerying || !queryForm.valid || indexStats.total_documents === 0">
                       <mat-icon>search</mat-icon>
                       Cerca Risposta
@@ -142,6 +143,25 @@ import { LoadingComponent } from '../../shared/components/loading/loading.compon
                       [disabled]="isQuerying">
                       <mat-icon>clear</mat-icon>
                       Cancella
+                    </button>
+
+                    <!-- Voice Input Component -->
+                    <app-voice-input
+                      #voiceInput
+                      [showMessages]="true"
+                      (transcriptReceived)="onVoiceTranscriptReceived($event)"
+                      (sessionStarted)="onVoiceSessionStarted()"
+                      (sessionEnded)="onVoiceSessionEnded()">
+                    </app-voice-input>
+
+                    <!-- Test Text Button -->
+                    <button
+                      mat-button
+                      color="accent"
+                      (click)="sendTestMessage()"
+                      [disabled]="!isVoiceSessionActive">
+                      <mat-icon>bug_report</mat-icon>
+                      Test Testo
                     </button>
                     <div class="results-selector">
                       <mat-form-field appearance="outline" class="compact-field">
@@ -485,11 +505,26 @@ import { LoadingComponent } from '../../shared/components/loading/loading.compon
       }
     }
 
+    /* Voice messages full width override */
+    ::ng-deep app-voice-input .voice-messages {
+      position: relative;
+      width: calc(100vw - 48px) !important;
+      max-width: calc(100vw - 48px) !important;
+      left: calc(-50vw + 50% + 24px) !important;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+    }
+
     @media (max-width: 768px) {
       .document-rag-container {
         padding: 16px;
       }
 
+      ::ng-deep app-voice-input .voice-messages {
+        width: calc(100vw - 32px) !important;
+        max-width: calc(100vw - 32px) !important;
+        left: calc(-50vw + 50% + 16px) !important;
+      }
 
       .stats-grid {
         grid-template-columns: 1fr;
@@ -498,6 +533,8 @@ import { LoadingComponent } from '../../shared/components/loading/loading.compon
   `]
 })
 export class DocumentRagComponent implements OnInit, OnDestroy {
+  @ViewChild('voiceInput') voiceInputComponent!: VoiceInputComponent;
+
   selectedTabIndex = 0;
   selectedFiles: File[] = [];
   analysisResults: DocumentAnalysis[] = [];
@@ -507,6 +544,7 @@ export class DocumentRagComponent implements OnInit, OnDestroy {
   isAnalyzing = false;
   isQuerying = false;
   isVoiceSessionActive = false;
+  isVoiceQuery = false; // Track if current query came from voice
   loadingMessage = '';
 
   analysisForm: FormGroup;
@@ -606,6 +644,11 @@ export class DocumentRagComponent implements OnInit, OnDestroy {
     });
   }
 
+  executeManualQuery(): void {
+    this.isVoiceQuery = false; // Ensure this is marked as manual query
+    this.executeQuery();
+  }
+
   executeQuery(): void {
     if (!this.queryForm.valid) return;
 
@@ -622,18 +665,32 @@ export class DocumentRagComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (result) => {
-          this.queryResult = result;
+          // Only set queryResult if NOT a voice query (to avoid double display)
+          if (!this.isVoiceQuery) {
+            this.queryResult = result;
+          }
+
           this.isQuerying = false;
           this.loadingMessage = '';
+
+          // Add assistant response to voice messages if voice query
+          if (this.isVoiceQuery && this.voiceInputComponent?.voiceChatService) {
+            this.voiceInputComponent.voiceChatService.addAssistantMessage(result.response);
+          }
 
           this.notificationService.showSuccess(
             'Query Completata',
             `Risposta trovata con confidenza ${(result.confidence * 100).toFixed(1)}%`
           );
+
+          // Reset voice query flag
+          this.isVoiceQuery = false;
         },
         error: (error) => {
           this.isQuerying = false;
           this.loadingMessage = '';
+          this.isVoiceQuery = false; // Reset flag on error too
+
           this.notificationService.showError(
             'Errore Query',
             error.message || 'Errore durante la ricerca'
@@ -753,18 +810,57 @@ export class DocumentRagComponent implements OnInit, OnDestroy {
   // Voice Input Event Handlers
   onVoiceTranscriptReceived(transcript: string): void {
     if (transcript && transcript.trim()) {
+      // Add user message to voice chat
+      if (this.voiceInputComponent?.voiceChatService) {
+        this.voiceInputComponent.voiceChatService.addUserMessage(transcript);
+      }
+
       // Set the transcript in the query form
       this.queryForm.patchValue({ query: transcript });
+
+      // Mark this as a voice query
+      this.isVoiceQuery = true;
 
       // Show notification
       this.notificationService.showSuccess(
         'Trascrizione Vocale',
-        'Domanda trascritta con successo'
+        'Domanda trascritta - Invio al RAG...'
       );
 
-      // Optionally auto-execute the query
-      // Uncomment the line below if you want automatic query execution
-      // this.executeQuery();
+      // Automatically execute the query through RAG backend
+      this.executeQuery();
+    }
+  }
+
+  onVoiceSessionStarted(): void {
+    this.isVoiceSessionActive = true;
+    console.log('Voice session started');
+  }
+
+  onVoiceSessionEnded(): void {
+    this.isVoiceSessionActive = false;
+    console.log('Voice session ended');
+  }
+
+  sendTestMessage(): void {
+    // Send a test text message to OpenAI
+    const testMessage = 'Ciao, questo è un messaggio di test. Come stai?';
+
+    // Use ViewChild to access the voice service
+    if (this.voiceInputComponent && this.voiceInputComponent.voiceChatService) {
+      this.voiceInputComponent.voiceChatService.sendTextMessage(testMessage);
+
+      this.notificationService.showSuccess(
+        'Test Inviato',
+        `Messaggio di test: "${testMessage}"`
+      );
+      console.log('Test message sent:', testMessage);
+    } else {
+      this.notificationService.showError(
+        'Errore',
+        'Servizio vocale non disponibile. Assicurati di aver avviato la sessione vocale.'
+      );
+      console.error('Voice service not available');
     }
   }
 

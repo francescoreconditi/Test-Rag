@@ -81,7 +81,8 @@
       "Bash(findstr:*)",
       "Bash(npm run build:*)",
       "Bash(start cmd /k:*)",
-      "Bash(npm start:*)"
+      "Bash(npm start:*)",
+      "Bash(ng build:*)"
     ],
     "deny": [],
     "ask": []

@@ -262,3 +262,7 @@ mlruns/
 
 # Weights & Biases
 wandb/
+
+# Angular
+environment.prod.ts
+environment.ts
