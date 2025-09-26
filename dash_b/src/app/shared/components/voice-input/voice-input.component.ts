@@ -302,12 +302,18 @@ export class VoiceInputComponent implements OnInit, OnDestroy {
         if (lastMessage) {
           console.log('🎯 New message added to session:', lastMessage);
 
-          if (lastMessage.type === 'user' && lastMessage.content) {
-            this.transcriptReceived.emit(lastMessage.content);
-          } else if (lastMessage.type === 'assistant') {
+          if (lastMessage.type === 'assistant') {
             console.log('🤖 Assistant response received:', lastMessage.content);
           }
         }
+      });
+
+    // Listen directly to transcript$ for voice input
+    this.voiceChatService.transcript$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(transcript => {
+        console.log('🎙️ Transcript received in component:', transcript);
+        this.transcriptReceived.emit(transcript);
       });
   }
 

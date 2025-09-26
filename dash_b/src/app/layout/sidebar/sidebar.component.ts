@@ -273,7 +273,10 @@ import { ApiService } from '../../core/services/api.service';
       width: 100%;
       height: 100%;
       padding: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
     }
+
 
     mat-divider {
       background-color: rgba(255, 255, 255, 0.12);

@@ -17,8 +17,8 @@ import { SidebarComponent } from './sidebar/sidebar.component';
   `,
   styles: [`
     .main-content {
-      padding-top: 64px;
-      height: 100vh;
+      /* All styling moved to sidebar component for brutal override */
+      min-height: 100vh;
       overflow-y: auto;
       background: #fafafa;
     }
