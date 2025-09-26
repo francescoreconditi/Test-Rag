@@ -98,8 +98,8 @@ import { ApiService } from '../../core/services/api.service';
   `,
   styles: [`
     .sidenav-container {
-      height: 100vh;
-      position: fixed;
+      height: calc(100vh - 64px);
+      position: absolute;
       top: 64px;
       left: 0;
       right: 0;
@@ -111,7 +111,8 @@ import { ApiService } from '../../core/services/api.service';
       background: linear-gradient(180deg, #3f51b5 0%, #303f9f 100%);
       color: white;
       border-right: none;
-      transition: width 0.3s ease;
+      overflow-x: hidden !important;
+      width: 280px !important;
     }
 
     .sidenav-header {
@@ -153,6 +154,9 @@ import { ApiService } from '../../core/services/api.service';
     .nav-list {
       padding: 8px 0;
       flex: 1;
+      overflow-x: hidden !important;
+      width: 100% !important;
+      max-width: 280px !important;
     }
 
     .nav-item {
@@ -167,63 +171,41 @@ import { ApiService } from '../../core/services/api.service';
       }
 
       &.active {
-        background: #ff4081 !important;
+        background: linear-gradient(90deg, #ff4081 0%, #e91e63 100%) !important;
         color: white !important;
         font-weight: 600;
         position: relative;
-        box-shadow:
-          inset 0 0 0 2px rgba(255, 255, 255, 0.2),
-          0 4px 12px rgba(255, 64, 129, 0.4) !important;
-        border-radius: 8px !important;
-        transform: translateX(4px);
-        border: 2px solid rgba(255, 255, 255, 0.3) !important;
+        border-radius: 6px !important;
+        margin: 2px 4px !important;
+        padding: 12px 16px !important;
+        box-shadow: 0 2px 8px rgba(255, 64, 129, 0.3) !important;
+        overflow: hidden !important;
+        max-width: calc(100% - 8px) !important;
+        box-sizing: border-box !important;
 
         &::before {
           content: '';
           position: absolute;
-          left: -2px;
-          top: -2px;
-          bottom: -2px;
-          width: 8px;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: 4px;
           background: #ffffff;
-          border-radius: 0 10px 10px 0;
-          box-shadow: 0 0 16px rgba(255, 255, 255, 0.8);
           z-index: 1;
-        }
-
-        &::after {
-          content: '●';
-          position: absolute;
-          right: 12px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: #ffffff;
-          font-size: 8px;
-          text-shadow: 0 0 8px rgba(255, 255, 255, 1);
-          z-index: 2;
         }
 
         mat-icon {
           color: white !important;
-          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-          z-index: 2;
-          position: relative;
         }
 
         .nav-label {
           color: white !important;
-          font-weight: 800;
-          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-          z-index: 2;
-          position: relative;
+          font-weight: 600;
         }
 
         &:hover {
-          background: #e91e63 !important;
-          transform: translateX(6px);
-          box-shadow:
-            inset 0 0 0 2px rgba(255, 255, 255, 0.3),
-            0 6px 16px rgba(255, 64, 129, 0.6) !important;
+          background: linear-gradient(90deg, #e91e63 0%, #c2185b 100%) !important;
+          box-shadow: 0 3px 12px rgba(255, 64, 129, 0.4) !important;
         }
       }
 
@@ -288,30 +270,31 @@ import { ApiService } from '../../core/services/api.service';
     }
 
     .sidenav-content {
-      margin-left: 280px;
-      transition: margin-left 0.3s ease;
-
-      &.collapsed {
-        margin-left: 60px;
-      }
-    }
-
-    // Dynamic content adjustment based on sidebar state
-    .sidenav-container.sidebar-collapsed {
-      .sidenav-content {
-        margin-left: 60px;
-      }
-    }
-
-    .sidenav-container.sidebar-closed {
-      .sidenav-content {
-        margin-left: 0;
-      }
+      width: 100%;
+      height: 100%;
+      padding: 0;
     }
 
     mat-divider {
       background-color: rgba(255, 255, 255, 0.12);
       margin: 8px 0;
+    }
+
+    // Riduce le animazioni del sidenav mantenendo la funzionalit\u00e0
+    ::ng-deep .mat-drawer-transition .mat-drawer-content {
+      transition: transform 0.1s ease !important;
+    }
+
+    ::ng-deep .mat-drawer-transition .mat-drawer {
+      transition: transform 0.1s ease !important;
+    }
+
+    ::ng-deep .mat-sidenav-container {
+      transition: none !important;
+    }
+
+    ::ng-deep .mat-sidenav-content {
+      transition: margin 0.1s ease !important;
     }
 
     @media (max-width: 768px) {
@@ -322,10 +305,6 @@ import { ApiService } from '../../core/services/api.service';
       .app-sidenav {
         position: fixed;
         z-index: 1001;
-      }
-
-      .sidenav-content {
-        margin-left: 0;
       }
     }
   `]

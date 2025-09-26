@@ -1,26 +1,25 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatSelectModule } from '@angular/material/select';
-import { MatInputModule } from '@angular/material/input';
-import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
-import { MatExpansionModule } from '@angular/material/expansion';
-import { MatTabsModule } from '@angular/material/tabs';
 import { MatDividerModule } from '@angular/material/divider';
-import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
+import { MatExpansionModule } from '@angular/material/expansion';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTabsModule } from '@angular/material/tabs';
 import { Subject, takeUntil } from 'rxjs';
 
-import { ApiService } from '../../core/services/api.service';
-import { NotificationService } from '../../core/services/notification.service';
-import { LoadingComponent } from '../../shared/components/loading/loading.component';
-import { FileUploadComponent } from '../../shared/components/file-upload/file-upload.component';
-import { VoiceInputComponent } from '../../shared/components/voice-input/voice-input.component';
 import { DocumentAnalysis, IndexStats, QueryRequest, QueryResponse } from '../../core/models/analysis.model';
 import { FileUploadProgress } from '../../core/models/ui.model';
+import { ApiService } from '../../core/services/api.service';
+import { NotificationService } from '../../core/services/notification.service';
+import { FileUploadComponent } from '../../shared/components/file-upload/file-upload.component';
+import { LoadingComponent } from '../../shared/components/loading/loading.component';
 
 @Component({
   selector: 'app-document-rag',
@@ -46,7 +45,7 @@ import { FileUploadProgress } from '../../core/models/ui.model';
   template: `
     <div class="document-rag-container">
       <div class="page-header">
-        <h1>📚 Gestione Documenti RAG</h1>
+        <h1><mat-icon class="title-icon">folder</mat-icon> Gestione Documenti RAG</h1>
         <p>Carica e analizza documenti per il sistema RAG</p>
       </div>
 
@@ -115,60 +114,20 @@ import { FileUploadProgress } from '../../core/models/ui.model';
             <div class="tab-content">
               <div class="query-section">
                 <mat-card class="query-card">
-                  <mat-card-header>
-                    <mat-card-title>🔍 Interroga i Documenti</mat-card-title>
-                    <mat-card-subtitle>
-                      {{ indexStats.total_documents }} documenti indicizzati,
-                      {{ formatVectorCount(indexStats.total_vectors) }} vettori
-                    </mat-card-subtitle>
-                  </mat-card-header>
                   <mat-card-content>
                     <form [formGroup]="queryForm" class="query-form">
-                      <div class="query-input-container">
-                        <mat-form-field appearance="outline" class="full-width field-enhanced query-field">
-                          <mat-label>Inserisci la tua domanda</mat-label>
-                          <textarea
-                            matInput
-                            formControlName="query"
-                            placeholder="Es: Qual è l'EBITDA dell'azienda negli ultimi tre anni?"
-                            rows="3">
-                          </textarea>
-                          <mat-hint>Poni domande specifiche sui tuoi documenti caricati</mat-hint>
-                        </mat-form-field>
-
-                        <!-- Voice Input Button -->
-                        <div class="voice-input-wrapper">
-                          <app-voice-input
-                            [disabled]="isQuerying || indexStats.total_documents === 0"
-                            [showMessages]="false"
-                            (transcriptReceived)="onVoiceTranscriptReceived($event)"
-                            (voiceSessionStateChanged)="onVoiceSessionChanged($event)">
-                          </app-voice-input>
-                        </div>
-                      </div>
-
-                      <div class="query-options">
-                        <mat-form-field appearance="outline" class="field-enhanced">
-                          <mat-label>Formato Output</mat-label>
-                          <mat-select formControlName="outputFormat">
-                            <mat-option value="json">JSON Strutturato</mat-option>
-                            <mat-option value="text">Testo Semplice</mat-option>
-                            <mat-option value="pdf">Report PDF</mat-option>
-                          </mat-select>
-                        </mat-form-field>
-
-                        <mat-form-field appearance="outline" class="field-enhanced">
-                          <mat-label>Risultati Max</mat-label>
-                          <mat-select formControlName="maxResults">
-                            <mat-option value="3">3 (Veloce)</mat-option>
-                            <mat-option value="5">5 (Standard)</mat-option>
-                            <mat-option value="10">10 (Dettagliato)</mat-option>
-                          </mat-select>
-                        </mat-form-field>
-                      </div>
+                      <mat-form-field appearance="outline" class="full-width field-enhanced">
+                        <mat-label>Inserisci la tua domanda</mat-label>
+                        <textarea
+                          matInput
+                          formControlName="query"
+                          placeholder="Es: Qual è l'EBITDA dell'azienda negli ultimi tre anni?"
+                          rows="3">
+                        </textarea>
+                      </mat-form-field>
                     </form>
                   </mat-card-content>
-                  <mat-card-actions>
+                  <mat-card-actions class="query-actions">
                     <button
                       mat-raised-button
                       color="primary"
@@ -184,6 +143,17 @@ import { FileUploadProgress } from '../../core/models/ui.model';
                       <mat-icon>clear</mat-icon>
                       Cancella
                     </button>
+                    <div class="results-selector">
+                      <mat-form-field appearance="outline" class="compact-field">
+                        <mat-label>Risultati</mat-label>
+                        <mat-select [value]="queryForm.get('maxResults')?.value"
+                                   (selectionChange)="queryForm.patchValue({maxResults: $event.value})">
+                          <mat-option [value]="3">3</mat-option>
+                          <mat-option [value]="5">5</mat-option>
+                          <mat-option [value]="10">10</mat-option>
+                        </mat-select>
+                      </mat-form-field>
+                    </div>
                   </mat-card-actions>
                 </mat-card>
 
@@ -245,7 +215,7 @@ import { FileUploadProgress } from '../../core/models/ui.model';
               <div class="management-section">
                 <mat-card class="stats-card">
                   <mat-card-header>
-                    <mat-card-title>📊 Statistiche Database</mat-card-title>
+                    <mat-card-title><mat-icon class="card-icon">analytics</mat-icon> Statistiche Database</mat-card-title>
                   </mat-card-header>
                   <mat-card-content>
                     <div class="stats-grid">
@@ -308,10 +278,20 @@ import { FileUploadProgress } from '../../core/models/ui.model';
       margin-bottom: 32px;
 
       h1 {
+        display: flex;
+        align-items: center;
+        gap: 12px;
         font-size: 2rem;
         font-weight: 600;
         margin: 0 0 8px 0;
         color: #333;
+
+        .title-icon {
+          font-size: 2.2rem !important;
+          width: 2.2rem !important;
+          height: 2.2rem !important;
+          color: #667eea !important;
+        }
       }
 
       p {
@@ -342,33 +322,50 @@ import { FileUploadProgress } from '../../core/models/ui.model';
       gap: 16px;
     }
 
-    .query-input-container {
-      display: flex;
-      align-items: flex-start;
-      gap: 16px;
-      width: 100%;
-    }
-
-    .query-field {
-      flex: 1;
-    }
-
-    .voice-input-wrapper {
-      display: flex;
-      align-items: center;
-      padding-top: 8px;
-      min-width: 64px;
-    }
-
-    .query-options {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 24px;
-      margin-top: 8px;
-    }
 
     .full-width {
       width: 100%;
+    }
+
+    .card-icon {
+      font-size: 1.4rem !important;
+      width: 1.4rem !important;
+      height: 1.4rem !important;
+      color: #667eea !important;
+      margin-right: 8px !important;
+      vertical-align: middle !important;
+    }
+
+    .query-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+
+      .results-selector {
+        margin-left: auto;
+      }
+    }
+
+    .compact-field {
+      width: 120px;
+
+      ::ng-deep .mat-mdc-form-field-wrapper {
+        padding: 0;
+      }
+
+      ::ng-deep .mat-mdc-text-field-wrapper {
+        padding: 8px 12px;
+      }
+
+      ::ng-deep .mat-mdc-form-field-infix {
+        padding: 12px 0;
+        min-height: 40px;
+      }
+
+      ::ng-deep .mat-mdc-select-trigger {
+        padding: 12px 8px;
+      }
     }
 
     /* Enhanced field padding for better UX */
@@ -493,19 +490,6 @@ import { FileUploadProgress } from '../../core/models/ui.model';
         padding: 16px;
       }
 
-      .query-input-container {
-        flex-direction: column;
-        gap: 12px;
-      }
-
-      .voice-input-wrapper {
-        align-self: center;
-        padding-top: 0;
-      }
-
-      .query-options {
-        grid-template-columns: 1fr;
-      }
 
       .stats-grid {
         grid-template-columns: 1fr;
@@ -543,7 +527,6 @@ export class DocumentRagComponent implements OnInit, OnDestroy {
 
     this.queryForm = this.fb.group({
       query: ['', [Validators.required, Validators.minLength(5)]],
-      outputFormat: ['json', Validators.required],
       maxResults: [5, Validators.required]
     });
   }
@@ -631,7 +614,7 @@ export class DocumentRagComponent implements OnInit, OnDestroy {
 
     const queryRequest: QueryRequest = {
       query: this.queryForm.value.query,
-      output_format: this.queryForm.value.outputFormat,
+      output_format: 'json',
       max_results: this.queryForm.value.maxResults
     };
 
@@ -661,7 +644,6 @@ export class DocumentRagComponent implements OnInit, OnDestroy {
 
   clearQuery(): void {
     this.queryForm.reset({
-      outputFormat: 'json',
       maxResults: 5
     });
     this.queryResult = null;

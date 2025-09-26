@@ -37,14 +37,19 @@ import { MatCardModule } from '@angular/material/card';
       <!-- Overlay Loading -->
       <div *ngIf="type === 'overlay'" class="overlay-loading">
         <div class="overlay-content">
-          <div class="loading-icon-wrapper">
-            <mat-spinner [diameter]="spinnerSize" [color]="color"></mat-spinner>
+          <div class="loading-animation">
+            <div class="loading-circle"></div>
+            <div class="loading-circle"></div>
+            <div class="loading-circle"></div>
           </div>
           <div *ngIf="message" class="loading-message">
-            <span class="loading-text">{{ message }}</span>
-            <span class="loading-dots"></span>
+            {{ message }}
           </div>
-          <div class="loading-subtext">Attendere prego</div>
+          <div class="loading-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
         </div>
       </div>
 
@@ -86,13 +91,13 @@ import { MatCardModule } from '@angular/material/card';
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(4px);
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(8px);
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 9999;
-      animation: fadeIn 0.2s ease-in;
+      animation: fadeIn 0.3s ease-in;
     }
 
     @keyframes fadeIn {
@@ -101,35 +106,107 @@ import { MatCardModule } from '@angular/material/card';
     }
 
     .overlay-content {
-      background: var(--overlay-bg, white);
-      color: var(--overlay-text, #333);
-      padding: 48px 56px;
-      border-radius: 16px;
+      background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+      color: #2c3e50;
+      padding: 60px 80px;
+      border-radius: 24px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 24px;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-      min-width: 320px;
-      animation: scaleIn 0.3s ease-out;
-    }
-
-    @keyframes scaleIn {
-      from { transform: scale(0.9); opacity: 0; }
-      to { transform: scale(1); opacity: 1; }
-    }
-
-    .loading-icon-wrapper {
+      gap: 32px;
+      box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.3),
+        0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+      min-width: 400px;
+      animation: slideUp 0.4s ease-out;
       position: relative;
-      padding: 8px;
+      overflow: hidden;
+    }
+
+    .overlay-content::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(
+        45deg,
+        transparent,
+        rgba(103, 126, 234, 0.05),
+        transparent
+      );
+      transform: rotate(45deg);
+      animation: shimmer 3s infinite;
+    }
+
+    @keyframes slideUp {
+      from {
+        transform: translateY(30px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes shimmer {
+      0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+      100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+    }
+
+    .loading-animation {
+      display: flex;
+      gap: 12px;
+      height: 60px;
+      align-items: center;
+    }
+
+    .loading-circle {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      animation: bounce 1.4s ease-in-out infinite both;
+    }
+
+    .loading-circle:nth-child(1) {
+      animation-delay: -0.32s;
+    }
+
+    .loading-circle:nth-child(2) {
+      animation-delay: -0.16s;
+    }
+
+    @keyframes bounce {
+      0%, 80%, 100% {
+        transform: scale(0.8);
+        opacity: 0.5;
+      }
+      40% {
+        transform: scale(1.2);
+        opacity: 1;
+      }
     }
 
     /* Dark theme support */
     :host-context(.dark-theme) .overlay-content,
     :host-context([data-theme="dark"]) .overlay-content {
-      --overlay-bg: #2a2a2a;
-      --overlay-text: #ffffff;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      background: linear-gradient(145deg, #2a2a2a 0%, #1e1e1e 100%);
+      box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.7),
+        0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+    }
+
+    :host-context(.dark-theme) .loading-circle,
+    :host-context([data-theme="dark"]) .loading-circle {
+      background: linear-gradient(135deg, #667eea 0%, #9f7aea 100%);
+    }
+
+    :host-context(.dark-theme) .loading-dots span,
+    :host-context([data-theme="dark"]) .loading-dots span {
+      background: #9f7aea;
     }
 
     .card-loading {
@@ -146,50 +223,56 @@ import { MatCardModule } from '@angular/material/card';
     }
 
     .loading-message {
-      font-size: 1.1rem;
-      color: var(--overlay-text, #333);
+      font-size: 1.3rem;
+      color: #2c3e50;
       text-align: center;
-      font-weight: 500;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .loading-text {
+      font-weight: 600;
       letter-spacing: 0.5px;
+      position: relative;
+      z-index: 1;
     }
 
-    .loading-dots::after {
-      content: '...';
-      display: inline-block;
-      animation: ellipsis 1.5s infinite;
-      width: 20px;
-      text-align: left;
+    .loading-dots {
+      display: flex;
+      gap: 8px;
+      margin-top: -16px;
     }
 
-    @keyframes ellipsis {
-      0% { content: '.'; }
-      33% { content: '..'; }
-      66% { content: '...'; }
-      100% { content: '.'; }
+    .loading-dots span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #667eea;
+      animation: pulse 1.4s ease-in-out infinite;
     }
 
-    .loading-subtext {
-      font-size: 0.85rem;
-      color: var(--overlay-text, #666);
-      opacity: 0.8;
-      margin-top: -8px;
+    .loading-dots span:nth-child(1) {
+      animation-delay: 0s;
+    }
+
+    .loading-dots span:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .loading-dots span:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes pulse {
+      0%, 60%, 100% {
+        opacity: 0.3;
+        transform: scale(0.8);
+      }
+      30% {
+        opacity: 1;
+        transform: scale(1.2);
+      }
     }
 
     /* Dark theme text colors */
     :host-context(.dark-theme) .loading-message,
     :host-context([data-theme="dark"]) .loading-message {
       color: #ffffff;
-    }
-
-    :host-context(.dark-theme) .loading-subtext,
-    :host-context([data-theme="dark"]) .loading-subtext {
-      color: #cccccc;
     }
 
     .progress-text {
