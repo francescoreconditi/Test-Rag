@@ -38,6 +38,9 @@ declare global {
     webkitSpeechRecognition: {
       new(): SpeechRecognition;
     };
+    SpeechSynthesisUtterance: {
+      new(text?: string): SpeechSynthesisUtterance;
+    };
   }
 }
 
@@ -47,6 +50,7 @@ declare global {
 export class VoiceChatService {
   private recognition: SpeechRecognition | null = null;
   private currentTranscript = '';
+  private speechSynthesis: SpeechSynthesis | null = null;
 
   private sessionSubject = new BehaviorSubject<VoiceSession>({
     isActive: false,
@@ -64,6 +68,7 @@ export class VoiceChatService {
 
   constructor() {
     this.initializeSpeechRecognition();
+    this.initializeSpeechSynthesis();
   }
 
   private initializeSpeechRecognition(): void {
@@ -285,8 +290,82 @@ export class VoiceChatService {
     this.sessionSubject.next(newSession);
   }
 
+  private initializeSpeechSynthesis(): void {
+    if ('speechSynthesis' in window) {
+      this.speechSynthesis = window.speechSynthesis;
+      console.log('🔊 Speech synthesis initialized');
+    } else {
+      console.error('❌ Speech synthesis not supported');
+      this.errorSubject.next('Sintesi vocale non supportata in questo browser');
+    }
+  }
+
+  // Speak text using text-to-speech
+  async speakText(text: string): Promise<void> {
+    if (!this.speechSynthesis) {
+      console.error('❌ Speech synthesis not available');
+      return;
+    }
+
+    try {
+      // Stop any current speech
+      this.speechSynthesis.cancel();
+
+      // Update session state to playing
+      this.updateSession({ isPlaying: true });
+
+      // Create utterance
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'it-IT'; // Italian voice
+      utterance.rate = 0.9; // Slightly slower
+      utterance.pitch = 1.0;
+      utterance.volume = 0.8;
+
+      // Event handlers
+      utterance.onstart = () => {
+        console.log('🔊 Starting speech synthesis');
+        this.updateSession({ isPlaying: true });
+      };
+
+      utterance.onend = () => {
+        console.log('✅ Speech synthesis completed');
+        this.updateSession({ isPlaying: false });
+      };
+
+      utterance.onerror = (event) => {
+        console.error('❌ Speech synthesis error:', event);
+        this.updateSession({ isPlaying: false });
+        this.errorSubject.next('Errore nella sintesi vocale');
+      };
+
+      // Start speaking
+      this.speechSynthesis.speak(utterance);
+
+      console.log('🔊 Speaking text:', text.substring(0, 50) + '...');
+
+    } catch (error) {
+      console.error('❌ Speech synthesis failed:', error);
+      this.updateSession({ isPlaying: false });
+      this.errorSubject.next('Impossibile riprodurre la risposta vocale');
+    }
+  }
+
+  // Stop current speech
+  stopSpeaking(): void {
+    if (this.speechSynthesis) {
+      this.speechSynthesis.cancel();
+      this.updateSession({ isPlaying: false });
+      console.log('⏹️ Speech synthesis stopped');
+    }
+  }
+
   // Check if speech recognition is available
   isSpeechRecognitionSupported(): boolean {
     return !!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition;
+  }
+
+  // Check if speech synthesis is available
+  isSpeechSynthesisSupported(): boolean {
+    return 'speechSynthesis' in window;
   }
 }

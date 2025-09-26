@@ -43,6 +43,18 @@ import { VoiceChatService, VoiceSession, VoiceMessage } from '../../../core/serv
         </mat-icon>
       </button>
 
+      <!-- Stop Speaking Button -->
+      <button
+        *ngIf="session.isPlaying"
+        mat-fab
+        color="accent"
+        class="voice-button stop-button"
+        (click)="stopSpeaking()"
+        matTooltip="Ferma riproduzione"
+        matTooltipPosition="left">
+        <mat-icon>volume_off</mat-icon>
+      </button>
+
       <!-- Voice Status Indicator -->
       <div class="voice-status" *ngIf="session.isActive">
         <div class="status-indicator" [class.recording]="session.isRecording" [class.playing]="session.isPlaying">
@@ -104,6 +116,16 @@ import { VoiceChatService, VoiceSession, VoiceMessage } from '../../../core/serv
       0% { transform: scale(1); }
       50% { transform: scale(1.05); }
       100% { transform: scale(1); }
+    }
+
+    .stop-button {
+      margin-left: 16px;
+      background-color: #ff9800 !important;
+
+      &:hover {
+        background-color: #f57c00 !important;
+        transform: scale(1.05);
+      }
     }
 
     .voice-status {
@@ -423,6 +445,10 @@ export class VoiceInputComponent implements OnInit, OnDestroy {
     if (this.session.isRecording) return 'Ferma registrazione';
     if (this.session.isActive) return 'Inizia a parlare';
     return 'Avvia input vocale';
+  }
+
+  stopSpeaking(): void {
+    this.voiceChatService.stopSpeaking();
   }
 
   getStatusText(): string {

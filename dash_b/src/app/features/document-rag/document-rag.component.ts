@@ -163,6 +163,15 @@ import { VoiceInputComponent } from '../../shared/components/voice-input/voice-i
                       <mat-icon>bug_report</mat-icon>
                       Test Testo
                     </button>
+
+                    <!-- Test Transcript Event Button -->
+                    <button
+                      mat-button
+                      color="warn"
+                      (click)="testTranscriptEvent()">
+                      <mat-icon>record_voice_over</mat-icon>
+                      Test Transcript
+                    </button>
                     <div class="results-selector">
                       <mat-form-field appearance="outline" class="compact-field">
                         <mat-label>Risultati</mat-label>
@@ -676,6 +685,9 @@ export class DocumentRagComponent implements OnInit, OnDestroy {
           // Add assistant response to voice messages if voice query
           if (this.isVoiceQuery && this.voiceInputComponent?.voiceChatService) {
             this.voiceInputComponent.voiceChatService.addAssistantMessage(result.response);
+
+            // Speak the response if it's a voice query
+            this.voiceInputComponent.voiceChatService.speakText(result.response);
           }
 
           this.notificationService.showSuccess(
@@ -809,6 +821,7 @@ export class DocumentRagComponent implements OnInit, OnDestroy {
 
   // Voice Input Event Handlers
   onVoiceTranscriptReceived(transcript: string): void {
+    console.log('📝 onVoiceTranscriptReceived called with:', transcript);
     if (transcript && transcript.trim()) {
       // Add user message to voice chat
       if (this.voiceInputComponent?.voiceChatService) {
@@ -862,6 +875,16 @@ export class DocumentRagComponent implements OnInit, OnDestroy {
       );
       console.error('Voice service not available');
     }
+  }
+
+  testTranscriptEvent(): void {
+    console.log('🧪 Testing transcript event...');
+    const testTranscript = 'lista dettagliata costi';
+
+    // Directly call the onVoiceTranscriptReceived method to test if it works
+    this.onVoiceTranscriptReceived(testTranscript);
+
+    console.log('🧪 Test completed - check console for onVoiceTranscriptReceived log');
   }
 
   onVoiceSessionChanged(isActive: boolean): void {
