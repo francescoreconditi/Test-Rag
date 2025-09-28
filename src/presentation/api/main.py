@@ -217,7 +217,7 @@ class PDFAnalysisResponse(BaseModel):
 class FAQResponse(BaseModel):
     """Response model for FAQ generation"""
 
-    faqs: list[FAQItem] = Field(..., description="FAQ generate", min_items=10, max_items=10)
+    faqs: list[FAQItem] = Field(..., description="FAQ generate", min_items=1, max_items=20)
     processing_time: float = Field(..., description="Tempo elaborazione in secondi", example=15.2)
     pdf_b64: Optional[str] = Field(None, description="PDF Codificato in b64")
 
@@ -1331,6 +1331,16 @@ async def general_exception_handler(request, exc):
         ).dict(),
     )
 
+
+# Include PDF Export Routes
+try:
+    from src.presentation.api.pdf_export_router import router as pdf_export_router
+    app.include_router(pdf_export_router)
+    logger.info("✅ PDF export routes registered")
+    PDF_EXPORT_ROUTES_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"PDF export routes not available: {e}")
+    PDF_EXPORT_ROUTES_AVAILABLE = False
 
 # Include Audio Routes
 try:

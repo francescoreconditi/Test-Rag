@@ -6,6 +6,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatExpansionModule } from '@angular/material/expansion';
+import { MatListModule } from '@angular/material/list';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -37,6 +38,7 @@ import { VoiceInputComponent } from '../../shared/components/voice-input/voice-i
     MatChipsModule,
     MatExpansionModule,
     MatTabsModule,
+    MatListModule,
     MatDividerModule,
     MatSnackBarModule,
     LoadingComponent,
@@ -103,6 +105,90 @@ import { VoiceInputComponent } from '../../shared/components/voice-input/voice-i
                       [disabled]="isAnalyzing || selectedFiles.length === 0">
                       <mat-icon>analytics</mat-icon>
                       Avvia Analisi ({{ selectedFiles.length }} file)
+                    </button>
+                  </mat-card-actions>
+                </mat-card>
+
+                <!-- Analysis Results Display -->
+                <mat-card *ngIf="analysisResults.length > 0" class="analysis-results-card">
+                  <mat-card-header>
+                    <mat-card-title>📊 Risultati Analisi Documenti</mat-card-title>
+                    <mat-card-subtitle>
+                      Analizzati {{ selectedFiles.length }} documenti
+                    </mat-card-subtitle>
+                  </mat-card-header>
+                  <mat-card-content>
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>Analisi Completa</mat-label>
+                      <textarea
+                        matInput
+                        [value]="currentAnalysisText"
+                        rows="15"
+                        readonly
+                        class="analysis-text">
+                      </textarea>
+                    </mat-form-field>
+
+                    <!-- Metadata Display -->
+                    <div class="analysis-metadata" *ngIf="currentAnalysis?.analysis">
+                      <mat-chip-listbox aria-label="Metadata">
+                        <mat-chip-option disabled>
+                          <mat-icon>confidence</mat-icon>
+                          Confidenza: {{ (currentConfidence * 100) | number:'1.0-0' }}%
+                        </mat-chip-option>
+                        <mat-chip-option disabled>
+                          <mat-icon>timer</mat-icon>
+                          Tempo: {{ currentProcessingTime | number:'1.1-1' }}s
+                        </mat-chip-option>
+                        <mat-chip-option disabled *ngIf="currentAnalysis?.file_info?.pages">
+                          <mat-icon>description</mat-icon>
+                          Pagine: {{ currentAnalysis.file_info?.pages }}
+                        </mat-chip-option>
+                        <mat-chip-option disabled *ngIf="currentAnalysis?.file_info?.has_tables">
+                          <mat-icon>table_chart</mat-icon>
+                          Tabelle trovate
+                        </mat-chip-option>
+                      </mat-chip-listbox>
+                    </div>
+
+                    <!-- Sources Section -->
+                    <div class="sources-section" *ngIf="currentAnalysis?.sources && currentAnalysis.sources.length > 0">
+                      <h4>📚 Fonti Utilizzate</h4>
+                      <mat-list>
+                        <mat-list-item *ngFor="let source of currentAnalysis?.sources || []">
+                          <mat-icon matListItemIcon>source</mat-icon>
+                          <div matListItemTitle>{{ source.source }}</div>
+                          <div matListItemLine>
+                            Confidenza: {{ (source.confidence * 100) | number:'1.0-0' }}%
+                            <span *ngIf="source.page"> • Pagina: {{ source.page }}</span>
+                          </div>
+                        </mat-list-item>
+                      </mat-list>
+                    </div>
+                  </mat-card-content>
+                  <mat-card-actions class="analysis-actions">
+                    <button
+                      mat-raised-button
+                      color="primary"
+                      class="dark-mode-btn primary-btn"
+                      (click)="exportAnalysisPDF()">
+                      <mat-icon>picture_as_pdf</mat-icon>
+                      Esporta PDF
+                    </button>
+                    <button
+                      mat-button
+                      class="dark-mode-btn secondary-btn"
+                      (click)="copyAnalysisToClipboard()">
+                      <mat-icon>content_copy</mat-icon>
+                      Copia Testo
+                    </button>
+                    <button
+                      mat-button
+                      color="warn"
+                      class="dark-mode-btn warn-btn"
+                      (click)="clearAnalysis()">
+                      <mat-icon>clear</mat-icon>
+                      Cancella Analisi
                     </button>
                   </mat-card-actions>
                 </mat-card>
@@ -406,6 +492,140 @@ import { VoiceInputComponent } from '../../shared/components/voice-input/voice-i
       }
     }
 
+    /* Analysis Results Card Styles */
+    .analysis-results-card {
+      margin-top: 24px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+      mat-card-header {
+        background: rgba(255, 255, 255, 0.95);
+        padding: 16px;
+        border-radius: 8px 8px 0 0;
+        margin: -16px -16px 16px -16px;
+      }
+
+      .analysis-text {
+        font-family: 'Roboto', sans-serif;
+        line-height: 1.6;
+        padding: 12px;
+        border-radius: 4px;
+
+        /* Light mode styles */
+        background: #f9f9f9;
+        border: 1px solid #e0e0e0;
+        color: #333;
+
+        /* Dark mode support - uses CSS variables from Angular Material theme */
+        @media (prefers-color-scheme: dark) {
+          background: #2d2d30;
+          border: 1px solid #404040;
+          color: #e1e1e1;
+        }
+
+        /* Additional dark mode support via CSS class */
+        :host-context(.dark-theme) & {
+          background: #2d2d30 !important;
+          border: 1px solid #404040 !important;
+          color: #e1e1e1 !important;
+        }
+
+        /* Ensure text is always visible regardless of theme */
+        &:focus {
+          outline: 2px solid #667eea;
+          outline-offset: 2px;
+        }
+      }
+
+      .analysis-metadata {
+        margin: 16px 0;
+
+        mat-chip-listbox {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        mat-chip-option {
+          background: rgba(102, 126, 234, 0.1);
+          color: #333;
+
+          mat-icon {
+            font-size: 18px;
+            margin-right: 4px;
+          }
+        }
+      }
+
+      .sources-section {
+        margin-top: 24px;
+        padding: 16px;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 8px;
+
+        h4 {
+          margin-bottom: 12px;
+          color: #667eea;
+        }
+      }
+
+      mat-card-content {
+        background: white;
+        padding: 24px;
+        border-radius: 8px;
+      }
+
+      mat-card-actions {
+        background: rgba(255, 255, 255, 0.95);
+        padding: 16px;
+        border-radius: 0 0 8px 8px;
+        margin: 16px -16px -16px -16px;
+
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+          background: rgba(45, 45, 48, 0.95);
+        }
+
+        :host-context(.dark-theme) & {
+          background: rgba(45, 45, 48, 0.95);
+        }
+      }
+
+      /* Dark Mode Button Fixes - Direct approach */
+      .analysis-actions {
+        @media (prefers-color-scheme: dark) {
+          background: rgba(45, 45, 48, 0.95) !important;
+        }
+      }
+
+      .dark-mode-btn {
+        @media (prefers-color-scheme: dark) {
+          color: #ffffff !important;
+          background-color: rgba(66, 66, 66, 0.8) !important;
+          border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        }
+      }
+
+      .dark-mode-btn.primary-btn {
+        @media (prefers-color-scheme: dark) {
+          background-color: #1976d2 !important;
+          color: #ffffff !important;
+        }
+      }
+
+      .dark-mode-btn.warn-btn {
+        @media (prefers-color-scheme: dark) {
+          background-color: #d32f2f !important;
+          color: #ffffff !important;
+        }
+      }
+
+      .dark-mode-btn .mat-icon {
+        @media (prefers-color-scheme: dark) {
+          color: #ffffff !important;
+        }
+      }
+    }
+
     /* Enhanced field padding for better UX */
     .field-enhanced {
       ::ng-deep .mat-mdc-form-field-wrapper {
@@ -631,7 +851,11 @@ export class DocumentRagComponent implements OnInit, OnDestroy {
         .pipe(takeUntil(this.destroy$))
         .subscribe({
           next: (result) => {
+            console.log('API Response received:', result);
+            console.log('Type of result:', typeof result);
+            console.log('Result keys:', Object.keys(result || {}));
             this.analysisResults = [result];
+            console.log('analysisResults after assignment:', this.analysisResults);
             this.isAnalyzing = false;
             this.loadingMessage = '';
 
@@ -644,6 +868,9 @@ export class DocumentRagComponent implements OnInit, OnDestroy {
             this.selectedTabIndex = 1; // Switch to query tab
           },
           error: (error) => {
+            console.log('Analysis Error:', error);
+            console.log('Error type:', typeof error);
+            console.log('Error message:', error.message);
             this.isAnalyzing = false;
             this.loadingMessage = '';
             this.notificationService.showError(
@@ -943,5 +1170,107 @@ export class DocumentRagComponent implements OnInit, OnDestroy {
         'Sessione vocale terminata'
       );
     }
+  }
+
+  // New methods for Analysis PDF Export
+  exportAnalysisPDF(): void {
+    if (!this.analysisResults || this.analysisResults.length === 0) {
+      this.notificationService.showWarning(
+        'Nessuna Analisi',
+        'Nessuna analisi disponibile da esportare'
+      );
+      return;
+    }
+
+    const analysisText = this.currentAnalysisText;
+    const metadata = {
+      numero_documenti: this.selectedFiles.length,
+      timestamp: new Date().toLocaleString('it-IT'),
+      confidenza: `${((this.currentConfidence || 0) * 100).toFixed(0)}%`,
+      tempo_elaborazione: `${(this.currentProcessingTime || 0).toFixed(1)}s`,
+      tipo_analisi: 'Analisi Documenti RAG'
+    };
+
+    // Call the new FastAPI endpoint for professional PDF generation
+    this.apiService.exportAnalysisToPDF(analysisText, metadata)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (blob) => {
+          // Direct download of professional PDF
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `Analisi_Documenti_${new Date().toISOString().split('T')[0]}.pdf`;
+          link.click();
+
+          setTimeout(() => {
+            window.URL.revokeObjectURL(url);
+          }, 1000);
+
+          this.notificationService.showSuccess(
+            'PDF Generato',
+            'Il PDF professionale è stato scaricato con successo'
+          );
+        },
+        error: (error) => {
+          console.error('PDF export error:', error);
+          this.notificationService.showError(
+            'Errore Export',
+            'Errore durante l\'esportazione PDF. Riprova più tardi.'
+          );
+        }
+      });
+  }
+
+  copyAnalysisToClipboard(): void {
+    if (!this.analysisResults || this.analysisResults.length === 0) {
+      this.notificationService.showWarning(
+        'Nessuna Analisi',
+        'Nessuna analisi disponibile da copiare'
+      );
+      return;
+    }
+
+    const analysisText = this.currentAnalysisText;
+    navigator.clipboard.writeText(analysisText).then(() => {
+      this.notificationService.showSuccess(
+        'Copiato',
+        'Analisi copiata negli appunti'
+      );
+    }).catch(() => {
+      this.notificationService.showError(
+        'Errore',
+        'Impossibile copiare il testo'
+      );
+    });
+  }
+
+  clearAnalysis(): void {
+    this.analysisResults = [];
+    this.selectedFiles = [];
+    this.notificationService.showInfo(
+      'Analisi Cancellata',
+      'I risultati dell\'analisi sono stati rimossi'
+    );
+  }
+
+  get currentAnalysis() {
+    return this.analysisResults?.[0];
+  }
+
+  get currentAnalysisData() {
+    return this.currentAnalysis;
+  }
+
+  get currentAnalysisText() {
+    return this.currentAnalysis?.analysis || '';
+  }
+
+  get currentConfidence() {
+    return this.currentAnalysis?.confidence || 0;
+  }
+
+  get currentProcessingTime() {
+    return this.currentAnalysis?.processing_time || 0;
   }
 }

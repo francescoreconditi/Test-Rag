@@ -83,7 +83,10 @@
       "Bash(start cmd /k:*)",
       "Bash(npm start:*)",
       "Bash(ng build:*)",
-      "Bash(ng serve:*)"
+      "Bash(ng serve:*)",
+      "Bash(npm run ng serve:*)",
+      "Bash(uvicorn:*)",
+      "Bash(npm run ng:*)"
     ],
     "deny": [],
     "ask": []

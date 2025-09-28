@@ -13,6 +13,39 @@
   z-index: 1200 !important;
 }
 
+/* DARK MODE BUTTON FIX - GLOBAL OVERRIDE */
+@media (prefers-color-scheme: dark) {
+  .dark-mode-btn {
+    color: #ffffff !important;
+    background-color: rgba(66, 66, 66, 0.9) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+
+    .mat-icon {
+      color: #ffffff !important;
+    }
+
+    &.primary-btn {
+      background-color: #1976d2 !important;
+    }
+
+    &.warn-btn {
+      background-color: #d32f2f !important;
+    }
+  }
+
+  .analysis-actions {
+    background: rgba(45, 45, 48, 0.95) !important;
+
+    .mat-mdc-button, .mat-mdc-raised-button {
+      color: #ffffff !important;
+
+      .mat-icon {
+        color: #ffffff !important;
+      }
+    }
+  }
+}
+
 /* SIMPLE WORKING APPROACH - NO MORE EXPERIMENTS */
 .mat-drawer-content {
   padding-left: 2% !important;

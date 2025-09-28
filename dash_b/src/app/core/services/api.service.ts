@@ -1,7 +1,7 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, throwError } from 'rxjs';
-import { catchError, map, tap, switchMap } from 'rxjs/operators';
+import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
+import { catchError, map, switchMap, tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import {
     CSVAnalysis,
@@ -215,9 +215,14 @@ export class ApiService {
       );
   }
 
-  // PDF Export - Client-side generation since backend endpoint doesn't exist
+  // PDF Export - Using FastAPI backend endpoint for professional PDF generation
   exportToPDF(data: any, type: 'analysis' | 'faq' | 'report'): Observable<Blob> {
-    // Create a client-side PDF generation using browser APIs
+    // Use the new FastAPI endpoint for FAQ PDF generation
+    if (type === 'faq' && data.faqs) {
+      return this.exportFAQToPDF(data.faqs, data.metadata);
+    }
+
+    // Fallback to client-side generation for other types (for now)
     return new Observable(observer => {
       try {
         // Create HTML content for the PDF
@@ -226,14 +231,83 @@ export class ApiService {
         // Convert HTML to blob
         const blob = new Blob([htmlContent], { type: 'text/html' });
 
-        // For now, return HTML that can be printed to PDF
-        // In production, you would use a library like jsPDF or pdfmake
         observer.next(blob);
         observer.complete();
       } catch (error) {
         observer.error(error);
       }
     });
+  }
+
+  // New method to export Analysis to PDF using FastAPI endpoint
+  exportAnalysisToPDF(analysis: string, metadata?: any): Observable<Blob> {
+    const requestBody = {
+      analysis: analysis,
+      metadata: {
+        ...metadata,
+        timestamp: new Date().toLocaleString('it-IT')
+      },
+      filename: `analisi_${new Date().toISOString().split('T')[0].replace(/-/g, '')}`
+    };
+
+    return this.http.post<any>(`${this.baseUrl}/export/pdf/analysis`, requestBody, {
+      headers: this.defaultHeaders
+    }).pipe(
+      map(response => {
+        // Decode base64 PDF
+        const binaryString = atob(response.pdf_b64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return new Blob([bytes], { type: 'application/pdf' });
+      }),
+      catchError(error => {
+        console.error('Error generating Analysis PDF:', error);
+        // Fallback to HTML generation if API fails
+        const htmlContent = this.generatePDFHTML({ analysis }, 'analysis');
+        return of(new Blob([htmlContent], { type: 'text/html' }));
+      })
+    );
+  }
+
+  // New method to export FAQ to PDF using FastAPI endpoint
+  private exportFAQToPDF(faqs: any[], metadata?: any): Observable<Blob> {
+    // Format FAQs as a string for the API
+    const faqString = faqs.map(faq =>
+      `Q: ${faq.question}\nA: ${faq.answer}`
+    ).join('\n\n');
+
+    const requestBody = {
+      faqs: faqString,
+      metadata: {
+        numero_faq: faqs.length,
+        timestamp: new Date().toLocaleString('it-IT'),
+        categoria: 'FAQ Intelligenti',
+        ...metadata
+      },
+      filename: `faq_${new Date().toISOString().split('T')[0].replace(/-/g, '')}`
+    };
+
+    return this.http.post<any>(`${this.baseUrl}/export/pdf/faq`, requestBody, {
+      headers: this.defaultHeaders
+    }).pipe(
+      map(response => {
+        // Decode base64 PDF
+        const binaryString = atob(response.pdf_b64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return new Blob([bytes], { type: 'application/pdf' });
+      }),
+      catchError(error => {
+        console.error('Error generating PDF:', error);
+        // Fallback to HTML generation if API fails
+        const htmlContent = this.generatePDFHTML({ faqs }, 'faq');
+        return of(new Blob([htmlContent], { type: 'text/html' }));
+      })
+    );
   }
 
   private generatePDFHTML(data: any, type: string): string {

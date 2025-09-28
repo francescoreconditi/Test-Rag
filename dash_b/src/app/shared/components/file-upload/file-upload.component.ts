@@ -1,11 +1,11 @@
-import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatCardModule } from '@angular/material/card';
+import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatListModule } from '@angular/material/list';
+import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatIconModule } from '@angular/material/icon';
+import { MatListModule } from '@angular/material/list';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { environment } from '../../../../environments/environment';
 import { FileUploadProgress } from '../../../core/models/ui.model';
@@ -102,16 +102,6 @@ import { FileUploadProgress } from '../../../core/models/ui.model';
           </mat-list>
         </div>
 
-        <!-- File Type Info -->
-        <div class="file-info" *ngIf="showFileInfo">
-          <h5>Formati supportati:</h5>
-          <div class="format-chips">
-            <mat-chip-set>
-              <mat-chip *ngFor="let type of allowedTypes">{{ type.toUpperCase() }}</mat-chip>
-            </mat-chip-set>
-          </div>
-          <p class="size-limit">Dimensione massima: {{ formatFileSize(maxFileSize) }}</p>
-        </div>
       </mat-card-content>
 
       <mat-card-actions *ngIf="uploadFiles.length > 0">
