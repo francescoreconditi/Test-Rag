@@ -957,39 +957,41 @@ export class DocumentRagComponent implements OnInit, OnDestroy {
   exportResult(): void {
     if (!this.queryResult) return;
 
-    const data = {
-      query: this.queryForm.value.query,
-      result: this.queryResult,
-      timestamp: new Date().toISOString()
-    };
-
-    this.apiService.exportToPDF(data, 'report').subscribe({
+    // Use the new FastAPI endpoint for professional PDF generation
+    this.apiService.exportQASessionToPDF(
+      this.queryForm.value.query,
+      this.queryResult.response,
+      this.queryResult.sources,
+      {
+        confidence: this.queryResult.confidence,
+        processing_time: this.queryResult.processing_time,
+        query_type: 'RAG Query',
+        timestamp: new Date().toLocaleString('it-IT')
+      }
+    ).subscribe({
       next: (blob) => {
-        // Create a new window to display the HTML and allow printing to PDF
+        // Direct download of professional PDF
         const url = window.URL.createObjectURL(blob);
-        const printWindow = window.open(url, '_blank');
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `qa_session_${new Date().toISOString().split('T')[0]}.pdf`;
+        link.click();
 
-        // Auto-print after a short delay to allow the page to load
-        if (printWindow) {
-          setTimeout(() => {
-            printWindow.print();
-          }, 1000);
-        }
-
-        // Clean up
+        // Cleanup
         setTimeout(() => {
           window.URL.revokeObjectURL(url);
-        }, 5000);
+        }, 1000);
 
         this.notificationService.showSuccess(
-          'Export Pronto',
-          'Usa la finestra di stampa per salvare come PDF'
+          'PDF Esportato',
+          'Sessione Q&A esportata con successo in PDF professionale'
         );
       },
       error: (error) => {
+        console.error('PDF export error:', error);
         this.notificationService.showError(
           'Errore Export',
-          'Errore durante l\'esportazione del report'
+          'Errore durante l\'esportazione del PDF. Riprova più tardi.'
         );
       }
     });

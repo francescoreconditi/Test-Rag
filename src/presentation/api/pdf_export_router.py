@@ -60,6 +60,30 @@ class FAQPDFRequest(BaseModel):
     filename: Optional[str] = Field(None, description="Nome del file senza estensione", example="faq_aziendali_2024")
 
 
+class QASessionPDFRequest(BaseModel):
+    """Request model per esportazione sessione Q&A PDF."""
+
+    question: str = Field(
+        ..., description="Domanda posta dall'utente", example="Qual è il fatturato dell'azienda nel 2024?"
+    )
+    answer: str = Field(
+        ...,
+        description="Risposta generata dal sistema RAG",
+        example="Il fatturato dell'azienda nel 2024 è di 10 milioni di EUR...",
+    )
+    sources: list[dict[str, Any]] = Field(
+        ...,
+        description="Fonti utilizzate per generare la risposta",
+        example=[{"source": "bilancio_2024.pdf", "page": 12, "score": 0.95}],
+    )
+    metadata: Optional[dict[str, Any]] = Field(
+        None,
+        description="Metadati aggiuntivi per il report",
+        example={"timestamp": "2024-12-07 10:30:00", "query_type": "financial", "confidence": 0.87},
+    )
+    filename: Optional[str] = Field(None, description="Nome del file senza estensione", example="qa_session_2024")
+
+
 class PDFResponse(BaseModel):
     """Response model per esportazione PDF."""
 
@@ -234,6 +258,77 @@ async def save_faq_pdf(request: FAQPDFRequest, pdf_exporter: PDFExporter = Depen
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Errore nella generazione del PDF FAQ: {str(e)}")
+
+
+@router.post(
+    "/qa-session",
+    response_model=PDFResponse,
+    summary="Salva Sessione Q&A come PDF",
+    description="""
+    Genera e salva un PDF contenente una sessione di domanda e risposta.
+
+    Il PDF viene generato con styling professionale ZCS Company e include:
+    - Header con logo aziendale
+    - Domanda dell'utente
+    - Risposta dettagliata del sistema
+    - Fonti utilizzate con riferimenti
+    - Metadati della sessione
+    - Footer con informazioni di contatto
+
+    Il PDF viene restituito codificato in base64 per facilitare il download.
+    """,
+)
+async def save_qa_session_pdf(
+    request: QASessionPDFRequest, pdf_exporter: PDFExporter = Depends(get_pdf_exporter)
+) -> PDFResponse:
+    """
+    Salva una sessione Q&A come PDF formattato professionalmente.
+
+    Args:
+        request: Dati della sessione Q&A (domanda, risposta, fonti)
+        pdf_exporter: Servizio di esportazione PDF
+
+    Returns:
+        PDFResponse: PDF codificato in base64 con metadati
+    """
+    try:
+        # Prepara i metadati
+        metadata = request.metadata or {}
+        if "timestamp" not in metadata:
+            metadata["timestamp"] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        if "query_type" not in metadata:
+            metadata["query_type"] = "Q&A Session"
+
+        # Genera nome file se non fornito
+        filename = request.filename or f"qa_session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        if not filename.endswith(".pdf"):
+            filename += ".pdf"
+
+        # Genera PDF usando il metodo esistente export_qa_session
+        pdf_buffer = pdf_exporter.export_qa_session(
+            question=request.question,
+            answer=request.answer,
+            sources=request.sources,
+            metadata=metadata,
+            filename=filename,
+        )
+
+        # Ottieni bytes del PDF
+        pdf_bytes = pdf_buffer.getvalue()
+
+        # Codifica in base64
+        pdf_b64 = base64.b64encode(pdf_bytes).decode("utf-8")
+
+        return PDFResponse(
+            success=True,
+            filename=filename,
+            pdf_b64=pdf_b64,
+            size_bytes=len(pdf_bytes),
+            timestamp=datetime.now().isoformat(),
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Errore nella generazione del PDF Q&A session: {str(e)}")
 
 
 @router.get(

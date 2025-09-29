@@ -271,6 +271,46 @@ export class ApiService {
     );
   }
 
+  // New method to export Q&A Session to PDF using FastAPI endpoint
+  exportQASessionToPDF(question: string, answer: string, sources: any[], metadata?: any): Observable<Blob> {
+    const requestBody = {
+      question: question,
+      answer: answer,
+      sources: sources,
+      metadata: {
+        ...metadata,
+        timestamp: new Date().toLocaleString('it-IT'),
+        query_type: metadata?.query_type || 'RAG Query'
+      },
+      filename: `qa_session_${new Date().toISOString().split('T')[0].replace(/-/g, '')}`
+    };
+
+    return this.http.post<any>(`${this.baseUrl}/export/pdf/qa-session`, requestBody, {
+      headers: this.defaultHeaders
+    }).pipe(
+      map(response => {
+        // Decode base64 PDF
+        const binaryString = atob(response.pdf_b64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return new Blob([bytes], { type: 'application/pdf' });
+      }),
+      catchError(error => {
+        console.error('Error generating Q&A Session PDF:', error);
+        // Fallback to HTML generation if API fails
+        const htmlContent = this.generatePDFHTML({
+          question,
+          answer,
+          sources,
+          metadata
+        }, 'report');
+        return of(new Blob([htmlContent], { type: 'text/html' }));
+      })
+    );
+  }
+
   // New method to export FAQ to PDF using FastAPI endpoint
   private exportFAQToPDF(faqs: any[], metadata?: any): Observable<Blob> {
     // Format FAQs as a string for the API
