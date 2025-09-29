@@ -86,7 +86,9 @@
       "Bash(ng serve:*)",
       "Bash(npm run ng serve:*)",
       "Bash(uvicorn:*)",
-      "Bash(npm run ng:*)"
+      "Bash(npm run ng:*)",
+      "Bash(xcopy:*)",
+      "Bash(robocopy:*)"
     ],
     "deny": [],
     "ask": []
