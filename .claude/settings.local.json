@@ -83,7 +83,16 @@
       "Bash(start cmd /k:*)",
       "Bash(npm start:*)",
       "Bash(ng build:*)",
-      "Bash(ng serve:*)"
+      "Bash(ng serve:*)",
+      "Bash(cat:*)",
+      "WebFetch(domain:platform.openai.com)",
+      "WebFetch(domain:webrtchacks.com)",
+      "Bash(ng new:*)",
+      "Bash(ng version)",
+      "Bash(robocopy:*)",
+      "Bash(xcopy:*)",
+      "Bash(npm cache clean:*)",
+      "Bash(del /Q package-lock.json)"
     ],
     "deny": [],
     "ask": []
