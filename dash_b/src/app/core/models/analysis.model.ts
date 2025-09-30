@@ -3,6 +3,23 @@ export interface DocumentAnalysis {
   confidence: number;
   sources: SourceReference[];
   metadata: AnalysisMetadata;
+  processing_time?: number;
+  file_info?: FileInfo;
+}
+
+export interface AnalysisResult {
+  analysis: string;
+  confidence: number;
+  sources: SourceReference[];
+  metadata: AnalysisMetadata;
+}
+
+export interface FileInfo {
+  filename: string;
+  size_bytes: number;
+  pages: number;
+  has_tables: boolean;
+  has_ocr?: boolean;
 }
 
 export interface SourceReference {

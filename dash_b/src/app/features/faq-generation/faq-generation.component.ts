@@ -832,32 +832,62 @@ export class FaqGenerationComponent implements OnInit, OnDestroy {
     if (!this.faqResponse) return;
 
     this.apiService.exportToPDF(
-      { faqs: this.faqResponse.faqs, timestamp: new Date().toISOString() },
+      {
+        faqs: this.faqResponse.faqs,
+        metadata: {
+          timestamp: new Date().toISOString(),
+          confidenza_media: `${this.getAverageConfidence()}%`,
+          tempo_elaborazione: `${this.faqResponse.processing_time.toFixed(1)}s`
+        }
+      },
       'faq'
     ).subscribe({
       next: (blob) => {
-        const url = window.URL.createObjectURL(blob);
-        const printWindow = window.open(url, '_blank');
+        // Check if it's a PDF or HTML blob
+        const isPDF = blob.type === 'application/pdf';
 
-        if (printWindow) {
+        if (isPDF) {
+          // Direct download of professional PDF from FastAPI
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `FAQ_${new Date().toISOString().split('T')[0]}.pdf`;
+          link.click();
+
           setTimeout(() => {
-            printWindow.print();
+            window.URL.revokeObjectURL(url);
           }, 1000);
+
+          this.notificationService.showSuccess(
+            'PDF Generato',
+            'Il PDF professionale è stato scaricato con successo'
+          );
+        } else {
+          // Fallback: HTML print preview for older method
+          const url = window.URL.createObjectURL(blob);
+          const printWindow = window.open(url, '_blank');
+
+          if (printWindow) {
+            setTimeout(() => {
+              printWindow.print();
+            }, 1000);
+          }
+
+          setTimeout(() => {
+            window.URL.revokeObjectURL(url);
+          }, 5000);
+
+          this.notificationService.showInfo(
+            'Export PDF',
+            'Usa la finestra di stampa per salvare come PDF'
+          );
         }
-
-        setTimeout(() => {
-          window.URL.revokeObjectURL(url);
-        }, 5000);
-
-        this.notificationService.showSuccess(
-          'Export PDF',
-          'Usa la finestra di stampa per salvare come PDF'
-        );
       },
       error: (error) => {
+        console.error('PDF export error:', error);
         this.notificationService.showError(
           'Errore Export',
-          'Errore durante l\'esportazione PDF'
+          'Errore durante l\'esportazione PDF. Riprova più tardi.'
         );
       }
     });
