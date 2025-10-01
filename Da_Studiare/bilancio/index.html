@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard Bilancio Contabile</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel" data-presets="env,react">
+        const { useMemo, useState, useEffect } = React;
+
+        // Variabili globali per i dati
+        let PERIODO = "";
+        let SEZIONI = {};
+
+        function numberFmt(val) {
+            return val.toLocaleString("it-IT", {
+                style: "currency",
+                currency: "EUR",
+                maximumFractionDigits: 0
+            });
+        }
+
+        function pctFmt(val) { return `${val.toFixed(1)}%`; }
+
+        function calcVariance(actual, target) {
+            if (!target) return 0;
+            return ((actual - target) / target) * 100;
+        }
+
+        const SECTION_COLORS = {
+            "Ricavi": "bg-green-50 border-green-200",
+            "Consumi": "bg-red-50 border-red-200",
+            "Margini": "bg-blue-50 border-blue-200",
+            "Costi": "bg-orange-50 border-orange-200",
+            "Risultati": "bg-purple-50 border-purple-200",
+            "Consolidato": "bg-indigo-50 border-indigo-200"
+        };
+
+        const SECTION_ICONS = {
+            "Ricavi": "💰",
+            "Consumi": "📦",
+            "Margini": "📊",
+            "Costi": "💸",
+            "Risultati": "🎯",
+            "Consolidato": "📈"
+        };
+
+        function BilancioDashboard() {
+            const [selectedSection, setSelectedSection] = useState(null);
+            const [drawerOpen, setDrawerOpen] = useState(false);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+            const [data, setData] = useState(null);
+
+            // Carica dati dal JSON
+            useEffect(() => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const dataFile = urlParams.get('data') || 'bilancio.json';
+
+                console.log(`Caricamento dati da: ${dataFile}`);
+
+                fetch(`./${dataFile}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status} - File non trovato: ${dataFile}`);
+                        }
+                        return response.json();
+                    })
+                    .then(jsonData => {
+                        PERIODO = jsonData.Periodo;
+                        SEZIONI = jsonData.Sezioni;
+                        setData(jsonData);
+                        setLoading(false);
+                    })
+                    .catch(err => {
+                        console.error('Errore caricamento dati:', err);
+                        setError(err.message);
+                        setLoading(false);
+                    });
+            }, []);
+
+            const kpiSummary = useMemo(() => {
+                if (!data) return null;
+
+                const ricavi = SEZIONI.Ricavi?.Consuntivo?.Totale || 0;
+                const ricaviBudget = SEZIONI.Ricavi?.Budget?.Totale || 0;
+                const ebitda = SEZIONI.Risultati?.Consuntivo?.EBITDA || 0;
+                const ebitdaBudget = SEZIONI.Risultati?.Budget?.EBITDA || 0;
+                const ebit = SEZIONI.Risultati?.Consuntivo?.EBIT || 0;
+                const grossMargin = SEZIONI.Margini?.Consuntivo?.["Gross Margin %"] || 0;
+
+                return {
+                    ricavi,
+                    ricaviBudget,
+                    ricaviVar: calcVariance(ricavi, ricaviBudget),
+                    ebitda,
+                    ebitdaBudget,
+                    ebitdaVar: calcVariance(ebitda, ebitdaBudget),
+                    ebitdaMargin: ricavi ? (ebitda / ricavi) * 100 : 0,
+                    ebit,
+                    grossMargin
+                };
+            }, [data]);
+
+            if (loading) {
+                return (
+                    <div className="w-full h-screen flex items-center justify-center">
+                        <div className="text-center">
+                            <div className="text-2xl font-semibold mb-2">Caricamento dati bilancio...</div>
+                            <div className="text-gray-500">Attendere prego</div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (error) {
+                return (
+                    <div className="w-full h-screen flex items-center justify-center">
+                        <div className="text-center max-w-md">
+                            <div className="text-2xl font-semibold mb-2 text-red-600">Errore caricamento dati</div>
+                            <div className="text-gray-700 mb-4">{error}</div>
+                            <div className="text-sm text-gray-500">Assicurati che il file JSON sia presente nella directory.</div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="w-full p-6 space-y-6">
+                    {/* Header */}
+                    <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+                        <div>
+                            <h1 className="text-2xl font-semibold">Dashboard Bilancio Contabile</h1>
+                            <p className="text-sm text-gray-600">Periodo: {PERIODO} · Valuta: EUR</p>
+                            <div className="mt-2 text-sm text-gray-700">
+                                <span className="font-medium">Percorso:</span>{" "}
+                                <span>
+                                    Panoramica
+                                    {selectedSection && <> → <span className="font-medium">{selectedSection}</span></>}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <div className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">Consuntivo</div>
+                            <div className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">Budget</div>
+                            <div className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm">Anno Prec.</div>
+                        </div>
+                    </div>
+
+                    {/* KPI Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="rounded-2xl border p-4 shadow-sm bg-white">
+                            <div className="text-sm text-gray-500">Ricavi Totali</div>
+                            <div className="text-2xl font-semibold">{numberFmt(kpiSummary.ricavi)}</div>
+                            <div className="mt-2 text-xs">
+                                <span className={kpiSummary.ricaviVar >= 0 ? "text-green-600" : "text-red-600"}>
+                                    {kpiSummary.ricaviVar >= 0 ? "▲" : "▼"} {pctFmt(Math.abs(kpiSummary.ricaviVar))} vs Budget
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl border p-4 shadow-sm bg-white">
+                            <div className="text-sm text-gray-500">EBITDA</div>
+                            <div className="text-2xl font-semibold">{numberFmt(kpiSummary.ebitda)}</div>
+                            <div className="mt-2 text-xs">
+                                <span className={kpiSummary.ebitdaVar >= 0 ? "text-green-600" : "text-red-600"}>
+                                    {kpiSummary.ebitdaVar >= 0 ? "▲" : "▼"} {pctFmt(Math.abs(kpiSummary.ebitdaVar))} vs Budget
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl border p-4 shadow-sm bg-white">
+                            <div className="text-sm text-gray-500">EBITDA Margin %</div>
+                            <div className="text-2xl font-semibold">{pctFmt(kpiSummary.ebitdaMargin)}</div>
+                            <div className="mt-2 text-xs text-gray-500">
+                                EBITDA / Ricavi Totali
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl border p-4 shadow-sm bg-white">
+                            <div className="text-sm text-gray-500">Gross Margin %</div>
+                            <div className="text-2xl font-semibold">{pctFmt(kpiSummary.grossMargin)}</div>
+                            <div className="mt-2 text-xs text-gray-500">
+                                EBIT: {numberFmt(kpiSummary.ebit)}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Sezioni principali */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {Object.keys(SEZIONI).map((sectionName) => {
+                            const section = SEZIONI[sectionName];
+                            const consuntivo = section.Consuntivo;
+                            const budget = section.Budget;
+                            const annoPrecedente = section.AnnoPrecedente;
+
+                            // Trova il valore principale per questa sezione
+                            const mainValue = consuntivo.Totale || consuntivo.EBITDA || consuntivo["Gross Margin"] || consuntivo["Ricavi netti"];
+                            const budgetValue = budget.Totale || budget.EBITDA || budget["Gross Margin"] || budget["Ricavi netti"];
+                            const variance = calcVariance(mainValue, budgetValue);
+
+                            return (
+                                <div
+                                    key={sectionName}
+                                    onClick={() => { setSelectedSection(sectionName); setDrawerOpen(true); }}
+                                    className={`rounded-2xl border p-4 shadow-sm cursor-pointer hover:shadow-md transition ${SECTION_COLORS[sectionName] || "bg-white"}`}
+                                >
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="text-lg font-medium">{SECTION_ICONS[sectionName]} {sectionName}</div>
+                                        <span className="text-xs text-blue-600 underline">Dettagli →</span>
+                                    </div>
+                                    {mainValue && (
+                                        <>
+                                            <div className="text-xl font-semibold">{numberFmt(mainValue)}</div>
+                                            <div className="mt-2 text-xs text-gray-600">
+                                                Budget: {numberFmt(budgetValue)} ·{" "}
+                                                <span className={variance >= 0 ? "text-green-600" : "text-red-600"}>
+                                                    {variance >= 0 ? "▲" : "▼"} {pctFmt(Math.abs(variance))}
+                                                </span>
+                                            </div>
+                                        </>
+                                    )}
+                                    <div className="mt-2 text-xs text-gray-500">
+                                        {Object.keys(consuntivo).length} voci di dettaglio
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* Drawer dettaglio */}
+                    {drawerOpen && selectedSection && (
+                        <div className="fixed inset-0 z-40">
+                            <div className="absolute inset-0 bg-black/30" onClick={() => setDrawerOpen(false)} />
+                            <div className="absolute right-0 top-0 h-full w-full sm:w-[640px] bg-white shadow-2xl p-6 overflow-y-auto">
+                                <div className="flex items-start justify-between gap-4 mb-6">
+                                    <div>
+                                        <div className="text-xs text-gray-500">Dettaglio Sezione</div>
+                                        <h2 className="text-xl font-semibold">{SECTION_ICONS[selectedSection]} {selectedSection}</h2>
+                                        <p className="text-sm text-gray-600 mt-1">Periodo: {PERIODO}</p>
+                                    </div>
+                                    <button className="text-sm px-3 py-1 rounded-md border hover:bg-gray-50" onClick={() => setDrawerOpen(false)}>
+                                        Chiudi
+                                    </button>
+                                </div>
+
+                                {/* Tabella comparativa */}
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="text-left border-b-2">
+                                                <th className="py-2 pr-4">Voce</th>
+                                                <th className="py-2 pr-4 text-right">Consuntivo</th>
+                                                <th className="py-2 pr-4 text-right">Budget</th>
+                                                <th className="py-2 pr-4 text-right">Anno Prec.</th>
+                                                <th className="py-2 pr-4 text-right">Δ Budget</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {Object.keys(SEZIONI[selectedSection].Consuntivo).map((voce) => {
+                                                const consuntivo = SEZIONI[selectedSection].Consuntivo[voce];
+                                                const budget = SEZIONI[selectedSection].Budget?.[voce] || 0;
+                                                const annoPrecedente = SEZIONI[selectedSection].AnnoPrecedente?.[voce] || 0;
+                                                const variance = calcVariance(consuntivo, budget);
+                                                const isPercentage = voce.includes("%");
+                                                const isTotal = voce === "Totale" || voce.includes("Totali");
+
+                                                return (
+                                                    <tr key={voce} className={`border-b hover:bg-gray-50 ${isTotal ? "font-semibold bg-gray-100" : ""}`}>
+                                                        <td className="py-2 pr-4">{voce}</td>
+                                                        <td className="py-2 pr-4 text-right">
+                                                            {isPercentage ? pctFmt(consuntivo) : numberFmt(consuntivo)}
+                                                        </td>
+                                                        <td className="py-2 pr-4 text-right text-gray-600">
+                                                            {isPercentage ? pctFmt(budget) : numberFmt(budget)}
+                                                        </td>
+                                                        <td className="py-2 pr-4 text-right text-gray-500">
+                                                            {isPercentage ? pctFmt(annoPrecedente) : numberFmt(annoPrecedente)}
+                                                        </td>
+                                                        <td className={`py-2 pr-4 text-right ${variance >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                                            {!isPercentage && (variance >= 0 ? "▲" : "▼")} {pctFmt(Math.abs(variance))}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Note analitiche */}
+                                <div className="mt-6 rounded-xl border p-4 bg-gray-50">
+                                    <div className="text-sm font-medium mb-1">Analisi AI (esempio)</div>
+                                    <p className="text-xs text-gray-600 mb-3">
+                                        Quando l'utente apre questo pannello, il sistema può inviare i dati al modello LLM per un'analisi automatica.
+                                    </p>
+                                    <pre className="text-xs whitespace-pre-wrap leading-5 bg-white p-3 rounded-md border overflow-x-auto">
+{`Prompt (esempio):
+Sei un CFO analyst. Analizza la sezione "${selectedSection}" del bilancio.
+Periodo: ${PERIODO}
+Confronta Consuntivo vs Budget e vs Anno Precedente.
+Evidenzia:
+- Scostamenti significativi (>10%)
+- Trend positivi/negativi
+- Possibili azioni correttive
+- Alert su voci anomale
+
+Rispondi in 150-200 parole, citando valori specifici.`}
+                                    </pre>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Footer */}
+                    <div className="text-xs text-gray-500">
+                        Dati caricati da: {new URLSearchParams(window.location.search).get('data') || 'bilancio.json'} |
+                        Suggerimento: usa ?data=nome_file.json per caricare periodi diversi
+                    </div>
+                </div>
+            );
+        }
+
+        // Mount
+        function App() { return <BilancioDashboard />; }
+        const root = ReactDOM.createRoot(document.getElementById("root"));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>
