@@ -6,10 +6,10 @@ import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatExpansionModule } from '@angular/material/expansion';
-import { MatListModule } from '@angular/material/list';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatListModule } from '@angular/material/list';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTabsModule } from '@angular/material/tabs';
@@ -22,6 +22,7 @@ import { NotificationService } from '../../core/services/notification.service';
 import { FileUploadComponent } from '../../shared/components/file-upload/file-upload.component';
 import { LoadingComponent } from '../../shared/components/loading/loading.component';
 import { VoiceInputComponent } from '../../shared/components/voice-input/voice-input.component';
+import { WebRTCVoiceComponent } from '../../shared/components/webrtc-voice/webrtc-voice.component';
 
 @Component({
   selector: 'app-document-rag',
@@ -43,7 +44,8 @@ import { VoiceInputComponent } from '../../shared/components/voice-input/voice-i
     MatSnackBarModule,
     LoadingComponent,
     FileUploadComponent,
-    VoiceInputComponent
+    VoiceInputComponent,
+    WebRTCVoiceComponent
   ],
   template: `
     <div class="document-rag-container">
@@ -239,6 +241,15 @@ import { VoiceInputComponent } from '../../shared/components/voice-input/voice-i
                       (sessionStarted)="onVoiceSessionStarted()"
                       (sessionEnded)="onVoiceSessionEnded()">
                     </app-voice-input>
+
+                    <!-- WebRTC Voice Component (Premium) -->
+                    <app-webrtc-voice
+                      #webrtcVoice
+                      [autoConnect]="false"
+                      (transcriptReceived)="onWebRTCTranscriptReceived($event)"
+                      (connectionStateChanged)="onWebRTCStateChanged($event)"
+                      (audioDataReceived)="onWebRTCAudioReceived($event)">
+                    </app-webrtc-voice>
 
                     <!-- Test Text Button -->
                     <button
@@ -772,6 +783,7 @@ import { VoiceInputComponent } from '../../shared/components/voice-input/voice-i
 })
 export class DocumentRagComponent implements OnInit, OnDestroy {
   @ViewChild('voiceInput') voiceInputComponent!: VoiceInputComponent;
+  @ViewChild('webrtcVoice') webrtcVoiceComponent!: WebRTCVoiceComponent;
 
   selectedTabIndex = 0;
   selectedFiles: File[] = [];
@@ -783,6 +795,7 @@ export class DocumentRagComponent implements OnInit, OnDestroy {
   isQuerying = false;
   isVoiceSessionActive = false;
   isVoiceQuery = false; // Track if current query came from voice
+  isWebRTCActive = false; // Track WebRTC connection status
   loadingMessage = '';
 
   analysisForm: FormGroup;
@@ -1172,6 +1185,49 @@ export class DocumentRagComponent implements OnInit, OnDestroy {
         'Sessione vocale terminata'
       );
     }
+  }
+
+  // WebRTC Voice Event Handlers
+  onWebRTCTranscriptReceived(transcript: string): void {
+    console.log('🎙️ WebRTC transcript received:', transcript);
+    if (transcript && transcript.trim()) {
+      // Set the transcript in the query form
+      this.queryForm.patchValue({ query: transcript });
+
+      // Mark this as a voice query
+      this.isVoiceQuery = true;
+
+      // Show notification with premium badge
+      this.notificationService.showSuccess(
+        'WebRTC Premium',
+        '🎙️ Trascrizione real-time - Invio al RAG...'
+      );
+
+      // Automatically execute the query through RAG backend
+      this.executeQuery();
+    }
+  }
+
+  onWebRTCStateChanged(state: any): void {
+    this.isWebRTCActive = state.isConnected;
+
+    if (state.isConnected) {
+      this.notificationService.showSuccess(
+        'WebRTC Connesso',
+        '🚀 Audio real-time attivo - Qualità premium'
+      );
+    } else if (state.error) {
+      this.notificationService.showError(
+        'WebRTC Errore',
+        state.error
+      );
+    }
+  }
+
+  onWebRTCAudioReceived(audioData: ArrayBuffer): void {
+    console.log('🎵 WebRTC audio data received:', audioData.byteLength, 'bytes');
+    // Audio data is handled automatically by the WebRTC component
+    // This event is just for monitoring/logging
   }
 
   // New methods for Analysis PDF Export

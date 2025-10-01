@@ -15,6 +15,7 @@ import numpy as np
 from qdrant_client.models import DatetimeRange, Distance, FieldCondition, Filter, VectorParams
 
 from config.settings import settings
+from services.audio_overview_service import clean_markdown
 from services.format_helper import format_analysis_result
 from services.prompt_router import choose_prompt
 from services.query_cache import QueryCache
@@ -43,8 +44,8 @@ except ImportError:
     HyDEQueryEngine = None
 
 try:
-    from services.reranking_service import get_reranking_service
     from services.contextual_retrieval_service import get_contextual_retrieval_service
+    from services.reranking_service import get_reranking_service
 
     QUALITY_FEATURES_AVAILABLE = True
 except ImportError:
@@ -857,6 +858,7 @@ class RAGEngine:
 
             result = {
                 "answer": response_text,
+                "unformattedAnswer": clean_markdown(response_text),
                 "sources": sources,
                 "confidence": sources[0]["score"] if sources else 0,
                 "analysis_type": analysis_type or "standard",
@@ -1088,6 +1090,7 @@ class RAGEngine:
             # Convert processing result to standard query response format
             enterprise_response = {
                 "answer": ai_response["answer"],
+                "unformattedAnswer": clean_markdown(ai_response["answer"]),
                 "sources": ai_response["sources"],
                 "confidence": processing_result.confidence_score,
                 "analysis_type": "enterprise",

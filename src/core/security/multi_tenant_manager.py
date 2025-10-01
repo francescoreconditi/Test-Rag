@@ -81,10 +81,17 @@ class MultiTenantManager:
 
         return secrets.token_urlsafe(32)
 
+    def _get_db_connection(self):
+        """Get a database connection with proper settings for concurrent access."""
+        conn = sqlite3.connect(self.database_path, timeout=30.0)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=30000")
+        return conn
+
     def _init_database(self):
         """Initialize the multi-tenant database schema."""
         try:
-            with sqlite3.connect(self.database_path) as conn:
+            with self._get_db_connection() as conn:
                 conn.executescript("""
                     CREATE TABLE IF NOT EXISTS tenants (
                         tenant_id TEXT PRIMARY KEY,
@@ -169,7 +176,7 @@ class MultiTenantManager:
         # Store tenant
         tenant_data = json.dumps(tenant_context.to_dict())
 
-        with sqlite3.connect(self.database_path) as conn:
+        with self._get_db_connection() as conn:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO tenants (tenant_id, tenant_data, created_at, updated_at)
@@ -194,7 +201,7 @@ class MultiTenantManager:
         try:
             tenant_data = json.dumps(tenant_context.to_dict())
 
-            with sqlite3.connect(self.database_path) as conn:
+            with self._get_db_connection() as conn:
                 conn.execute(
                     """
                     INSERT INTO tenants (tenant_id, tenant_data, created_at, updated_at)
@@ -207,6 +214,7 @@ class MultiTenantManager:
                         tenant_context.updated_at.isoformat(),
                     ),
                 )
+                conn.commit()
 
             # Add to cache
             self._tenant_cache[tenant_context.tenant_id] = tenant_context
@@ -232,7 +240,7 @@ class MultiTenantManager:
             return self._tenant_cache[tenant_id]
 
         try:
-            with sqlite3.connect(self.database_path) as conn:
+            with self._get_db_connection() as conn:
                 cursor = conn.execute("SELECT tenant_data FROM tenants WHERE tenant_id = ?", (tenant_id,))
                 row = cursor.fetchone()
 
@@ -257,7 +265,7 @@ class MultiTenantManager:
             return self._tenant_cache[tenant_id]
 
         try:
-            with sqlite3.connect(self.database_path) as conn:
+            with self._get_db_connection() as conn:
                 cursor = conn.execute("SELECT tenant_data FROM tenants WHERE tenant_id = ?", (tenant_id,))
                 row = cursor.fetchone()
 
@@ -280,7 +288,7 @@ class MultiTenantManager:
         try:
             tenant_data = json.dumps(tenant_context.to_dict())
 
-            with sqlite3.connect(self.database_path) as conn:
+            with self._get_db_connection() as conn:
                 conn.execute(
                     """
                     UPDATE tenants
@@ -289,6 +297,7 @@ class MultiTenantManager:
                 """,
                     (tenant_data, tenant_context.updated_at.isoformat(), tenant_context.tenant_id),
                 )
+                conn.commit()
 
             # Update cache
             self._tenant_cache[tenant_context.tenant_id] = tenant_context
@@ -370,7 +379,7 @@ class MultiTenantManager:
             password_hash = self._hash_password(password)
             user_id = f"{tenant_id}_{hashlib.md5(email.encode()).hexdigest()[:8]}"
 
-            with sqlite3.connect(self.database_path) as conn:
+            with self._get_db_connection() as conn:
                 conn.execute(
                     """
                     INSERT INTO tenant_users (user_id, tenant_id, email, password_hash, permissions, created_at)
@@ -378,6 +387,7 @@ class MultiTenantManager:
                 """,
                     (user_id, tenant_id, email, password_hash, json.dumps(permissions), datetime.now().isoformat()),
                 )
+                conn.commit()
 
             await self._log_security_event(tenant_id, "user_created", {"email": email, "permissions": permissions})
 
@@ -389,19 +399,35 @@ class MultiTenantManager:
             return False
 
     async def login_tenant_user(
-        self, email: str, password: str, ip_address: Optional[str] = None, user_agent: Optional[str] = None
+        self,
+        email: str,
+        password: str,
+        tenant_id: Optional[str] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
     ) -> Optional[str]:
-        """Login a tenant user and return JWT token."""
+        """Login a tenant user and return JWT token. If tenant_id is provided, only authenticates for that tenant."""
         try:
-            with sqlite3.connect(self.database_path) as conn:
-                cursor = conn.execute(
-                    """
-                    SELECT user_id, tenant_id, password_hash, permissions
-                    FROM tenant_users
-                    WHERE email = ?
-                """,
-                    (email,),
-                )
+            with self._get_db_connection() as conn:
+                # Build query based on whether tenant_id is specified
+                if tenant_id:
+                    cursor = conn.execute(
+                        """
+                        SELECT user_id, tenant_id, password_hash, permissions
+                        FROM tenant_users
+                        WHERE email = ? AND tenant_id = ?
+                    """,
+                        (email, tenant_id),
+                    )
+                else:
+                    cursor = conn.execute(
+                        """
+                        SELECT user_id, tenant_id, password_hash, permissions
+                        FROM tenant_users
+                        WHERE email = ?
+                    """,
+                        (email,),
+                    )
                 row = cursor.fetchone()
 
                 if not row:
@@ -443,6 +469,7 @@ class MultiTenantManager:
                 """,
                     (datetime.now().isoformat(), user_id),
                 )
+                conn.commit()
 
                 await self._log_security_event(tenant_id, "login_successful", {"email": email, "ip": ip_address})
 
@@ -456,7 +483,7 @@ class MultiTenantManager:
     async def logout_tenant_user(self, session_id: str) -> bool:
         """Logout a tenant user by invalidating their session."""
         try:
-            with sqlite3.connect(self.database_path) as conn:
+            with self._get_db_connection() as conn:
                 # Get session info for logging
                 cursor = conn.execute(
                     """
@@ -471,6 +498,7 @@ class MultiTenantManager:
 
                     # Delete session
                     conn.execute("DELETE FROM tenant_sessions WHERE session_id = ?", (session_id,))
+                    conn.commit()
 
                     # Remove from cache
                     if session_id in self._session_cache:
@@ -510,7 +538,7 @@ class MultiTenantManager:
             return self._session_cache[session_id]
 
         try:
-            with sqlite3.connect(self.database_path) as conn:
+            with self._get_db_connection() as conn:
                 cursor = conn.execute(
                     """
                     SELECT session_data FROM tenant_sessions
@@ -585,7 +613,7 @@ class MultiTenantManager:
             "user_agent": user_agent,
         }
 
-        with sqlite3.connect(self.database_path) as conn:
+        with self._get_db_connection() as conn:
             conn.execute(
                 """
                 INSERT INTO tenant_sessions (session_id, tenant_id, user_id, session_data, created_at, expires_at)
@@ -593,6 +621,7 @@ class MultiTenantManager:
             """,
                 (session_id, tenant_id, user_id, json.dumps(session_data), now.isoformat(), expires_at.isoformat()),
             )
+            conn.commit()
 
         # Add to cache
         self._session_cache[session_id] = session
@@ -668,7 +697,7 @@ class MultiTenantManager:
     ):
         """Log security events for audit trail."""
         try:
-            with sqlite3.connect(self.database_path) as conn:
+            with self._get_db_connection() as conn:
                 conn.execute(
                     """
                     INSERT INTO security_events (tenant_id, event_type, event_data, ip_address, user_agent, timestamp)
@@ -676,6 +705,7 @@ class MultiTenantManager:
                 """,
                     (tenant_id, event_type, json.dumps(event_data), ip_address, user_agent, datetime.now().isoformat()),
                 )
+                conn.commit()
         except Exception as e:
             logger.error(f"Failed to log security event: {e}")
 
@@ -684,7 +714,7 @@ class MultiTenantManager:
         try:
             now = datetime.now().isoformat()
 
-            with sqlite3.connect(self.database_path) as conn:
+            with self._get_db_connection() as conn:
                 # Get expired session IDs
                 cursor = conn.execute(
                     """
@@ -696,6 +726,7 @@ class MultiTenantManager:
 
                 # Delete expired sessions
                 conn.execute("DELETE FROM tenant_sessions WHERE expires_at <= ?", (now,))
+                conn.commit()
 
             # Remove from cache
             for session_id in expired_sessions:
@@ -727,7 +758,7 @@ class MultiTenantManager:
             query += " ORDER BY timestamp DESC LIMIT ?"
             params.append(limit)
 
-            with sqlite3.connect(self.database_path) as conn:
+            with self._get_db_connection() as conn:
                 cursor = conn.execute(query, params)
                 events = []
 
@@ -772,7 +803,7 @@ class MultiTenantManager:
         # Store in database
         session_data = json.dumps({"user_id": user_id, "user_email": user_email, "permissions": session.permissions})
 
-        with sqlite3.connect(self.database_path) as conn:
+        with self._get_db_connection() as conn:
             conn.execute(
                 """
                 INSERT INTO tenant_sessions (session_id, tenant_id, user_id, session_data, created_at, expires_at)
@@ -780,6 +811,7 @@ class MultiTenantManager:
             """,
                 (session_id, tenant_id, user_id, session_data, now.isoformat(), expires_at.isoformat()),
             )
+            conn.commit()
 
         return session_id
 
@@ -792,7 +824,7 @@ class MultiTenantManager:
                     return True
 
         # Check database
-        with sqlite3.connect(self.database_path) as conn:
+        with self._get_db_connection() as conn:
             cursor = conn.execute(
                 """
                 SELECT expires_at FROM tenant_sessions
