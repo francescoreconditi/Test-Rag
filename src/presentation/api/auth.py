@@ -28,6 +28,7 @@ JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 # Initialize multi-tenant manager singleton
 _manager_instance = None
 
+
 def get_manager() -> MultiTenantManager:
     """Get or create the MultiTenantManager singleton instance."""
     global _manager_instance
@@ -38,6 +39,7 @@ def get_manager() -> MultiTenantManager:
 
 class LoginRequest(BaseModel):
     """Login request model."""
+
     email: str
     password: str
     tenant_id: Optional[str] = None
@@ -45,6 +47,7 @@ class LoginRequest(BaseModel):
 
 class LoginResponse(BaseModel):
     """Login response model."""
+
     access_token: str
     token_type: str = "bearer"
     tenant_id: str
@@ -56,6 +59,7 @@ class LoginResponse(BaseModel):
 
 class TokenData(BaseModel):
     """Decoded JWT token data."""
+
     session_id: str
     tenant_id: str
     user_id: str
@@ -75,11 +79,7 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Security(secu
 
     try:
         # Decode token using manager's secret
-        payload = jwt.decode(
-            token,
-            manager.jwt_secret,
-            algorithms=[manager.jwt_algorithm]
-        )
+        payload = jwt.decode(token, manager.jwt_secret, algorithms=[manager.jwt_algorithm])
 
         # Validate session exists and is active
         session_id = payload.get("session_id")
@@ -115,7 +115,7 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Security(secu
             user_email=session.user_email,
             permissions=session.permissions,
             exp=session.expires_at,
-            iat=session.created_at
+            iat=session.created_at,
         )
 
     except JWTError as e:
@@ -128,8 +128,7 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Security(secu
         raise
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Token verification failed: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Token verification failed: {str(e)}"
         )
 
 
@@ -146,21 +145,14 @@ async def get_current_tenant(token_data: TokenData = Depends(verify_token)) -> T
 
         if not tenant:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Tenant {token_data.tenant_id} not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail=f"Tenant {token_data.tenant_id} not found"
             )
 
         # Validate session is still active
-        is_valid = manager.validate_session(
-            token_data.tenant_id,
-            token_data.user_id
-        )
+        is_valid = manager.validate_session(token_data.tenant_id, token_data.user_id)
 
         if not is_valid:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Session is no longer valid"
-            )
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session is no longer valid")
 
         return tenant
 
@@ -168,13 +160,12 @@ async def get_current_tenant(token_data: TokenData = Depends(verify_token)) -> T
         raise
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get tenant context: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get tenant context: {str(e)}"
         )
 
 
 async def get_optional_tenant(
-    credentials: Optional[HTTPAuthorizationCredentials] = Security(security)
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(security),
 ) -> Optional[TenantContext]:
     """
     Get optional tenant context (for endpoints that work with or without auth).
@@ -227,47 +218,52 @@ async def login(request: LoginRequest) -> LoginResponse:
 
     try:
         # Determine tenant_id (from request or derive from email)
+        # Always extract domain for potential tenant creation
+        domain = request.email.split("@")[1] if "@" in request.email else "default"
+
         if request.tenant_id:
             tenant_id = request.tenant_id
         else:
-            # Derive from email domain
-            domain = request.email.split("@")[1] if "@" in request.email else "default"
             tenant_id = f"tenant_{domain.replace('.', '_')}"
 
         # Check if tenant exists
         tenant = manager.get_tenant(tenant_id)
         if not tenant:
-            # Create new tenant for demo/testing
-            # In production, this should be an admin-only operation
+            # Create new tenant automatically
             tenant = manager.create_tenant(
                 tenant_id=tenant_id,
-                company_name=f"{domain.title()} Company" if "@" in request.email else "Default Company",
+                company_name=f"{domain.title()} Company",
                 tier=TenantTier.PREMIUM,
-                admin_email=request.email
+                admin_email=request.email,
             )
 
             # Create user for the new tenant
-            await manager.create_tenant_user(
+            user_created = await manager.create_tenant_user(
                 tenant_id=tenant_id,
                 email=request.email,
                 password=request.password,
-                permissions=["read", "write", "delete"]
+                permissions=["read", "write", "delete"],
             )
 
+            if not user_created:
+                # User with this email already exists in another tenant
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"User with email {request.email} already exists in another tenant. Please use a different email or login to your existing tenant.",
+                )
+
         # Authenticate using MultiTenantManager
-        # Note: login_tenant_user doesn't take tenant_id, it finds it from email
+        # Pass tenant_id to ensure login for correct tenant
         token = await manager.login_tenant_user(
             email=request.email,
             password=request.password,
+            tenant_id=tenant_id,
             ip_address=None,  # Could be extracted from request
-            user_agent=None   # Could be extracted from request
+            user_agent=None,  # Could be extracted from request
         )
 
         if not token:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid credentials"
-            )
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
         # Decode token to get session_id
         payload = jwt.decode(token, manager.jwt_secret, algorithms=[manager.jwt_algorithm])
@@ -281,16 +277,13 @@ async def login(request: LoginRequest) -> LoginResponse:
             tier=tenant.tier.value,
             expires_in=int(manager.session_duration.total_seconds()),
             session_id=session_id,
-            permissions=permissions
+            permissions=permissions,
         )
 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Login failed: {str(e)}"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Login failed: {str(e)}")
 
 
 async def logout(token_data: TokenData = Depends(verify_token)) -> dict:
@@ -305,16 +298,10 @@ async def logout(token_data: TokenData = Depends(verify_token)) -> dict:
         if success:
             return {"message": "Logged out successfully"}
         else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to logout"
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to logout")
 
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Logout failed: {str(e)}"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Logout failed: {str(e)}")
 
 
 # Backward compatibility aliases

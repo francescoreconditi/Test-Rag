@@ -27,6 +27,7 @@ from typing import Any, Optional
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
+
 load_dotenv()
 
 # FastAPI imports
@@ -49,6 +50,9 @@ from src.application.services.pdf_processor import PDFProcessor
 from src.domain.entities.tenant_context import TenantContext
 from src.presentation.streamlit.pdf_exporter import PDFExporter
 
+# WebSocket routes for voice communication
+from . import websocket_routes
+
 # Multi-tenant authentication (v2 based on MultiTenantManager)
 from .auth import (
     LoginRequest,
@@ -62,9 +66,6 @@ from .auth import (
 
 # Scalar documentation
 from .config.scalar_docs import add_scalar_docs
-
-# WebSocket routes for voice communication
-from . import websocket_routes
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -178,6 +179,11 @@ class AnalysisResult(BaseModel):
 
     analysis: str = Field(
         ..., description="Testo analisi principale", example="L'azienda mostra performance finanziarie solide..."
+    )
+    unformattedAnalysis: str = Field(
+        ...,
+        description="Testo analisi principale Ripulito dal Markdown",
+        example="L'azienda mostra performance finanziarie solide...",
     )
     confidence: float = Field(..., description="Punteggio confidenza analisi", example=0.85)
     sources: list[dict[str, Any]] = Field(
@@ -356,6 +362,7 @@ async def rest_login(request: LoginRequest):
 )
 async def rest_logout(token_data: TokenData = Depends(verify_token)):
     from .auth import logout
+
     return await logout(token_data)
 
 
@@ -368,6 +375,7 @@ async def rest_logout(token_data: TokenData = Depends(verify_token)):
 async def get_tenant_info(tenant: TenantContext = Depends(get_current_tenant)):
     """Get current tenant information."""
     from .auth import get_manager
+
     manager = get_manager()
     usage = manager.get_tenant_usage(tenant.tenant_id)
 
@@ -585,6 +593,7 @@ async def analyze_stored_documents(
             )
         analysis_result = AnalysisResult(
             analysis=analysis_response["answer"],
+            unformattedAnalysis=analysis_response["unformattedAnswer"],
             confidence=analysis_response.get("confidence", 0.8),
             sources=analysis_response.get("sources", []),
             metadata={
@@ -753,6 +762,7 @@ async def analyze_pdf(
 
         # Track usage
         from .auth import get_manager
+
         manager = get_manager()
         manager.track_usage(tenant.tenant_id, "documents", 1)
 
@@ -1335,6 +1345,7 @@ async def general_exception_handler(request, exc):
 # Include PDF Export Routes
 try:
     from src.presentation.api.pdf_export_router import router as pdf_export_router
+
     app.include_router(pdf_export_router)
     logger.info("✅ PDF export routes registered")
     PDF_EXPORT_ROUTES_AVAILABLE = True
