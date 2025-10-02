@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MiniDashboard Contabilità Analitica</title>
+  <!-- Tailwind via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root{ --card-bg:#fff; --card-br:#e5e7eb; --txt-muted:#6b7280; --radius:1rem; --shadow:0 1px 2px rgba(0,0,0,.08); }
+    body{ background:#f9fafb; color:#111827; }
+    .card{ background:var(--card-bg); border:1px solid var(--card-br); border-radius:var(--radius); padding:1.25rem; box-shadow:var(--shadow); }
+    .kpi{ font-size:1.5rem; font-weight:600; }
+    .kpi-sub{ font-size:.75rem; color:var(--txt-muted); }
+    .badge{ display:inline-flex; align-items:center; padding:.1rem .5rem; border-radius:9999px; font-size:.75rem; font-weight:500; border:1px solid transparent; }
+    .badge-green{ background:#ecfdf5; color:#065f46; border-color:#a7f3d0; }
+    .badge-red{ background:#fef2f2; color:#991b1b; border-color:#fecaca; }
+    .grid-autofit{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1rem; }
+    table th, table td{ padding:.35rem .25rem; }
+    code{ background:#f3f4f6; padding:.1rem .3rem; border-radius:.375rem; }
+  </style>
+</head>
+<body class="text-gray-900">
+  <div class="max-w-7xl mx-auto p-6">
+    <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight">MiniDashboard &mdash; Contabilità Analitica</h1>
+        <p class="text-sm text-gray-500">KPI manageriali con filtri per periodo e centro di costo</p>
+      </div>
+      <div class="flex flex-wrap gap-2 items-center">
+        <label class="text-sm text-gray-600">Periodo</label>
+        <select id="periodSelect" class="card p-2"></select>
+        <label class="text-sm text-gray-600 ml-2">Centro di costo</label>
+        <select id="ccSelect" class="card p-2"></select>
+        <button id="resetBtn" class="card py-2 px-3 hover:bg-gray-50">Reset</button>
+      </div>
+    </header>
+
+    <!-- KPI -->
+    <section class="grid-autofit mb-6" id="kpiRow">
+      <div class="card"><div class="text-sm text-gray-500">Ricavi</div><div class="kpi" id="kpiRevenue">€ 0</div><div class="kpi-sub" id="kpiRevenueVar">Var. vs Budget</div></div>
+      <div class="card"><div class="text-sm text-gray-500">COGS</div><div class="kpi" id="kpiCOGS">€ 0</div><div class="kpi-sub" id="kpiCOGSMargin">% su Ricavi</div></div>
+      <div class="card"><div class="text-sm text-gray-500">Margine Lordo</div><div class="kpi" id="kpiGross">€ 0</div><div class="kpi-sub" id="kpiGrossPct">% su Ricavi</div></div>
+      <div class="card"><div class="text-sm text-gray-500">Costi Variabili</div><div class="kpi" id="kpiVarCosts">€ 0</div><div class="kpi-sub" id="kpiCM">CM e %</div></div>
+      <div class="card"><div class="text-sm text-gray-500">Costi Fissi</div><div class="kpi" id="kpiFixedCosts">€ 0</div><div class="kpi-sub" id="kpiEBITDA">EBITDA</div></div>
+      <div class="card"><div class="text-sm text-gray-500">EBIT</div><div class="kpi" id="kpiEBIT">€ 0</div><div class="kpi-sub" id="kpiOpLev">Leva Operativa</div></div>
+      <div class="card"><div class="text-sm text-gray-500">Utile Netto</div><div class="kpi" id="kpiNet">€ 0</div><div class="kpi-sub" id="kpiNetMargin">% su Ricavi</div></div>
+      <div class="card"><div class="text-sm text-gray-500">Break-even (fatturato)</div><div class="kpi" id="kpiBERev">€ 0</div><div class="kpi-sub" id="kpiBESafety">Margine di sicurezza</div></div>
+    </section>
+
+    <!-- Grafici + CE -->
+    <section class="grid md:grid-cols-2 gap-4 mb-6">
+      <div class="card">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-semibold">Ricavi e Costi per mese</h3>
+          <span class="badge badge-green" id="trendBadge">trend</span>
+        </div>
+        <canvas id="lineMonthly"></canvas>
+      </div>
+      <div class="card"><h3 class="font-semibold mb-2">Ripartizione costi</h3><canvas id="pieCosts"></canvas></div>
+      <div class="card"><h3 class="font-semibold mb-2">Margine di contribuzione per Centro di Costo</h3><canvas id="barCMbyCC"></canvas></div>
+      <div class="card">
+        <h3 class="font-semibold mb-2">Conto Economico (vs Budget)</h3>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm" id="plTable">
+            <thead><tr class="text-left text-gray-500"><th class="py-2">Voce</th><th class="py-2">Valore</th><th class="py-2">Budget</th><th class="py-2">Var.</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Import JSON (pasta, file, URL, querystring) -->
+    <section class="card mb-6">
+      <h3 class="font-semibold mb-2">Carica dati (JSON)</h3>
+      <p class="text-sm text-gray-600 mb-2">Chiavi supportate (ITA/ENG): <code>periodo/period</code>, <code>centro/costCenter</code>, <code>ricavi/revenue</code>, <code>cogs</code>, <code>var/variable</code>, <code>fissi/fixed</code>, <code>ammort/depreciation</code>, <code>interessi/interest</code>, <code>imposte/taxes</code>. I costi possono essere positivi o negativi: se positivi li converto in negativi.</p>
+      <div class="grid md:grid-cols-2 gap-3 mb-3">
+        <div>
+          <label class="text-sm text-gray-600">Incolla JSON</label>
+          <textarea id="dataInput" class="w-full h-40 p-3 border border-gray-200 rounded-xl" placeholder='[
+  {"period":"2025-01-15","costCenter":"Produzione","revenue":"120.000","cogs":65000,"variable":12000,"fixed":18000,"depreciation":4000,"interest":1000,"taxes":4000}
+]'></textarea>
+        </div>
+        <div>
+          <label class="text-sm text-gray-600">File o URL</label>
+          <input id="fileInput" type="file" accept="application/json,.json" class="block w-full border border-gray-200 rounded-xl p-2" />
+          <div id="dropZone" class="mt-2 p-4 border-2 border-dashed rounded-xl text-sm text-gray-600">Trascina qui un file .json</div>
+          <div class="flex gap-2 mt-2">
+            <input id="urlInput" type="url" placeholder="https://.../dati.json" class="flex-1 border border-gray-200 rounded-xl p-2" />
+            <button id="fetchUrl" class="px-3 py-2 rounded-xl border">Scarica</button>
+          </div>
+        </div>
+      </div>
+      <div class="mt-2 flex gap-2">
+        <button id="applyData" class="px-3 py-2 rounded-xl bg-gray-900 text-white">Applica</button>
+        <button id="downloadSample" class="px-3 py-2 rounded-xl border">Scarica esempio JSON</button>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">Puoi anche passare il JSON via querystring: <code>?data=</code> (URI encoded).</p>
+    </section>
+
+    <!-- Autotest -->
+    <details class="card">
+      <summary class="font-semibold">Autotest integrati (clicca per vedere i risultati)</summary>
+      <ul id="testResults" class="list-disc pl-5 text-sm mt-2"></ul>
+    </details>
+  </div>
+
+  <script>
+    // ===== Fallback dataset (12 mesi x 3 centri)
+    function generateFallback(){
+      const centers = ['Produzione','Commerciale','R&D'];
+      const base = {
+        'Produzione': { ricavi:130000, cogs:-72000, var:-13000, fissi:-18000, ammort:-4000, interessi:-800, imposte:-3200 },
+        'Commerciale': { ricavi:90000,  cogs:-36000, var:-16000, fissi:-9000,  ammort:-1000, interessi:-300, imposte:-2400 },
+        'R&D':        { ricavi:10000,  cogs:-3000,  var:-1100,  fissi:-12000, ammort:-3000, interessi:-100, imposte:0 }
+      };
+      const out=[];
+      for(let m=1;m<=12;m++){
+        const period = `2025-${String(m).padStart(2,'0')}`;
+        for(const c of centers){
+          const drift = 1 + (m-6)/200;
+          const noise = (rng(period+c)*0.08 - 0.04);
+          const b = base[c];
+          out.push({
+            periodo: period,
+            centro: c,
+            ricavi: Math.round(b.ricavi * drift * (1+noise)),
+            cogs: Math.round(b.cogs * drift * (1+noise/2)),
+            var: Math.round(b.var * drift * (1+noise/2)),
+            fissi: b.fissi,
+            ammort: b.ammort,
+            interessi: b.interessi,
+            imposte: b.imposte
+          });
+        }
+      }
+      return out;
+    }
+    function rng(seed){ let h=0; for(let i=0;i<seed.length;i++){ h = Math.imul(31,h) + seed.charCodeAt(i) | 0; } h ^= h>>>13; h = Math.imul(h, 0x5bd1e995); return ((h>>>0)%1000)/1000; }
+    const sample = generateFallback();
+
+    // ===== Utils
+    const fmtEUR = n => (n||0).toLocaleString('it-IT',{style:'currency',currency:'EUR',maximumFractionDigits:0});
+    const pct = (a,b) => b===0? 0 : (a/b*100);
+    function group(arr, keyFn){ const m = new Map(); for(const r of arr){ const k = keyFn(r); if(!m.has(k)) m.set(k,[]); m.get(k).push(r);} return m; }
+    function sum(arr, fn){ return arr.reduce((acc,r)=>acc + (fn?fn(r):r),0); }
+    function uniq(arr){ return [...new Set(arr)]; }
+    function periods(data){ return uniq(data.map(d=>d.periodo)).sort(); }
+    function centers(data){ return ['Tutti', ...uniq(data.map(d=>d.centro))]; }
+
+    // ===== Budget
+    function buildBudget(data){
+      const byKey = group(data, r=>r.periodo+"|"+r.centro);
+      const budget = [];
+      for(const [k,rows] of byKey){ const r = rows[0]; budget.push({ periodo:r.periodo, centro:r.centro, ricavi: Math.round(r.ricavi*0.95), cogs: Math.round(r.cogs*0.98), var: Math.round(r.var*0.98), fissi: Math.round(r.fissi*1.00), ammort: Math.round(r.ammort*1.00), interessi: Math.round(r.interessi*1.00), imposte: Math.round(r.imposte*1.00), }); }
+      return budget;
+    }
+
+    let DATA = [...sample];
+    let BUDGET = buildBudget(DATA);
+
+    // ===== Stato & init
+    const state = { periodo: 'Tutti', centro: 'Tutti' };
+    const periodSelect = document.getElementById('periodSelect');
+    const ccSelect = document.getElementById('ccSelect');
+    function populateSelectors(){ const ps = ['Tutti', ...periods(DATA)]; periodSelect.innerHTML = ps.map(p=>`<option ${p===state.periodo?'selected':''}>${p}</option>`).join(''); ccSelect.innerHTML = centers(DATA).map(c=>`<option ${c===state.centro?'selected':''}>${c}</option>`).join(''); }
+
+    // ===== Filtri
+    function filterData(){ return DATA.filter(r => (state.periodo==='Tutti'||r.periodo===state.periodo) && (state.centro==='Tutti'||r.centro===state.centro)); }
+    function filterBudget(){ return BUDGET.filter(r => (state.periodo==='Tutti'||r.periodo===state.periodo) && (state.centro==='Tutti'||r.centro===state.centro)); }
+
+    // ===== KPI
+    function computeKPI(rows){
+      const ricavi=sum(rows,r=>r.ricavi), cogs=sum(rows,r=>r.cogs), varc=sum(rows,r=>r.var), fissi=sum(rows,r=>r.fissi), amm=sum(rows,r=>r.ammort), intt=sum(rows,r=>r.interessi), taxes=sum(rows,r=>r.imposte);
+      const gross = ricavi + cogs; const cm = ricavi + varc; const ebitda = cm + fissi; const ebit = ebitda + amm; const net = ebit + intt + taxes;
+      const cmPct = ricavi===0?0:(cm/ricavi); const beRev = cmPct<=0?NaN:Math.round(Math.abs(fissi)/cmPct); const safety = ricavi===0||!isFinite(beRev)?0:(ricavi-beRev); const opLev = (ebit===0)?NaN:(cm/ebit);
+      return {ricavi,cogs,gross,cm,varc,fissi,ebitda,amm,ebit,intt,taxes,net,cmPct,beRev,safety,opLev};
+    }
+
+    function updateKPI(){
+      const rows = filterData(); const bud = filterBudget();
+      const k=computeKPI(rows), kb=computeKPI(bud);
+      const set = (id,v)=> document.getElementById(id).innerHTML=v;
+      const revVar = k.ricavi - kb.ricavi;
+      set('kpiRevenue', fmtEUR(k.ricavi)); set('kpiRevenueVar', `${revVar>=0?'<span class="badge badge-green">▲</span>':'<span class="badge badge-red">▼</span>'} Var. vs Budget: ${fmtEUR(revVar)}`);
+      set('kpiCOGS', fmtEUR(Math.abs(k.cogs))); set('kpiCOGSMargin', `${pct(Math.abs(k.cogs),k.ricavi).toFixed(1)}% su Ricavi`);
+      set('kpiGross', fmtEUR(k.gross)); set('kpiGrossPct', `${pct(k.gross,k.ricavi).toFixed(1)}% su Ricavi`);
+      set('kpiVarCosts', fmtEUR(Math.abs(k.varc))); set('kpiCM', `CM: ${fmtEUR(k.cm)} (${pct(k.cm,k.ricavi).toFixed(1)}%)`);
+      set('kpiFixedCosts', fmtEUR(Math.abs(k.fissi))); set('kpiEBITDA', `EBITDA: ${fmtEUR(k.ebitda)}`);
+      set('kpiEBIT', fmtEUR(k.ebit)); set('kpiOpLev', `Leva Op.: ${isFinite(k.opLev)?k.opLev.toFixed(2):'n/a'}`);
+      set('kpiNet', fmtEUR(k.net)); set('kpiNetMargin', `${pct(k.net,k.ricavi).toFixed(1)}% su Ricavi`);
+      set('kpiBERev', isFinite(k.beRev)? fmtEUR(k.beRev) : 'n/a'); set('kpiBESafety', `Margine di sicurezza: ${fmtEUR(k.safety)}`);
+      const tbody = document.querySelector('#plTable tbody');
+      const rowsHTML = [
+        ['Ricavi', k.ricavi, kb.ricavi],['COGS', k.cogs, kb.cogs],['Margine Lordo', k.gross, kb.gross],['Costi Variabili', k.varc, kb.varc],['Margine di Contribuzione', k.cm, kb.cm],['Costi Fissi', k.fissi, kb.fissi],['EBITDA', k.ebitda, kb.ebitda],['Ammortamenti', k.amm, kb.amm],['EBIT', k.ebit, kb.ebit],['Interessi', k.intt, kb.intt],['Imposte', k.taxes, kb.taxes],['Utile Netto', k.net, kb.net]
+      ].map(([label,val,bud])=>{ const variance = val - bud; const cls = variance>=0?'text-green-600':'text-red-600'; return `<tr><td class="py-1">${label}</td><td class="py-1">${fmtEUR(val)}</td><td class="py-1">${fmtEUR(bud)}</td><td class="py-1 ${cls}">${fmtEUR(variance)}</td></tr>`; }).join('');
+      tbody.innerHTML = rowsHTML;
+    }
+
+    // ===== Grafici
+    let lineChart, pieChart, barChart;
+    function updateCharts(){
+      const rows = filterData(); const byPeriod = group(rows, r=>r.periodo); const labels = [...byPeriod.keys()].sort();
+      const revenueSeries = labels.map(p=> sum(byPeriod.get(p), r=>r.ricavi));
+      const costSeries = labels.map(p=> Math.abs(sum(byPeriod.get(p), r=>r.cogs + r.var + r.fissi + r.ammort)));
+      const lineCtx = document.getElementById('lineMonthly'); if(lineChart) lineChart.destroy();
+      lineChart = new Chart(lineCtx, { type: 'line', data: { labels, datasets: [ { label:'Ricavi', data: revenueSeries }, { label:'Costi totali', data: costSeries } ] }, options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { ticks: { callback: v=>fmtEUR(v) } } } } });
+      const trend = revenueSeries.length>=2 && (revenueSeries.at(-1) - revenueSeries.at(-2));
+      document.getElementById('trendBadge').textContent = (trend>=0?'▲ Crescita':'▼ Calo');
+      document.getElementById('trendBadge').className = `badge ${trend>=0?'badge-green':'badge-red'}`;
+      const k = computeKPI(rows); const pieCtx = document.getElementById('pieCosts'); if(pieChart) pieChart.destroy();
+      pieChart = new Chart(pieCtx, { type: 'pie', data: { labels:['COGS','Variabili','Fissi','Ammortamenti'], datasets:[{ data:[Math.abs(k.cogs), Math.abs(k.varc), Math.abs(k.fissi), Math.abs(k.amm)] }] }, options:{ plugins:{ legend:{ position:'bottom' } } } });
+      const byCC = group(rows, r=>r.centro); const cc = [...byCC.keys()]; const cmByCC = cc.map(c=>{ const rr = byCC.get(c); return sum(rr, r=> r.ricavi + r.var); });
+      const barCtx = document.getElementById('barCMbyCC'); if(barChart) barChart.destroy();
+      barChart = new Chart(barCtx, { type:'bar', data:{ labels: cc, datasets:[{ label:'Margine di Contribuzione', data: cmByCC }] }, options:{ responsive:true, plugins:{ legend:{ display:false } }, scales:{ y:{ ticks:{ callback:v=>fmtEUR(v) } } } } });
+    }
+
+    // ===== Import JSON (flessibile)
+    const KEYMAP = { periodo:['periodo','period','month','mese'], centro:['centro','costcenter','cc','cost_center'], ricavi:['ricavi','revenue','revenues','sales'], cogs:['cogs','costo_merci','costo_mercato','costo_venduto'], var:['var','variabili','variable','variable_costs'], fissi:['fissi','fixed','fixed_costs'], ammort:['ammort','ammortamenti','depreciation','depr'], interessi:['interessi','interest','interests'], imposte:['imposte','taxes','tax'] };
+    function findKey(obj, aliases){ for(const k of Object.keys(obj)){ const kl = k.toLowerCase(); if(aliases.includes(kl)) return k; } return null; }
+    function toNumber(x){ if(typeof x==='number') return x; if(typeof x==='string'){ const v = Number(x.replace(/[^0-9+\-\.]/g,'')); return isNaN(v)? 0 : v; } return 0; }
+    function normPeriod(p){ if(!p) return ''; const s=String(p); const m=s.match(/(\d{4})[-/](\d{2})/); return m?`${m[1]}-${m[2]}`:s; }
+    function normalizeRecord(r){ const out={}; for(const [std,alts] of Object.entries(KEYMAP)){ const k=findKey(r,alts); out[std]=k!=null?r[k]:undefined; } const rec={ periodo:normPeriod(out.periodo||r.periodo), centro:(out.centro||'Generale'), ricavi:toNumber(out.ricavi||0), cogs:toNumber(out.cogs||0), var:toNumber(out.var||0), fissi:toNumber(out.fissi||0), ammort:toNumber(out.ammort||0), interessi:toNumber(out.interessi||0), imposte:toNumber(out.imposte||0) }; ['cogs','var','fissi','ammort','interessi','imposte'].forEach(k=>{ if(rec[k]>0) rec[k] = -rec[k]; }); return rec; }
+    function parseFlexibleJSON(txt){ const arr = JSON.parse(txt); if(!Array.isArray(arr)) throw new Error('Il JSON deve essere un array.'); const norm = arr.map(normalizeRecord); for(const r of norm){ ['periodo','centro','ricavi','cogs','var','fissi','ammort','interessi','imposte'].forEach(k=>{ if(r[k]===undefined || r[k]===null) throw new Error('Campo mancante dopo normalizzazione: '+k); }); } return norm; }
+    async function loadFromFile(file){ const text = await file.text(); return parseFlexibleJSON(text); }
+    async function loadFromUrl(url){ const res = await fetch(url); if(!res.ok) throw new Error('Download fallito: '+res.status); const text = await res.text(); return parseFlexibleJSON(text); }
+    function applyLoadedData(arr){ if(!Array.isArray(arr) || arr.length===0){ alert('JSON vuoto: uso i dati di fallback.'); DATA=[...sample]; } else { DATA = arr; } BUDGET = buildBudget(DATA); populateSelectors(); updateAll(); }
+
+    // ===== Eventi UI
+    periodSelect.addEventListener('change', (e)=>{ state.periodo = e.target.value; updateAll(); });
+    ccSelect.addEventListener('change', (e)=>{ state.centro = e.target.value; updateAll(); });
+    document.getElementById('resetBtn').addEventListener('click', ()=>{ state.periodo='Tutti'; state.centro='Tutti'; populateSelectors(); updateAll(); });
+    document.getElementById('applyData').addEventListener('click', ()=>{ const txt = document.getElementById('dataInput').value.trim(); if(!txt){ applyLoadedData([...sample]); return; } try{ applyLoadedData(parseFlexibleJSON(txt)); } catch(err){ alert('Errore JSON: '+err.message+' — uso fallback.'); applyLoadedData([...sample]); } });
+    document.getElementById('fileInput').addEventListener('change', async (e)=>{ const f = e.target.files && e.target.files[0]; if(!f) return; try{ const data = await loadFromFile(f); applyLoadedData(data); } catch(err){ alert('Errore file: '+err.message); } });
+    const dz = document.getElementById('dropZone');
+    ;['dragenter','dragover','dragleave','drop'].forEach(ev=> dz.addEventListener(ev, e=>{ e.preventDefault(); e.stopPropagation(); }));
+    dz.addEventListener('dragenter', ()=> dz.style.borderColor = '#111827'); dz.addEventListener('dragover', ()=> dz.style.borderColor = '#111827'); dz.addEventListener('dragleave', ()=> dz.style.borderColor = '#e5e7eb'); dz.addEventListener('drop', async (e)=>{ dz.style.borderColor = '#e5e7eb'; const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if(!f) return; try{ const data = await loadFromFile(f); applyLoadedData(data); } catch(err){ alert('Errore drop: '+err.message); } });
+    document.getElementById('fetchUrl').addEventListener('click', async ()=>{ const url = document.getElementById('urlInput').value.trim(); if(!url) return; try{ const data = await loadFromUrl(url); applyLoadedData(data); } catch(err){ alert('Errore URL: '+err.message); } });
+    try{ const params = new URLSearchParams(location.search); const p = params.get('data'); if(p){ const decoded = decodeURIComponent(p); applyLoadedData(parseFlexibleJSON(decoded)); } }catch{}
+
+    function updateAll(){ updateKPI(); updateCharts(); }
+
+    // ===== Autotest
+    function runTests(){
+      const res = [];
+      const rows = [{ricavi:100,cogs:-60,var:-10,fissi:-20,ammort:-5,interessi:-2,imposte:-3}];
+      const k = computeKPI(rows);
+      const expect = {gross:40, cm:90, ebitda:70, ebit:65, net:60, cmPct:0.9, beRev:22, safety:78};
+      res.push(['KPI base', k.gross===expect.gross && k.cm===expect.cm && k.ebitda===expect.ebitda && k.ebit===expect.ebit && k.net===expect.net && Math.abs(k.cmPct-expect.cmPct)<1e-9 && k.beRev===expect.beRev && k.safety===expect.safety, k, expect]);
+      const bud = buildBudget([{periodo:'2025-01',centro:'X',ricavi:100,cogs:-60,var:-10,fissi:-20,ammort:-5,interessi:-2,imposte:-3}])[0];
+      res.push(['Budget ricavi 95%', bud.ricavi===95, bud.ricavi, 95]);
+      res.push(['Budget cogs 98%', bud.cogs===-59, bud.cogs, -59]);
+      const parsed = parseFlexibleJSON('[{"period":"2025-03-15","costCenter":"A","revenue":"1,000","cogs":60,"variable":10,"fixed":20,"depreciation":5,"interest":2,"taxes":3}]');
+      const r = parsed[0];
+      res.push(['Normalize ENG+sign', r.periodo==='2025-03' && r.centro==='A' && r.ricavi===1000 && r.cogs===-60 && r.var===-10 && r.fissi===-20 && r.ammort===-5 && r.interessi===-2 && r.imposte===-3, r, {periodo:'2025-03',centro:'A',ricavi:1000,cogs:-60,var:-10,fissi:-20,ammort:-5,interessi:-2,imposte:-3}]);
+      const ul = document.getElementById('testResults'); ul.innerHTML = res.map(([name,ok,got,exp])=>`<li class="${ok?'text-green-700':'text-red-700'}"><strong>${ok?'OK':'FAIL'}</strong> ${name} — ottenuto: <code>${JSON.stringify(got)}</code> vs atteso: <code>${JSON.stringify(exp)}</code></li>`).join('');
+    }
+
+    // bootstrap
+    populateSelectors(); updateAll(); runTests();
+  </script>
+</body>
+</html>
