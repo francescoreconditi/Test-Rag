@@ -93,19 +93,29 @@
                 if (!data) return null;
 
                 const ricavi = SEZIONI.Ricavi?.Consuntivo?.Totale || 0;
+                const ricaviAnnoPrecedente = SEZIONI.Ricavi?.AnnoPrecedente?.Totale || 0;
                 const ricaviBudget = SEZIONI.Ricavi?.Budget?.Totale || 0;
                 const ebitda = SEZIONI.Risultati?.Consuntivo?.EBITDA || 0;
+                const ebitdaAnnoPrecedente = SEZIONI.Risultati?.AnnoPrecedente?.EBITDA || 0;
                 const ebitdaBudget = SEZIONI.Risultati?.Budget?.EBITDA || 0;
                 const ebit = SEZIONI.Risultati?.Consuntivo?.EBIT || 0;
                 const grossMargin = SEZIONI.Margini?.Consuntivo?.["Gross Margin %"] || 0;
 
+                // Priorità: Anno Precedente > Budget
+                const ricaviCompareTo = ricaviAnnoPrecedente || ricaviBudget;
+                const ricaviCompareLabel = ricaviAnnoPrecedente ? "Anno Prec." : "Budget";
+                const ebitdaCompareTo = ebitdaAnnoPrecedente || ebitdaBudget;
+                const ebitdaCompareLabel = ebitdaAnnoPrecedente ? "Anno Prec." : "Budget";
+
                 return {
                     ricavi,
-                    ricaviBudget,
-                    ricaviVar: calcVariance(ricavi, ricaviBudget),
+                    ricaviCompareTo,
+                    ricaviCompareLabel,
+                    ricaviVar: calcVariance(ricavi, ricaviCompareTo),
                     ebitda,
-                    ebitdaBudget,
-                    ebitdaVar: calcVariance(ebitda, ebitdaBudget),
+                    ebitdaCompareTo,
+                    ebitdaCompareLabel,
+                    ebitdaVar: calcVariance(ebitda, ebitdaCompareTo),
                     ebitdaMargin: ricavi ? (ebitda / ricavi) * 100 : 0,
                     ebit,
                     grossMargin
@@ -164,7 +174,7 @@
                             <div className="text-2xl font-semibold">{numberFmt(kpiSummary.ricavi)}</div>
                             <div className="mt-2 text-xs">
                                 <span className={kpiSummary.ricaviVar >= 0 ? "text-green-600" : "text-red-600"}>
-                                    {kpiSummary.ricaviVar >= 0 ? "▲" : "▼"} {pctFmt(Math.abs(kpiSummary.ricaviVar))} vs Budget
+                                    {kpiSummary.ricaviVar >= 0 ? "▲" : "▼"} {pctFmt(Math.abs(kpiSummary.ricaviVar))} vs {kpiSummary.ricaviCompareLabel}
                                 </span>
                             </div>
                         </div>
@@ -174,7 +184,7 @@
                             <div className="text-2xl font-semibold">{numberFmt(kpiSummary.ebitda)}</div>
                             <div className="mt-2 text-xs">
                                 <span className={kpiSummary.ebitdaVar >= 0 ? "text-green-600" : "text-red-600"}>
-                                    {kpiSummary.ebitdaVar >= 0 ? "▲" : "▼"} {pctFmt(Math.abs(kpiSummary.ebitdaVar))} vs Budget
+                                    {kpiSummary.ebitdaVar >= 0 ? "▲" : "▼"} {pctFmt(Math.abs(kpiSummary.ebitdaVar))} vs {kpiSummary.ebitdaCompareLabel}
                                 </span>
                             </div>
                         </div>
@@ -206,8 +216,13 @@
 
                             // Trova il valore principale per questa sezione
                             const mainValue = consuntivo.Totale || consuntivo.EBITDA || consuntivo["Gross Margin"] || consuntivo["Ricavi netti"];
+                            const annoPrecedenteValue = annoPrecedente.Totale || annoPrecedente.EBITDA || annoPrecedente["Gross Margin"] || annoPrecedente["Ricavi netti"];
                             const budgetValue = budget.Totale || budget.EBITDA || budget["Gross Margin"] || budget["Ricavi netti"];
-                            const variance = calcVariance(mainValue, budgetValue);
+
+                            // Priorità: Anno Precedente > Budget
+                            const compareValue = annoPrecedenteValue || budgetValue;
+                            const compareLabel = annoPrecedenteValue ? "Anno Prec." : "Budget";
+                            const variance = calcVariance(mainValue, compareValue);
 
                             return (
                                 <div
@@ -223,7 +238,7 @@
                                         <>
                                             <div className="text-xl font-semibold">{numberFmt(mainValue)}</div>
                                             <div className="mt-2 text-xs text-gray-600">
-                                                Budget: {numberFmt(budgetValue)} ·{" "}
+                                                {compareLabel}: {numberFmt(compareValue)} ·{" "}
                                                 <span className={variance >= 0 ? "text-green-600" : "text-red-600"}>
                                                     {variance >= 0 ? "▲" : "▼"} {pctFmt(Math.abs(variance))}
                                                 </span>
@@ -297,26 +312,6 @@
                                     </table>
                                 </div>
 
-                                {/* Note analitiche */}
-                                <div className="mt-6 rounded-xl border p-4 bg-gray-50">
-                                    <div className="text-sm font-medium mb-1">Analisi AI (esempio)</div>
-                                    <p className="text-xs text-gray-600 mb-3">
-                                        Quando l'utente apre questo pannello, il sistema può inviare i dati al modello LLM per un'analisi automatica.
-                                    </p>
-                                    <pre className="text-xs whitespace-pre-wrap leading-5 bg-white p-3 rounded-md border overflow-x-auto">
-{`Prompt (esempio):
-Sei un CFO analyst. Analizza la sezione "${selectedSection}" del bilancio.
-Periodo: ${PERIODO}
-Confronta Consuntivo vs Budget e vs Anno Precedente.
-Evidenzia:
-- Scostamenti significativi (>10%)
-- Trend positivi/negativi
-- Possibili azioni correttive
-- Alert su voci anomale
-
-Rispondi in 150-200 parole, citando valori specifici.`}
-                                    </pre>
-                                </div>
                             </div>
                         </div>
                     )}
