@@ -46,25 +46,94 @@
 
                 console.log(`Caricamento dati da: ${dataFile}`);
 
-                fetch(`./${dataFile}`)
+                // Supporto per URL esterni completi (http/https) o file locali
+                const isExternalUrl = dataFile.startsWith('http://') || dataFile.startsWith('https://');
+                const fetchUrl = isExternalUrl ? dataFile : `./${dataFile}`;
+
+                fetch(fetchUrl)
                     .then(response => {
                         if (!response.ok) {
-                            throw new Error(`HTTP error! status: ${response.status} - File non trovato: ${dataFile}`);
+                            throw new Error(`HTTP error! status: ${response.status} - File/URL non trovato: ${dataFile}`);
                         }
                         return response.json();
                     })
                     .then(jsonData => {
+                        // Adapter: riconosce automaticamente la struttura del JSON
+                        let adaptedData;
+
+                        // Formato "drill.json" (già supportato)
+                        if (jsonData.summary && jsonData.clients && jsonData.invoices && jsonData.buckets) {
+                            adaptedData = jsonData;
+                        }
+                        // Formato "kpi.json" (da convertire)
+                        else if (jsonData.totali && jsonData.aging_bucket && jsonData.concentrazione_rischio) {
+                            console.log('Rilevato formato kpi.json - conversione in corso...');
+
+                            // Converti aging_bucket in formato summary.aging
+                            const aging = jsonData.aging_bucket.map(b => ({
+                                bucket: b.bucket,
+                                value: b.valore
+                            }));
+
+                            // Crea summary
+                            const summary = {
+                                date: jsonData.totali.crediti_netti.periodo || new Date().toLocaleDateString('it-IT'),
+                                currency: jsonData.totali.crediti_netti.unita || 'EUR',
+                                totals: {
+                                    gross: jsonData.totali.crediti_lordi?.valore || 0,
+                                    allowance: jsonData.totali.fondo_svalutazione?.valore || 0,
+                                    net: jsonData.totali.crediti_netti?.valore || 0,
+                                    overdue: jsonData.past_due?.totale_scaduto?.valore || 0,
+                                    overduePct: jsonData.past_due?.percentuale_scaduto_su_totale?.valore || 0,
+                                    dso: jsonData.kpi?.dso?.valore || 0
+                                },
+                                aging: aging
+                            };
+
+                            // Converti primi_soggetti in clients
+                            const clients = (jsonData.concentrazione_rischio?.primi_soggetti || []).map(s => {
+                                // Calcola >90 gg dal totale scaduto (semplificazione)
+                                const gt90Bucket = jsonData.aging_bucket.find(b => b.bucket === "> 90 gg");
+                                const totalOverdue = jsonData.past_due?.totale_scaduto?.valore || 0;
+                                const gt90Total = gt90Bucket?.valore || 0;
+                                const clientShare = s.percentuale_su_totale / 100;
+
+                                return {
+                                    name: s.ragione_sociale,
+                                    total: s.valore,
+                                    gt90: gt90Total * clientShare
+                                };
+                            });
+
+                            // Crea invoices vuoto (kpi.json non ha dettaglio fatture)
+                            const invoices = {};
+                            clients.forEach(c => {
+                                invoices[c.name] = [];
+                            });
+
+                            // Crea buckets dall'aging
+                            const buckets = ["Tutti", ...aging.map(a => a.bucket)];
+
+                            adaptedData = {
+                                summary: summary,
+                                clients: clients,
+                                invoices: invoices,
+                                buckets: buckets
+                            };
+
+                            console.log('Conversione completata:', adaptedData);
+                        }
+                        else {
+                            throw new Error(`Struttura JSON non riconosciuta. Supportati: formato "drill.json" o "kpi.json"`);
+                        }
+
                         // Aggiorna le variabili globali
-                        SUMMARY = jsonData.summary;
-                        CLIENTS = jsonData.clients;
-                        INVOICES = jsonData.invoices;
-                        BUCKETS = jsonData.buckets;
+                        SUMMARY = adaptedData.summary;
+                        CLIENTS = adaptedData.clients;
+                        INVOICES = adaptedData.invoices;
+                        BUCKETS = adaptedData.buckets;
 
-                        // Smoke test minimi (test-case base)
-                        console.assert(BUCKETS.includes(">90 gg"), "Test: manca bucket >90 gg");
-                        console.assert((INVOICES["Cliente X"] || []).filter(i => i.bucket === ">90 gg").length === 1, "Test: Cliente X dovrebbe avere 1 fattura >90 gg");
-
-                        setData(jsonData);
+                        setData(adaptedData);
                         setLoading(false);
                     })
                     .catch(err => {
@@ -229,9 +298,9 @@
                                 <thead>
                                     <tr className="text-left text-gray-500 border-b-2 border-gray-300">
                                         <th className="py-2 pr-4">Cliente</th>
-                                        <th className="py-2 pr-4">Esposizione</th>
-                                        <th className="py-2 pr-4">Quota su totale</th>
-                                        <th className="py-2 pr-4">{"Quota >90 gg"}</th>
+                                        <th className="py-2 pr-4 text-right">Esposizione</th>
+                                        <th className="py-2 pr-4 text-right">Quota su totale</th>
+                                        <th className="py-2 pr-4 text-right">{"Quota >90 gg"}</th>
                                         <th className="py-2"></th>
                                     </tr>
                                 </thead>
@@ -248,10 +317,10 @@
                                         return (
                                             <tr key={c.name} className="border-b hover:bg-indigo-100 cursor-pointer transition" onClick={() => { setSelectedClient(c.name); setDrawerOpen(true); }}>
                                                 <td className="py-3 pr-4"><div className="font-medium">{idx + 1}. {c.name}</div></td>
-                                                <td className="py-3 pr-4 font-semibold">{numberFmt(c.total)}</td>
-                                                <td className="py-3 pr-4">{pctFmt(pct)}</td>
-                                                <td className="py-3 pr-4">
-                                                    <div className="flex items-center">
+                                                <td className="py-3 pr-4 font-semibold text-right">{numberFmt(c.total)}</td>
+                                                <td className="py-3 pr-4 text-right">{pctFmt(pct)}</td>
+                                                <td className="py-3 pr-4 text-right">
+                                                    <div className="flex items-center justify-end">
                                                         {pctFmt(gt90pct)}
                                                         {getRiskBadge(gt90pct)}
                                                     </div>
@@ -277,27 +346,6 @@
                                         {selectedBucket !== "Tutti" && <div className="mt-1 inline-block px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full">{selectedBucket}</div>}
                                     </div>
                                     <button className="text-sm px-4 py-2 rounded-lg border hover:bg-gray-50 transition font-medium" onClick={() => setDrawerOpen(false)}>✕ Chiudi</button>
-                                </div>
-
-                                <div className="flex flex-wrap gap-2 mb-4">
-                                    {BUCKETS.map((b) => {
-                                        const getBucketColor = (bucket) => {
-                                            if (bucket === "Tutti") return "bg-gray-100 text-gray-800 border-gray-300";
-                                            if (bucket === "Non scaduto") return "bg-green-50 text-green-700 border-green-200";
-                                            if (bucket === "0–30 gg") return "bg-blue-50 text-blue-700 border-blue-200";
-                                            if (bucket === "31–60 gg") return "bg-yellow-50 text-yellow-700 border-yellow-200";
-                                            if (bucket === "61–90 gg") return "bg-orange-50 text-orange-700 border-orange-200";
-                                            if (bucket === ">90 gg") return "bg-red-50 text-red-700 border-red-200";
-                                            return "bg-white";
-                                        };
-                                        const isActive = selectedBucket === b;
-                                        return (
-                                            <button key={b} onClick={() => setSelectedBucket(b)}
-                                                className={`px-3 py-1 rounded-full border text-sm transition ${isActive ? "bg-black text-white border-black" : getBucketColor(b) + " hover:shadow-md"}`}>
-                                                {b}
-                                            </button>
-                                        );
-                                    })}
                                 </div>
 
                                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
@@ -343,26 +391,6 @@
                                             </tbody>
                                         </table>
                                     </div>
-                                </div>
-
-                                <div className="mt-6 rounded-xl border border-purple-200 p-4 bg-gradient-to-br from-purple-50 to-white">
-                                    <div className="text-sm font-medium mb-1">🤖 Analisi AI (esempio integrazione LLM)</div>
-                                    <p className="text-xs text-gray-600 mb-3">Quando l'utente apre questo pannello, il sistema può inviare i dati al modello per un'analisi automatica del rischio creditizio.</p>
-                                    <pre className="text-xs whitespace-pre-wrap leading-5 bg-white p-3 rounded-md border overflow-x-auto shadow-inner">
-{`Prompt (esempio):
-Sei un credit/AR analyst. Analizza il dettaglio del cliente "${selectedClient}".
-Filtro aging: ${selectedBucket}
-Data riferimento: ${SUMMARY.date}
-Valuta: EUR
-
-Fornisci:
-- Valutazione rischio credito (Alto/Medio/Basso)
-- Importi rilevanti e incidenze %
-- Trend scaduto (miglioramento/peggioramento)
-- Azioni raccomandate (sollecito, dilazione, contenzioso)
-
-Rispondi in 150-200 parole citando documenti specifici.`}
-                                    </pre>
                                 </div>
                             </div>
                         </div>
