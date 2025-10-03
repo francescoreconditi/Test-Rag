@@ -5,6 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AR Drilldown (demo)</title>
+    <!-- Version: 2025-10-03-10:32 -->
     <!-- Tailwind via CDN (ok per demo; avviso in console è normale) -->
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -225,38 +226,10 @@
 
             return (
                 <div className="w-full p-6 space-y-6">
-                    <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+                    <div className="space-y-4">
                         <div>
                             <h1 className="text-2xl font-semibold">💳 Scadenzario AR — Panoramica</h1>
                             <p className="text-sm text-gray-600">Data riferimento: {SUMMARY.date} · Valuta: {SUMMARY.currency}</p>
-                            <div className="mt-2 text-sm text-gray-700">
-                                <span className="font-medium">Percorso:</span>{" "}
-                                <span>
-                                    Panoramica
-                                    {selectedBucket !== "Tutti" && <> → <span className="font-medium">{selectedBucket}</span></>}
-                                    {selectedClient && <> → <span className="font-medium">{selectedClient}</span></>}
-                                </span>
-                            </div>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                            {BUCKETS.map((b) => {
-                                const getBucketColor = (bucket) => {
-                                    if (bucket === "Tutti") return "bg-gray-100 text-gray-800 border-gray-300";
-                                    if (bucket === "Non scaduto") return "bg-green-50 text-green-700 border-green-200";
-                                    if (bucket === "0–30 gg") return "bg-blue-50 text-blue-700 border-blue-200";
-                                    if (bucket === "31–60 gg") return "bg-yellow-50 text-yellow-700 border-yellow-200";
-                                    if (bucket === "61–90 gg") return "bg-orange-50 text-orange-700 border-orange-200";
-                                    if (bucket === ">90 gg") return "bg-red-50 text-red-700 border-red-200";
-                                    return "bg-white";
-                                };
-                                const isActive = selectedBucket === b;
-                                return (
-                                    <button key={b} onClick={() => setSelectedBucket(b)}
-                                        className={`px-3 py-1 rounded-full border text-sm transition ${isActive ? "bg-black text-white border-black" : getBucketColor(b) + " hover:shadow-md"}`}>
-                                        {b}
-                                    </button>
-                                );
-                            })}
                         </div>
                     </div>
 
@@ -281,6 +254,36 @@
                             </div>
                             <div className="text-2xl font-semibold text-blue-900">{SUMMARY.totals.dso} giorni</div>
                             <div className="mt-2 text-xs text-gray-600">Crediti medi / vendite gg × 365</div>
+                        </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="text-sm text-gray-700 whitespace-nowrap">
+                            <span className="font-medium">Percorso:</span>{" "}
+                            <span>
+                                Panoramica
+                                {selectedBucket !== "Tutti" && <> → <span className="font-medium">{selectedBucket}</span></>}
+                                {selectedClient && <> → <span className="font-medium">{selectedClient}</span></>}
+                            </span>
+                        </div>
+                        <div className="flex gap-2 flex-shrink-0">
+                            {BUCKETS.map((b) => {
+                                const getBucketColor = (bucket) => {
+                                    if (bucket === "Tutti") return "bg-gray-100 text-gray-800 border-gray-300";
+                                    if (bucket === "Non scaduto") return "bg-green-50 text-green-700 border-green-200";
+                                    if (bucket === "0–30 gg") return "bg-blue-50 text-blue-700 border-blue-200";
+                                    if (bucket === "31–60 gg") return "bg-yellow-50 text-yellow-700 border-yellow-200";
+                                    if (bucket === "61–90 gg") return "bg-orange-50 text-orange-700 border-orange-200";
+                                    if (bucket === ">90 gg") return "bg-red-50 text-red-700 border-red-200";
+                                    return "bg-white";
+                                };
+                                const isActive = selectedBucket === b;
+                                return (
+                                    <button key={b} onClick={() => setSelectedBucket(b)}
+                                        className={`px-3 py-1 rounded-full border text-sm transition whitespace-nowrap ${isActive ? "bg-black text-white border-black" : getBucketColor(b) + " hover:shadow-md"}`}>
+                                        {b}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
 
