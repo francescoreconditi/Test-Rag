@@ -27,8 +27,14 @@
         let INVOICES = {};
         let BUCKETS = [];
 
-        function numberFmt(val) { return val.toLocaleString("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }); }
-        function pctFmt(val) { return `${val.toFixed(1)}%`; }
+        function numberFmt(val) {
+            if (val === null || val === undefined) return '€ 0';
+            return val.toLocaleString("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+        }
+        function pctFmt(val) {
+            if (val === null || val === undefined) return '0.0%';
+            return `${val.toFixed(1)}%`;
+        }
 
         function ARDrilldownDashboard() {
             const [selectedBucket, setSelectedBucket] = useState("Tutti");
@@ -69,11 +75,22 @@
                         else if (jsonData.totali && jsonData.aging_bucket && jsonData.concentrazione_rischio) {
                             console.log('Rilevato formato kpi.json - conversione in corso...');
 
-                            // Converti aging_bucket in formato summary.aging
-                            const aging = jsonData.aging_bucket.map(b => ({
-                                bucket: b.bucket,
-                                value: b.valore
-                            }));
+                            // Funzione per normalizzare i nomi dei bucket
+                            const normalizeBucket = (bucket) => {
+                                if (!bucket) return bucket;
+                                return bucket
+                                    .replace(/\s*-\s*/g, '–')  // Sostituisce " - " con "–"
+                                    .replace(/Non Scaduto/i, 'Non scaduto')
+                                    .replace(/>\s*90/g, '>90');
+                            };
+
+                            // Converti aging_bucket in formato summary.aging (filtra bucket null)
+                            const aging = jsonData.aging_bucket
+                                .filter(b => b.bucket !== null && b.valore !== null)
+                                .map(b => ({
+                                    bucket: normalizeBucket(b.bucket),
+                                    value: b.valore
+                                }));
 
                             // Crea summary
                             const summary = {
@@ -105,10 +122,22 @@
                                 };
                             });
 
-                            // Crea invoices vuoto (kpi.json non ha dettaglio fatture)
+                            // Leggi invoices dal JSON (se presenti) e normalizza i bucket
                             const invoices = {};
+                            if (jsonData.invoices) {
+                                Object.keys(jsonData.invoices).forEach(clientName => {
+                                    invoices[clientName] = jsonData.invoices[clientName].map(inv => ({
+                                        ...inv,
+                                        bucket: normalizeBucket(inv.bucket)
+                                    }));
+                                });
+                            }
+
+                            // Se mancano invoice per qualche cliente, crea array vuoto
                             clients.forEach(c => {
-                                invoices[c.name] = [];
+                                if (!invoices[c.name]) {
+                                    invoices[c.name] = [];
+                                }
                             });
 
                             // Crea buckets dall'aging
