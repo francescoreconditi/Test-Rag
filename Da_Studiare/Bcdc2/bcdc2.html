@@ -8,10 +8,24 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Chart.js via CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
   <style>
+    * { font-family: 'Roboto', sans-serif; }
     :root{ --card-bg:#fff; --card-br:#e5e7eb; --txt-muted:#6b7280; --radius:1rem; --shadow:0 1px 2px rgba(0,0,0,.08); }
     body{ background:#f9fafb; color:#111827; }
-    .card{ background:var(--card-bg); border:1px solid var(--card-br); border-radius:var(--radius); padding:1.25rem; box-shadow:var(--shadow); }
+    .material-card {
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+      transition: all 0.3s cubic-bezier(.25,.8,.25,1);
+    }
+    .material-card:hover {
+      box-shadow: 0 14px 28px rgba(0,0,0,0.25), 0 10px 10px rgba(0,0,0,0.22);
+      transform: translateY(-2px);
+    }
+    .material-card-elevated {
+      box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+    }
+    .card{ background:var(--card-bg); border:1px solid var(--card-br); border-radius:var(--radius); padding:1.25rem; box-shadow:0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); transition: all 0.3s cubic-bezier(.25,.8,.25,1); }
+    .card:hover{ box-shadow: 0 14px 28px rgba(0,0,0,0.25), 0 10px 10px rgba(0,0,0,0.22); transform: translateY(-2px); }
     .kpi{ font-size:1.5rem; font-weight:600; }
     .kpi-sub{ font-size:.75rem; color:var(--txt-muted); }
     .badge{ display:inline-flex; align-items:center; padding:.1rem .5rem; border-radius:9999px; font-size:.75rem; font-weight:500; border:1px solid transparent; }
@@ -20,21 +34,65 @@
     .grid-autofit{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1rem; }
     table th, table td{ padding:.35rem .25rem; }
     code{ background:#f3f4f6; padding:.1rem .3rem; border-radius:.375rem; }
+    .ripple {
+      position: relative;
+      overflow: hidden;
+    }
+    .ripple:active::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 100%;
+      height: 100%;
+      background: rgba(255,255,255,0.3);
+      border-radius: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      animation: ripple-animation 0.6s ease-out;
+    }
+    @keyframes ripple-animation {
+      to { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .animate-spin { animation: spin 1s linear infinite; }
   </style>
 </head>
-<body class="text-gray-900">
-  <div class="max-w-7xl mx-auto p-6">
-    <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-6">
-      <div>
-        <h1 class="text-2xl font-bold tracking-tight">MiniDashboard &mdash; Contabilità Analitica</h1>
-        <p class="text-sm text-gray-500">KPI manageriali con filtri per periodo e centro di costo</p>
+<body class="text-gray-900 bg-gray-50">
+  <!-- AppBar Material -->
+  <div class="material-card-elevated bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 mb-6">
+    <div class="max-w-7xl mx-auto">
+      <div class="flex items-center gap-3 mb-2">
+        <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 0l-2 2a1 1 0 101.414 1.414L8 10.414l1.293 1.293a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+        </svg>
+        <h1 class="text-2xl font-medium">MiniDashboard Contabilità Analitica</h1>
       </div>
-      <div class="flex flex-wrap gap-2 items-center">
-        <label class="text-sm text-gray-600">Periodo</label>
-        <select id="periodSelect" class="card p-2"></select>
-        <label class="text-sm text-gray-600 ml-2">Centro di costo</label>
-        <select id="ccSelect" class="card p-2"></select>
-        <button id="resetBtn" class="card py-2 px-3 hover:bg-gray-50">Reset</button>
+      <p class="text-sm opacity-90">KPI manageriali con filtri per periodo e centro di costo</p>
+    </div>
+  </div>
+
+  <div class="max-w-7xl mx-auto px-6 pb-6">
+    <header class="material-card bg-white rounded-2xl p-4 mb-6">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clip-rule="evenodd"/>
+          </svg>
+          <span class="text-sm font-medium text-gray-700 uppercase tracking-wide">Filtri</span>
+        </div>
+        <div class="flex flex-wrap gap-3 items-center">
+          <div class="flex items-center gap-2">
+            <label class="text-sm text-gray-600 font-medium">Periodo</label>
+            <select id="periodSelect" class="card p-2 text-sm ripple"></select>
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="text-sm text-gray-600 font-medium">Centro di costo</label>
+            <select id="ccSelect" class="card p-2 text-sm ripple"></select>
+          </div>
+          <button id="resetBtn" class="card py-2 px-4 hover:bg-gray-50 ripple text-sm font-medium text-gray-700">Reset</button>
+        </div>
       </div>
     </header>
 
