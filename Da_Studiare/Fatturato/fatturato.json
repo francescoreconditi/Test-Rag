@@ -1,0 +1,221 @@
+{
+  "Periodo": "Aprile 2025 YTD",
+  "Categorie": [
+    {
+      "Nome": "Prodotti Hardware",
+      "Tipo": "Hardware",
+      "Consuntivo": {
+        "Fatturato": 1850000,
+        "NumeroFatture": 245,
+        "Clienti": ["Cliente A", "Cliente B", "Cliente C", "Cliente D"]
+      },
+      "Budget": {
+        "Fatturato": 1750000,
+        "NumeroFatture": 230
+      },
+      "AnnoPrecedente": {
+        "Fatturato": 1680000,
+        "NumeroFatture": 220
+      }
+    },
+    {
+      "Nome": "Servizi di Manutenzione",
+      "Tipo": "Manutenzione",
+      "Consuntivo": {
+        "Fatturato": 980000,
+        "NumeroFatture": 156,
+        "Clienti": ["Cliente A", "Cliente E", "Cliente F"]
+      },
+      "Budget": {
+        "Fatturato": 950000,
+        "NumeroFatture": 150
+      },
+      "AnnoPrecedente": {
+        "Fatturato": 920000,
+        "NumeroFatture": 145
+      }
+    },
+    {
+      "Nome": "Licenze Software",
+      "Tipo": "Software",
+      "Consuntivo": {
+        "Fatturato": 1250000,
+        "NumeroFatture": 89,
+        "Clienti": ["Cliente B", "Cliente G", "Cliente H", "Cliente I"]
+      },
+      "Budget": {
+        "Fatturato": 1200000,
+        "NumeroFatture": 85
+      },
+      "AnnoPrecedente": {
+        "Fatturato": 1100000,
+        "NumeroFatture": 80
+      }
+    },
+    {
+      "Nome": "Consulenze IT",
+      "Tipo": "Consulenze",
+      "Consuntivo": {
+        "Fatturato": 680000,
+        "NumeroFatture": 42,
+        "Clienti": ["Cliente A", "Cliente C", "Cliente J"]
+      },
+      "Budget": {
+        "Fatturato": 650000,
+        "NumeroFatture": 40
+      },
+      "AnnoPrecedente": {
+        "Fatturato": 620000,
+        "NumeroFatture": 38
+      }
+    },
+    {
+      "Nome": "Formazione",
+      "Tipo": "Formazione",
+      "Consuntivo": {
+        "Fatturato": 320000,
+        "NumeroFatture": 28,
+        "Clienti": ["Cliente D", "Cliente K", "Cliente L"]
+      },
+      "Budget": {
+        "Fatturato": 300000,
+        "NumeroFatture": 25
+      },
+      "AnnoPrecedente": {
+        "Fatturato": 280000,
+        "NumeroFatture": 22
+      }
+    },
+    {
+      "Nome": "Servizi Cloud",
+      "Tipo": "Servizi",
+      "Consuntivo": {
+        "Fatturato": 450000,
+        "NumeroFatture": 68,
+        "Clienti": ["Cliente B", "Cliente E", "Cliente M"]
+      },
+      "Budget": {
+        "Fatturato": 420000,
+        "NumeroFatture": 65
+      },
+      "AnnoPrecedente": {
+        "Fatturato": 380000,
+        "NumeroFatture": 60
+      }
+    }
+  ],
+  "ClientiTop": [
+    {
+      "Nome": "Cliente A - Acme Corporation",
+      "Fatturato": 1250000,
+      "NumeroFatture": 87
+    },
+    {
+      "Nome": "Cliente B - TechSolutions SpA",
+      "Fatturato": 980000,
+      "NumeroFatture": 65
+    },
+    {
+      "Nome": "Cliente C - InnovaSystems",
+      "Fatturato": 750000,
+      "NumeroFatture": 52
+    },
+    {
+      "Nome": "Cliente D - Global Enterprises",
+      "Fatturato": 620000,
+      "NumeroFatture": 48
+    },
+    {
+      "Nome": "Cliente E - DataCenter Italia",
+      "Fatturato": 480000,
+      "NumeroFatture": 36
+    },
+    {
+      "Nome": "Cliente F - SmartBusiness Srl",
+      "Fatturato": 380000,
+      "NumeroFatture": 29
+    },
+    {
+      "Nome": "Cliente G - CloudTech",
+      "Fatturato": 320000,
+      "NumeroFatture": 24
+    },
+    {
+      "Nome": "Cliente H - Digital Services",
+      "Fatturato": 280000,
+      "NumeroFatture": 21
+    },
+    {
+      "Nome": "Cliente I - NetSolutions",
+      "Fatturato": 240000,
+      "NumeroFatture": 18
+    },
+    {
+      "Nome": "Cliente J - Consulting Group",
+      "Fatturato": 230000,
+      "NumeroFatture": 16
+    }
+  ],
+  "ProdottiTop": [
+    {
+      "Nome": "Server Enterprise X500",
+      "Categoria": "Hardware",
+      "Fatturato": 650000,
+      "Quantita": 45
+    },
+    {
+      "Nome": "Licenza Office 365 Enterprise",
+      "Categoria": "Software",
+      "Fatturato": 580000,
+      "Quantita": 1200
+    },
+    {
+      "Nome": "Contratto Manutenzione Premium",
+      "Categoria": "Manutenzione",
+      "Fatturato": 480000,
+      "Quantita": 85
+    },
+    {
+      "Nome": "Storage Cloud 1TB",
+      "Categoria": "Servizi",
+      "Fatturato": 420000,
+      "Quantita": 350
+    },
+    {
+      "Nome": "Consulenza Migrazione Cloud",
+      "Categoria": "Consulenze",
+      "Fatturato": 380000,
+      "Quantita": 28
+    },
+    {
+      "Nome": "Workstation Pro W7000",
+      "Categoria": "Hardware",
+      "Fatturato": 350000,
+      "Quantita": 125
+    },
+    {
+      "Nome": "Corso Cybersecurity Advanced",
+      "Categoria": "Formazione",
+      "Fatturato": 280000,
+      "Quantita": 56
+    },
+    {
+      "Nome": "Licenza Antivirus Enterprise",
+      "Categoria": "Software",
+      "Fatturato": 250000,
+      "Quantita": 850
+    },
+    {
+      "Nome": "Backup as a Service",
+      "Categoria": "Servizi",
+      "Fatturato": 220000,
+      "Quantita": 180
+    },
+    {
+      "Nome": "Switch di Rete 48 porte",
+      "Categoria": "Hardware",
+      "Fatturato": 180000,
+      "Quantita": 95
+    }
+  ]
+}

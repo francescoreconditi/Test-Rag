@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard Contabilità Analitica</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
+
+    <script type="text/babel" data-presets="env,react">
+        const { useMemo, useState, useEffect } = React;
+
+        // Variabili globali per i dati
+        let PERIODO = "";
+        let CENTRI_DI_COSTO = [];
+
+        function numberFmt(val) {
+            return val.toLocaleString("it-IT", {
+                style: "currency",
+                currency: "EUR",
+                maximumFractionDigits: 0
+            });
+        }
+
+        function pctFmt(val) { return `${val.toFixed(1)}%`; }
+
+        function calcVariance(actual, target) {
+            if (!target) return 0;
+            return ((actual - target) / target) * 100;
+        }
+
+        // Palette colori rotativi per centri di costo
+        const COLOR_PALETTE = [
+            "bg-blue-50 border-blue-200",
+            "bg-green-50 border-green-200",
+            "bg-purple-50 border-purple-200",
+            "bg-orange-50 border-orange-200",
+            "bg-cyan-50 border-cyan-200",
+            "bg-yellow-50 border-yellow-200",
+            "bg-pink-50 border-pink-200",
+            "bg-indigo-50 border-indigo-200",
+            "bg-red-50 border-red-200",
+            "bg-teal-50 border-teal-200"
+        ];
+
+        // Icone di default per tipo comune
+        const DEFAULT_ICONS = {
+            "Produzione": "🏭",
+            "Commerciale": "💼",
+            "Amministrazione": "📋",
+            "R&D": "🔬",
+            "IT": "💻",
+            "Logistica": "🚚",
+            "Marketing": "📢",
+            "HR": "👥",
+            "Vendite": "💰",
+            "Acquisti": "🛒",
+            "Qualità": "✅",
+            "Magazzino": "📦"
+        };
+
+        function getColorForIndex(index) {
+            return COLOR_PALETTE[index % COLOR_PALETTE.length];
+        }
+
+        function getIconForType(tipo) {
+            return DEFAULT_ICONS[tipo] || "📊";
+        }
+
+        function BcdcDashboard() {
+            const [selectedCdc, setSelectedCdc] = useState(null);
+            const [drawerOpen, setDrawerOpen] = useState(false);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+            const [data, setData] = useState(null);
+
+            // Carica dati dal JSON
+            useEffect(() => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const dataFile = urlParams.get('data') || 'bcdc.json';
+
+                console.log(`Caricamento dati da: ${dataFile}`);
+
+                fetch(`./${dataFile}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status} - File non trovato: ${dataFile}`);
+                        }
+                        return response.json();
+                    })
+                    .then(jsonData => {
+                        PERIODO = jsonData.Periodo;
+                        CENTRI_DI_COSTO = jsonData.CentriDiCosto;
+                        setData(jsonData);
+                        setLoading(false);
+                    })
+                    .catch(err => {
+                        console.error('Errore caricamento dati:', err);
+                        setError(err.message);
+                        setLoading(false);
+                    });
+            }, []);
+
+            const kpiSummary = useMemo(() => {
+                if (!data) return null;
+
+                let totaleRicavi = 0;
+                let totaleCosti = 0;
+                let totaleRicaviAP = 0;
+                let totaleCostiAP = 0;
+                let totaleCostiPersonale = 0;
+                let totaleCostiOperativi = 0;
+
+                CENTRI_DI_COSTO.forEach(cdc => {
+                    totaleRicavi += cdc.Consuntivo.Ricavi || 0;
+                    totaleCosti += cdc.Consuntivo.Costi || 0;
+                    totaleRicaviAP += cdc.AnnoPrecedente?.Ricavi || 0;
+                    totaleCostiAP += cdc.AnnoPrecedente?.Costi || 0;
+                    totaleCostiPersonale += cdc.Consuntivo.CostoPersonale || 0;
+                    totaleCostiOperativi += cdc.Consuntivo.CostiOperativi || 0;
+                });
+
+                const margine = totaleRicavi - totaleCosti;
+                const margineAP = totaleRicaviAP - totaleCostiAP;
+                const marginePercent = totaleRicavi ? (margine / totaleRicavi) * 100 : 0;
+
+                return {
+                    totaleRicavi,
+                    totaleCosti,
+                    margine,
+                    marginePercent,
+                    ricaviVar: calcVariance(totaleRicavi, totaleRicaviAP),
+                    costiVar: calcVariance(totaleCosti, totaleCostiAP),
+                    margineVar: calcVariance(margine, margineAP),
+                    totaleCostiPersonale,
+                    totaleCostiOperativi,
+                    incidenzaPersonale: totaleCosti ? (totaleCostiPersonale / totaleCosti) * 100 : 0
+                };
+            }, [data]);
+
+            if (loading) {
+                return (
+                    <div className="w-full h-screen flex items-center justify-center">
+                        <div className="text-center">
+                            <div className="text-2xl font-semibold mb-2">Caricamento dati contabilità analitica...</div>
+                            <div className="text-gray-500">Attendere prego</div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (error) {
+                return (
+                    <div className="w-full h-screen flex items-center justify-center">
+                        <div className="text-center max-w-md">
+                            <div className="text-2xl font-semibold mb-2 text-red-600">Errore caricamento dati</div>
+                            <div className="text-gray-700 mb-4">{error}</div>
+                            <div className="text-sm text-gray-500">Assicurati che il file JSON sia presente nella directory.</div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="w-full p-6 space-y-6">
+                    {/* Header */}
+                    <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+                        <div>
+                            <h1 className="text-2xl font-semibold">Dashboard Contabilità Analitica</h1>
+                            <p className="text-sm text-gray-600">Periodo: {PERIODO} · Valuta: EUR</p>
+                            <div className="mt-2 text-sm text-gray-700">
+                                <span className="font-medium">Percorso:</span>{" "}
+                                <span>
+                                    Panoramica Centri di Costo
+                                    {selectedCdc && <> → <span className="font-medium">{selectedCdc.Nome}</span></>}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <div className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">Consuntivo</div>
+                            <div className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">Budget</div>
+                            <div className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm">Anno Prec.</div>
+                        </div>
+                    </div>
+
+                    {/* KPI Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="rounded-2xl border p-4 shadow-sm bg-white">
+                            <div className="text-sm text-gray-500">Ricavi Totali</div>
+                            <div className="text-2xl font-semibold">{numberFmt(kpiSummary.totaleRicavi)}</div>
+                            <div className="mt-2 text-xs">
+                                <span className={kpiSummary.ricaviVar >= 0 ? "text-green-600" : "text-red-600"}>
+                                    {kpiSummary.ricaviVar >= 0 ? "▲" : "▼"} {pctFmt(Math.abs(kpiSummary.ricaviVar))} vs Anno Prec.
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl border p-4 shadow-sm bg-white">
+                            <div className="text-sm text-gray-500">Costi Totali</div>
+                            <div className="text-2xl font-semibold">{numberFmt(kpiSummary.totaleCosti)}</div>
+                            <div className="mt-2 text-xs">
+                                <span className={kpiSummary.costiVar <= 0 ? "text-green-600" : "text-red-600"}>
+                                    {kpiSummary.costiVar >= 0 ? "▲" : "▼"} {pctFmt(Math.abs(kpiSummary.costiVar))} vs Anno Prec.
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl border p-4 shadow-sm bg-white">
+                            <div className="text-sm text-gray-500">Margine Operativo</div>
+                            <div className="text-2xl font-semibold">{numberFmt(kpiSummary.margine)}</div>
+                            <div className="mt-2 text-xs">
+                                <span className={kpiSummary.margineVar >= 0 ? "text-green-600" : "text-red-600"}>
+                                    {kpiSummary.margineVar >= 0 ? "▲" : "▼"} {pctFmt(Math.abs(kpiSummary.margineVar))} vs Anno Prec.
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl border p-4 shadow-sm bg-white">
+                            <div className="text-sm text-gray-500">Margine %</div>
+                            <div className="text-2xl font-semibold">{pctFmt(kpiSummary.marginePercent)}</div>
+                            <div className="mt-2 text-xs text-gray-500">
+                                Costo Personale: {pctFmt(kpiSummary.incidenzaPersonale)}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* KPI Secondari */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="rounded-2xl border p-4 shadow-sm bg-white">
+                            <div className="text-sm text-gray-500">Costo del Personale</div>
+                            <div className="text-xl font-semibold">{numberFmt(kpiSummary.totaleCostiPersonale)}</div>
+                            <div className="mt-2 text-xs text-gray-600">
+                                {pctFmt(kpiSummary.incidenzaPersonale)} dei costi totali
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl border p-4 shadow-sm bg-white">
+                            <div className="text-sm text-gray-500">Costi Operativi</div>
+                            <div className="text-xl font-semibold">{numberFmt(kpiSummary.totaleCostiOperativi)}</div>
+                            <div className="mt-2 text-xs text-gray-600">
+                                {pctFmt((kpiSummary.totaleCostiOperativi / kpiSummary.totaleCosti) * 100)} dei costi totali
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl border p-4 shadow-sm bg-white">
+                            <div className="text-sm text-gray-500">Centri di Costo</div>
+                            <div className="text-xl font-semibold">{CENTRI_DI_COSTO.length}</div>
+                            <div className="mt-2 text-xs text-gray-600">
+                                Attivi nel periodo
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Centri di Costo */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {CENTRI_DI_COSTO.map((cdc, index) => {
+                            const ricavi = cdc.Consuntivo.Ricavi || 0;
+                            const costi = cdc.Consuntivo.Costi || 0;
+                            const margine = ricavi - costi;
+                            const marginePercent = ricavi ? (margine / ricavi) * 100 : 0;
+
+                            const ricaviAP = cdc.AnnoPrecedente?.Ricavi || 0;
+                            const costiAP = cdc.AnnoPrecedente?.Costi || 0;
+                            const margineAP = ricaviAP - costiAP;
+
+                            const margineVar = calcVariance(margine, margineAP);
+
+                            return (
+                                <div
+                                    key={cdc.Nome}
+                                    onClick={() => { setSelectedCdc(cdc); setDrawerOpen(true); }}
+                                    className={`rounded-2xl border p-4 shadow-sm cursor-pointer hover:shadow-md transition ${getColorForIndex(index)}`}
+                                >
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="text-lg font-medium">{getIconForType(cdc.Tipo)} {cdc.Nome}</div>
+                                        <span className="text-xs text-blue-600 underline">Dettagli →</span>
+                                    </div>
+                                    <div className="text-sm text-gray-600 mb-3">{cdc.Tipo}</div>
+                                    <div className="space-y-1">
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-600">Ricavi:</span>
+                                            <span className="font-semibold">{numberFmt(ricavi)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-600">Costi:</span>
+                                            <span className="font-semibold">{numberFmt(costi)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm pt-1 border-t">
+                                            <span className="text-gray-600">Margine:</span>
+                                            <span className="font-semibold">{numberFmt(margine)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-xs">
+                                            <span className="text-gray-500">Margine %:</span>
+                                            <span className={marginePercent >= 0 ? "text-green-600" : "text-red-600"}>
+                                                {pctFmt(marginePercent)}
+                                            </span>
+                                        </div>
+                                        <div className="text-xs text-gray-500 pt-1">
+                                            <span className={margineVar >= 0 ? "text-green-600" : "text-red-600"}>
+                                                {margineVar >= 0 ? "▲" : "▼"} {pctFmt(Math.abs(margineVar))} vs Anno Prec.
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* Drawer dettaglio */}
+                    {drawerOpen && selectedCdc && (
+                        <div className="fixed inset-0 z-40">
+                            <div className="absolute inset-0 bg-black/30" onClick={() => setDrawerOpen(false)} />
+                            <div className="absolute bottom-0 left-0 w-full h-[70vh] bg-white shadow-2xl p-6 overflow-y-auto rounded-t-2xl">
+                                <div className="flex items-start justify-between gap-4 mb-6">
+                                    <div>
+                                        <div className="text-xs text-gray-500">Dettaglio Centro di Costo</div>
+                                        <h2 className="text-xl font-semibold">{getIconForType(selectedCdc.Tipo)} {selectedCdc.Nome}</h2>
+                                        <p className="text-sm text-gray-600 mt-1">Periodo: {PERIODO} · Tipo: {selectedCdc.Tipo}</p>
+                                    </div>
+                                    <button className="text-sm px-3 py-1 rounded-md border hover:bg-gray-50" onClick={() => setDrawerOpen(false)}>
+                                        Chiudi
+                                    </button>
+                                </div>
+
+                                {/* Tabella comparativa */}
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="text-left border-b-2">
+                                                <th className="py-2 pr-4">Voce</th>
+                                                <th className="py-2 pr-4 text-right">Consuntivo</th>
+                                                <th className="py-2 pr-4 text-right">Budget</th>
+                                                <th className="py-2 pr-4 text-right">Anno Prec.</th>
+                                                <th className="py-2 pr-4 text-right">Δ Budget</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {Object.keys(selectedCdc.Consuntivo).map((voce) => {
+                                                const consuntivo = selectedCdc.Consuntivo[voce];
+                                                const budget = selectedCdc.Budget?.[voce] || 0;
+                                                const annoPrecedente = selectedCdc.AnnoPrecedente?.[voce] || 0;
+                                                const variance = calcVariance(consuntivo, budget);
+                                                const isPercentage = voce.includes("%");
+
+                                                return (
+                                                    <tr key={voce} className="border-b hover:bg-gray-50">
+                                                        <td className="py-2 pr-4">{voce}</td>
+                                                        <td className="py-2 pr-4 text-right">
+                                                            {isPercentage ? pctFmt(consuntivo) : numberFmt(consuntivo)}
+                                                        </td>
+                                                        <td className="py-2 pr-4 text-right text-gray-600">
+                                                            {isPercentage ? pctFmt(budget) : numberFmt(budget)}
+                                                        </td>
+                                                        <td className="py-2 pr-4 text-right text-gray-500">
+                                                            {isPercentage ? pctFmt(annoPrecedente) : numberFmt(annoPrecedente)}
+                                                        </td>
+                                                        <td className={`py-2 pr-4 text-right ${variance >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                                            {!isPercentage && (variance >= 0 ? "▲" : "▼")} {pctFmt(Math.abs(variance))}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Footer */}
+                    <div className="text-xs text-gray-500">
+                        Dati caricati da: {new URLSearchParams(window.location.search).get('data') || 'bcdc.json'} |
+                        Suggerimento: usa ?data=nome_file.json per caricare periodi diversi
+                    </div>
+                </div>
+            );
+        }
+
+        // Mount
+        function App() { return <BcdcDashboard />; }
+        const root = ReactDOM.createRoot(document.getElementById("root"));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>

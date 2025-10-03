@@ -1,0 +1,229 @@
+{
+  "Periodo": "Aprile 2025 YTD",
+  "CentriDiCosto": [
+    {
+      "Nome": "Produzione",
+      "Tipo": "Produzione",
+      "Consuntivo": {
+        "Ricavi": 2850000,
+        "Costi": 2100000,
+        "CostoPersonale": 1400000,
+        "CostiOperativi": 500000,
+        "Ammortamenti": 200000,
+        "Margine %": 26.3
+      },
+      "Budget": {
+        "Ricavi": 2750000,
+        "Costi": 2050000,
+        "CostoPersonale": 1350000,
+        "CostiOperativi": 480000,
+        "Ammortamenti": 220000,
+        "Margine %": 25.5
+      },
+      "AnnoPrecedente": {
+        "Ricavi": 2650000,
+        "Costi": 1950000,
+        "CostoPersonale": 1300000,
+        "CostiOperativi": 450000,
+        "Ammortamenti": 200000,
+        "Margine %": 26.4
+      }
+    },
+    {
+      "Nome": "Commerciale",
+      "Tipo": "Commerciale",
+      "Consuntivo": {
+        "Ricavi": 1850000,
+        "Costi": 950000,
+        "CostoPersonale": 550000,
+        "CostiOperativi": 350000,
+        "Ammortamenti": 50000,
+        "Margine %": 48.6
+      },
+      "Budget": {
+        "Ricavi": 1800000,
+        "Costi": 920000,
+        "CostoPersonale": 530000,
+        "CostiOperativi": 340000,
+        "Ammortamenti": 50000,
+        "Margine %": 48.9
+      },
+      "AnnoPrecedente": {
+        "Ricavi": 1750000,
+        "Costi": 900000,
+        "CostoPersonale": 520000,
+        "CostiOperativi": 330000,
+        "Ammortamenti": 50000,
+        "Margine %": 48.6
+      }
+    },
+    {
+      "Nome": "Amministrazione",
+      "Tipo": "Amministrazione",
+      "Consuntivo": {
+        "Ricavi": 0,
+        "Costi": 450000,
+        "CostoPersonale": 320000,
+        "CostiOperativi": 110000,
+        "Ammortamenti": 20000,
+        "Margine %": 0
+      },
+      "Budget": {
+        "Ricavi": 0,
+        "Costi": 440000,
+        "CostoPersonale": 310000,
+        "CostiOperativi": 110000,
+        "Ammortamenti": 20000,
+        "Margine %": 0
+      },
+      "AnnoPrecedente": {
+        "Ricavi": 0,
+        "Costi": 420000,
+        "CostoPersonale": 300000,
+        "CostiOperativi": 100000,
+        "Ammortamenti": 20000,
+        "Margine %": 0
+      }
+    },
+    {
+      "Nome": "R&D",
+      "Tipo": "R&D",
+      "Consuntivo": {
+        "Ricavi": 350000,
+        "Costi": 580000,
+        "CostoPersonale": 420000,
+        "CostiOperativi": 140000,
+        "Ammortamenti": 20000,
+        "Margine %": -65.7
+      },
+      "Budget": {
+        "Ricavi": 300000,
+        "Costi": 550000,
+        "CostoPersonale": 400000,
+        "CostiOperativi": 130000,
+        "Ammortamenti": 20000,
+        "Margine %": -83.3
+      },
+      "AnnoPrecedente": {
+        "Ricavi": 280000,
+        "Costi": 520000,
+        "CostoPersonale": 380000,
+        "CostiOperativi": 120000,
+        "Ammortamenti": 20000,
+        "Margine %": -85.7
+      }
+    },
+    {
+      "Nome": "IT",
+      "Tipo": "IT",
+      "Consuntivo": {
+        "Ricavi": 180000,
+        "Costi": 420000,
+        "CostoPersonale": 280000,
+        "CostiOperativi": 120000,
+        "Ammortamenti": 20000,
+        "Margine %": -133.3
+      },
+      "Budget": {
+        "Ricavi": 150000,
+        "Costi": 400000,
+        "CostoPersonale": 270000,
+        "CostiOperativi": 110000,
+        "Ammortamenti": 20000,
+        "Margine %": -166.7
+      },
+      "AnnoPrecedente": {
+        "Ricavi": 160000,
+        "Costi": 390000,
+        "CostoPersonale": 260000,
+        "CostiOperativi": 110000,
+        "Ammortamenti": 20000,
+        "Margine %": -143.8
+      }
+    },
+    {
+      "Nome": "Logistica",
+      "Tipo": "Logistica",
+      "Consuntivo": {
+        "Ricavi": 520000,
+        "Costi": 380000,
+        "CostoPersonale": 220000,
+        "CostiOperativi": 140000,
+        "Ammortamenti": 20000,
+        "Margine %": 26.9
+      },
+      "Budget": {
+        "Ricavi": 500000,
+        "Costi": 370000,
+        "CostoPersonale": 210000,
+        "CostiOperativi": 140000,
+        "Ammortamenti": 20000,
+        "Margine %": 26.0
+      },
+      "AnnoPrecedente": {
+        "Ricavi": 480000,
+        "Costi": 360000,
+        "CostoPersonale": 200000,
+        "CostiOperativi": 140000,
+        "Ammortamenti": 20000,
+        "Margine %": 25.0
+      }
+    },
+    {
+      "Nome": "Marketing",
+      "Tipo": "Marketing",
+      "Consuntivo": {
+        "Ricavi": 420000,
+        "Costi": 310000,
+        "CostoPersonale": 180000,
+        "CostiOperativi": 110000,
+        "Ammortamenti": 20000,
+        "Margine %": 26.2
+      },
+      "Budget": {
+        "Ricavi": 400000,
+        "Costi": 300000,
+        "CostoPersonale": 175000,
+        "CostiOperativi": 105000,
+        "Ammortamenti": 20000,
+        "Margine %": 25.0
+      },
+      "AnnoPrecedente": {
+        "Ricavi": 380000,
+        "Costi": 290000,
+        "CostoPersonale": 170000,
+        "CostiOperativi": 100000,
+        "Ammortamenti": 20000,
+        "Margine %": 23.7
+      }
+    },
+    {
+      "Nome": "HR",
+      "Tipo": "HR",
+      "Consuntivo": {
+        "Ricavi": 0,
+        "Costi": 280000,
+        "CostoPersonale": 200000,
+        "CostiOperativi": 70000,
+        "Ammortamenti": 10000,
+        "Margine %": 0
+      },
+      "Budget": {
+        "Ricavi": 0,
+        "Costi": 270000,
+        "CostoPersonale": 195000,
+        "CostiOperativi": 65000,
+        "Ammortamenti": 10000,
+        "Margine %": 0
+      },
+      "AnnoPrecedente": {
+        "Ricavi": 0,
+        "Costi": 260000,
+        "CostoPersonale": 190000,
+        "CostiOperativi": 60000,
+        "Ammortamenti": 10000,
+        "Margine %": 0
+      }
+    }
+  ]
+}
