@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard Cash Flow</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Roboto', sans-serif; }
+        .material-card {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+            transition: all 0.3s cubic-bezier(.25,.8,.25,1);
+        }
+        .material-card:hover {
+            box-shadow: 0 14px 28px rgba(0,0,0,0.25), 0 10px 10px rgba(0,0,0,0.22);
+            transform: translateY(-2px);
+        }
+        .material-card-elevated {
+            box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+        }
+        .ripple {
+            position: relative;
+            overflow: hidden;
+        }
+        .ripple:active::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            animation: ripple-animation 0.6s ease-out;
+        }
+        @keyframes ripple-animation {
+            to { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .animate-slideUp { animation: slideUp 0.3s cubic-bezier(0.4, 0.0, 0.2, 1); }
+        .animate-fadeIn { animation: fadeIn 0.2s ease-out; }
+    </style>
+</head>
+
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel" data-presets="env,react">
+        const { useMemo, useState, useEffect } = React;
+
+        // Variabili globali per i dati
+        let PERIODO = "";
+        let PERIODI = [];
+        let INCASSI = {};
+        let PAGAMENTI = {};
+        let LIQUIDITA = {};
+        let PDF_ANALISI = "";
+        let MP3_ANALISI = "";
+
+        function numberFmt(val) {
+            return val.toLocaleString("it-IT", {
+                style: "currency",
+                currency: "EUR",
+                maximumFractionDigits: 0
+            });
+        }
+
+        function pctFmt(val) { return `${val.toFixed(1)}%`; }
+
+        function calcVariance(actual, target) {
+            if (!target) return 0;
+            return ((actual - target) / target) * 100;
+        }
+
+        const SECTION_COLORS = {
+            "Incassi": "bg-emerald-50",
+            "Pagamenti": "bg-rose-50",
+            "Liquidità": "bg-blue-50",
+            "Previsioni": "bg-purple-50"
+        };
+
+        const SECTION_ICON_COLORS = {
+            "Incassi": "text-emerald-600",
+            "Pagamenti": "text-rose-600",
+            "Liquidità": "text-blue-600",
+            "Previsioni": "text-purple-600"
+        };
+
+        const SECTION_ICONS = {
+            "Incassi": <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/></svg>,
+            "Pagamenti": <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>,
+            "Liquidità": <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg>,
+            "Previsioni": <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+        };
+
+        function CashFlowDashboard() {
+            const [selectedPeriodo, setSelectedPeriodo] = useState(null);
+            const [selectedSection, setSelectedSection] = useState(null);
+            const [drawerOpen, setDrawerOpen] = useState(false);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+            const [data, setData] = useState(null);
+
+            // Carica dati dal JSON
+            useEffect(() => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const dataFile = urlParams.get('data') || 'cashflow.json';
+                PDF_ANALISI = urlParams.get('pdf') || '';
+                MP3_ANALISI = urlParams.get('mp3') || '';
+
+                console.log(`Caricamento dati da: ${dataFile}`);
+                console.log(`PDF Analisi: ${PDF_ANALISI || 'Non specificato'}`);
+                console.log(`MP3 Analisi: ${MP3_ANALISI || 'Non specificato'}`);
+
+                fetch(dataFile)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status} - File non trovato: ${dataFile}`);
+                        }
+                        return response.json();
+                    })
+                    .then(jsonData => {
+                        PERIODO = jsonData.Periodo;
+                        PERIODI = jsonData.Periodi;
+                        INCASSI = jsonData.Incassi;
+                        PAGAMENTI = jsonData.Pagamenti;
+                        LIQUIDITA = jsonData.Liquidita;
+                        setData(jsonData);
+                        setLoading(false);
+                    })
+                    .catch(err => {
+                        console.error('Errore caricamento dati:', err);
+                        setError(err.message);
+                        setLoading(false);
+                    });
+            }, []);
+
+            const kpiSummary = useMemo(() => {
+                if (!data) return null;
+
+                const totIncassiEffettivi = INCASSI.Effettivi?.Totale || 0;
+                const totIncassiPrevisti = INCASSI.Previsti?.Totale || 0;
+                const totPagamentiEffettivi = PAGAMENTI.Effettivi?.Totale || 0;
+                const totPagamentiPrevisti = PAGAMENTI.Previsti?.Totale || 0;
+                const liquiditaIniziale = LIQUIDITA.Iniziale || 0;
+                const liquiditaFinale = LIQUIDITA.Finale || 0;
+                const liquiditaMinima = LIQUIDITA.Minima || 0;
+
+                const cashFlowEffettivo = totIncassiEffettivi - totPagamentiEffettivi;
+                const cashFlowPrevisto = totIncassiPrevisti - totPagamentiPrevisti;
+                const varCashFlow = calcVariance(cashFlowEffettivo, cashFlowPrevisto);
+
+                return {
+                    totIncassiEffettivi,
+                    totIncassiPrevisti,
+                    totPagamentiEffettivi,
+                    totPagamentiPrevisti,
+                    cashFlowEffettivo,
+                    cashFlowPrevisto,
+                    varCashFlow,
+                    liquiditaIniziale,
+                    liquiditaFinale,
+                    liquiditaMinima,
+                    liquiditaDelta: liquiditaFinale - liquiditaIniziale
+                };
+            }, [data]);
+
+            if (loading) {
+                return (
+                    <div className="w-full h-screen flex items-center justify-center bg-gray-50">
+                        <div className="text-center">
+                            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mb-4"></div>
+                            <div className="text-xl font-medium text-gray-700">Caricamento dati cash flow...</div>
+                            <div className="text-sm text-gray-500 mt-2">Attendere prego</div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (error) {
+                return (
+                    <div className="w-full h-screen flex items-center justify-center bg-gray-50">
+                        <div className="text-center max-w-md material-card-elevated bg-white rounded-lg p-8">
+                            <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                            </svg>
+                            <div className="text-xl font-medium mb-3 text-red-600">Errore caricamento dati</div>
+                            <div className="text-gray-700 mb-4">{error}</div>
+                            <div className="text-sm text-gray-500">Assicurati che il file JSON sia presente nella directory.</div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="w-full min-h-screen bg-gray-50">
+                    {/* Material Design AppBar */}
+                    <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg">
+                        <div className="max-w-7xl mx-auto px-6 py-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/>
+                                    </svg>
+                                    <div>
+                                        <h1 className="text-xl font-medium">Dashboard Cash Flow / Tesoreria</h1>
+                                        <p className="text-sm text-blue-100">Periodo: {PERIODO} · Valuta: EUR</p>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <div className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded text-sm font-medium">Effettivi</div>
+                                    <div className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded text-sm font-medium">Previsti</div>
+                                </div>
+                            </div>
+                            {selectedSection && (
+                                <div className="mt-3 flex items-center gap-2 text-sm text-blue-100">
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+                                    </svg>
+                                    <span>Panoramica</span>
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                                    </svg>
+                                    <span className="font-medium text-white">{selectedSection}</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="max-w-7xl mx-auto p-6 space-y-6">
+
+                    {/* Sezione Analisi - Mostrata solo se c'è almeno un file */}
+                    {(PDF_ANALISI || MP3_ANALISI) && (
+                        <div className="material-card bg-white rounded-lg p-6">
+                            <div className="flex items-center gap-3 mb-4">
+                                <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+                                </svg>
+                                <h2 className="text-xl font-medium text-gray-900">Analisi</h2>
+                            </div>
+                            <div className={`grid grid-cols-1 ${PDF_ANALISI && MP3_ANALISI ? 'md:grid-cols-2' : ''} gap-4`}>
+                                {/* PDF Link */}
+                                {PDF_ANALISI && (
+                                    <a
+                                        href={PDF_ANALISI}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-3 p-4 bg-gradient-to-r from-red-50 to-red-100 rounded-lg hover:from-red-100 hover:to-red-200 transition-all ripple group"
+                                    >
+                                        <div className="bg-red-600 text-white p-3 rounded-lg group-hover:scale-110 transition-transform">
+                                            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z"/>
+                                            </svg>
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="font-medium text-gray-900">Analisi Riassuntiva (PDF)</div>
+                                            <div className="text-sm text-gray-600">Rapporto completo cash flow</div>
+                                        </div>
+                                        <svg className="w-5 h-5 text-red-600 group-hover:translate-x-1 transition-transform" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                                        </svg>
+                                    </a>
+                                )}
+
+                                {/* MP3 Link */}
+                                {MP3_ANALISI && (
+                                    <a
+                                        href={MP3_ANALISI}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-3 p-4 bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg hover:from-purple-100 hover:to-purple-200 transition-all ripple group"
+                                    >
+                                        <div className="bg-purple-600 text-white p-3 rounded-lg group-hover:scale-110 transition-transform">
+                                            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M12 3v9.28c-.47-.17-.97-.28-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z"/>
+                                            </svg>
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="font-medium text-gray-900">Podcast Analisi (MP3)</div>
+                                            <div className="text-sm text-gray-600">Commento audio cash flow</div>
+                                        </div>
+                                        <svg className="w-5 h-5 text-purple-600 group-hover:translate-x-1 transition-transform" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                                        </svg>
+                                    </a>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* KPI Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="material-card bg-white rounded-lg p-6 border-l-4 border-emerald-500">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="text-sm font-medium text-gray-600 uppercase tracking-wide">Incassi Totali</div>
+                                <svg className="w-6 h-6 text-emerald-500" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/>
+                                </svg>
+                            </div>
+                            <div className="text-3xl font-bold text-gray-900">{numberFmt(kpiSummary.totIncassiEffettivi)}</div>
+                            <div className="mt-3 text-sm text-gray-500">
+                                Previsti: {numberFmt(kpiSummary.totIncassiPrevisti)}
+                            </div>
+                        </div>
+
+                        <div className="material-card bg-white rounded-lg p-6 border-l-4 border-rose-500">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="text-sm font-medium text-gray-600 uppercase tracking-wide">Pagamenti Totali</div>
+                                <svg className="w-6 h-6 text-rose-500" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
+                                </svg>
+                            </div>
+                            <div className="text-3xl font-bold text-gray-900">{numberFmt(kpiSummary.totPagamentiEffettivi)}</div>
+                            <div className="mt-3 text-sm text-gray-500">
+                                Previsti: {numberFmt(kpiSummary.totPagamentiPrevisti)}
+                            </div>
+                        </div>
+
+                        <div className="material-card bg-white rounded-lg p-6 border-l-4 border-blue-500">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="text-sm font-medium text-gray-600 uppercase tracking-wide">Cash Flow Netto</div>
+                                <svg className="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/>
+                                </svg>
+                            </div>
+                            <div className={`text-3xl font-bold ${kpiSummary.cashFlowEffettivo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {numberFmt(kpiSummary.cashFlowEffettivo)}
+                            </div>
+                            <div className="mt-3 flex items-center gap-2">
+                                <div className={`flex items-center gap-1 text-sm font-medium ${kpiSummary.varCashFlow >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d={kpiSummary.varCashFlow >= 0 ? "M7 14l5-5 5 5z" : "M7 10l5 5 5-5z"}/>
+                                    </svg>
+                                    <span>{pctFmt(Math.abs(kpiSummary.varCashFlow))}</span>
+                                </div>
+                                <span className="text-sm text-gray-500">vs Previsto</span>
+                            </div>
+                        </div>
+
+                        <div className="material-card bg-white rounded-lg p-6 border-l-4 border-purple-500">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="text-sm font-medium text-gray-600 uppercase tracking-wide">Liquidità Finale</div>
+                                <svg className="w-6 h-6 text-purple-500" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M19 14V6c0-1.1-.9-2-2-2H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zm-9-1c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm13-6v11c0 1.1-.9 2-2 2H4v-2h17V7h2z"/>
+                                </svg>
+                            </div>
+                            <div className="text-3xl font-bold text-gray-900">{numberFmt(kpiSummary.liquiditaFinale)}</div>
+                            <div className="mt-3 flex items-center gap-2">
+                                <div className={`flex items-center gap-1 text-sm font-medium ${kpiSummary.liquiditaDelta >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d={kpiSummary.liquiditaDelta >= 0 ? "M7 14l5-5 5 5z" : "M7 10l5 5 5-5z"}/>
+                                    </svg>
+                                    <span>{numberFmt(Math.abs(kpiSummary.liquiditaDelta))}</span>
+                                </div>
+                                <span className="text-sm text-gray-500">vs Iniziale</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Timeline Cash Flow - Periodi */}
+                    <div className="material-card bg-white rounded-lg p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                            <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+                            </svg>
+                            <h2 className="text-xl font-medium text-gray-900">Timeline Cash Flow</h2>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead className="bg-gray-50">
+                                    <tr className="text-left border-b-2 border-blue-500">
+                                        <th className="py-4 px-4 font-medium text-gray-700 uppercase text-xs tracking-wide">Periodo</th>
+                                        <th className="py-4 px-4 text-right font-medium text-gray-700 uppercase text-xs tracking-wide">Incassi</th>
+                                        <th className="py-4 px-4 text-right font-medium text-gray-700 uppercase text-xs tracking-wide">Pagamenti</th>
+                                        <th className="py-4 px-4 text-right font-medium text-gray-700 uppercase text-xs tracking-wide">Saldo</th>
+                                        <th className="py-4 px-4 text-right font-medium text-gray-700 uppercase text-xs tracking-wide">Liquidità</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {PERIODI.map((p, idx) => {
+                                        const saldo = p.Incassi - p.Pagamenti;
+                                        return (
+                                            <tr key={idx} className="border-b border-gray-100 hover:bg-blue-50 transition-colors">
+                                                <td className="py-3 px-4 font-medium text-gray-900">{p.Nome}</td>
+                                                <td className="py-3 px-4 text-right text-emerald-600 font-semibold">{numberFmt(p.Incassi)}</td>
+                                                <td className="py-3 px-4 text-right text-rose-600 font-semibold">{numberFmt(p.Pagamenti)}</td>
+                                                <td className={`py-3 px-4 text-right font-bold ${saldo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                    {numberFmt(saldo)}
+                                                </td>
+                                                <td className="py-3 px-4 text-right text-gray-900 font-semibold">{numberFmt(p.Liquidita)}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* Sezioni Incassi/Pagamenti */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Incassi */}
+                        <div
+                            onClick={() => { setSelectedSection("Incassi"); setDrawerOpen(true); }}
+                            className="material-card bg-emerald-50 rounded-lg p-5 cursor-pointer ripple"
+                        >
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="text-emerald-600">
+                                    {SECTION_ICONS["Incassi"]}
+                                </div>
+                                <div className="text-lg font-medium text-gray-900">Incassi</div>
+                            </div>
+                            <div className="text-2xl font-bold text-gray-900 mb-3">{numberFmt(kpiSummary.totIncassiEffettivi)}</div>
+                            <div className="mt-4 pt-3 border-t flex items-center justify-between text-xs text-gray-500">
+                                <span>{Object.keys(INCASSI.Effettivi).length} voci di dettaglio</span>
+                                <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                                </svg>
+                            </div>
+                        </div>
+
+                        {/* Pagamenti */}
+                        <div
+                            onClick={() => { setSelectedSection("Pagamenti"); setDrawerOpen(true); }}
+                            className="material-card bg-rose-50 rounded-lg p-5 cursor-pointer ripple"
+                        >
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="text-rose-600">
+                                    {SECTION_ICONS["Pagamenti"]}
+                                </div>
+                                <div className="text-lg font-medium text-gray-900">Pagamenti</div>
+                            </div>
+                            <div className="text-2xl font-bold text-gray-900 mb-3">{numberFmt(kpiSummary.totPagamentiEffettivi)}</div>
+                            <div className="mt-4 pt-3 border-t flex items-center justify-between text-xs text-gray-500">
+                                <span>{Object.keys(PAGAMENTI.Effettivi).length} voci di dettaglio</span>
+                                <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Material Bottom Sheet */}
+                    {drawerOpen && selectedSection && (
+                        <div className="fixed inset-0 z-50 animate-fadeIn">
+                            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setDrawerOpen(false)} />
+                            <div className="absolute bottom-0 left-0 w-full h-[75vh] bg-white shadow-2xl overflow-hidden animate-slideUp">
+                                <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-5 shadow-md">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="text-white">
+                                                {SECTION_ICONS[selectedSection]}
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-blue-100 uppercase tracking-wide">Dettaglio Sezione</div>
+                                                <h2 className="text-2xl font-medium mt-1">{selectedSection}</h2>
+                                                <p className="text-sm text-blue-100 mt-1">Periodo: {PERIODO}</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            className="ripple bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
+                                            onClick={() => setDrawerOpen(false)}
+                                        >
+                                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                                            </svg>
+                                            <span className="font-medium">Chiudi</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="p-6 overflow-y-auto h-[calc(100%-100px)]">
+                                    <div className="material-card-elevated rounded-lg overflow-hidden bg-white">
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-sm">
+                                                <thead className="bg-gray-50">
+                                                    <tr className="text-left border-b-2 border-blue-500">
+                                                        <th className="py-4 px-4 font-medium text-gray-700 uppercase text-xs tracking-wide">Voce</th>
+                                                        <th className="py-4 px-4 text-right font-medium text-gray-700 uppercase text-xs tracking-wide">Effettivi</th>
+                                                        <th className="py-4 px-4 text-right font-medium text-gray-700 uppercase text-xs tracking-wide">Previsti</th>
+                                                        <th className="py-4 px-4 text-right font-medium text-gray-700 uppercase text-xs tracking-wide">Δ</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {Object.keys(selectedSection === "Incassi" ? INCASSI.Effettivi : PAGAMENTI.Effettivi).map((voce) => {
+                                                        const effettivo = selectedSection === "Incassi" ? INCASSI.Effettivi[voce] : PAGAMENTI.Effettivi[voce];
+                                                        const previsto = selectedSection === "Incassi" ? (INCASSI.Previsti?.[voce] || 0) : (PAGAMENTI.Previsti?.[voce] || 0);
+                                                        const variance = calcVariance(effettivo, previsto);
+                                                        const isTotal = voce === "Totale";
+
+                                                        return (
+                                                            <tr key={voce} className={`border-b border-gray-100 hover:bg-blue-50 transition-colors ${isTotal ? "font-bold bg-blue-100 hover:bg-blue-200" : ""}`}>
+                                                                <td className="py-3 px-4 text-gray-900">{voce}</td>
+                                                                <td className="py-3 px-4 text-right font-medium text-gray-900">{numberFmt(effettivo)}</td>
+                                                                <td className="py-3 px-4 text-right text-gray-600">{numberFmt(previsto)}</td>
+                                                                <td className="py-3 px-4 text-right">
+                                                                    <div className={`inline-flex items-center gap-1 font-medium ${variance >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                                                            <path d={variance >= 0 ? "M7 14l5-5 5 5z" : "M7 10l5 5 5-5z"}/>
+                                                                        </svg>
+                                                                        <span>{pctFmt(Math.abs(variance))}</span>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Footer */}
+                    <div className="material-card bg-white rounded-lg p-4 flex items-center gap-3 text-sm text-gray-600">
+                        <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"/>
+                        </svg>
+                        <div>
+                            <span className="font-medium">Dati caricati da:</span> {new URLSearchParams(window.location.search).get('data') || 'cashflow.json'}
+                            <span className="mx-2">·</span>
+                            <span className="text-gray-500">Parametri: ?data=file.json&pdf=analisi.pdf&mp3=audio.mp3</span>
+                        </div>
+                    </div>
+                </div>
+                </div>
+            );
+        }
+
+        // Mount
+        function App() { return <CashFlowDashboard />; }
+        const root = ReactDOM.createRoot(document.getElementById("root"));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,179 @@
+{
+  "Periodo": "2024 - Anno Completo",
+  "Prodotti": [
+    {
+      "Nome": "Software Gestionale ERP",
+      "Ricavi": 2850000,
+      "Costi": 1420000,
+      "Dettaglio": {
+        "Costi Sviluppo": 680000,
+        "Licenze Software": 240000,
+        "Supporto e Manutenzione": 320000,
+        "Marketing": 180000
+      }
+    },
+    {
+      "Nome": "Servizi di Consulenza IT",
+      "Ricavi": 1680000,
+      "Costi": 920000,
+      "Dettaglio": {
+        "Personale": 620000,
+        "Trasferte": 120000,
+        "Formazione": 80000,
+        "Tools e Strumenti": 100000
+      }
+    },
+    {
+      "Nome": "Cloud Infrastructure",
+      "Ricavi": 1920000,
+      "Costi": 1150000,
+      "Dettaglio": {
+        "Server e Hosting": 480000,
+        "Licenze Cloud": 320000,
+        "Sicurezza": 210000,
+        "Supporto Tecnico": 140000
+      }
+    },
+    {
+      "Nome": "Formazione Aziendale",
+      "Ricavi": 580000,
+      "Costi": 280000,
+      "Dettaglio": {
+        "Docenti": 140000,
+        "Materiale Didattico": 60000,
+        "Piattaforma E-Learning": 50000,
+        "Marketing": 30000
+      }
+    },
+    {
+      "Nome": "App Mobile Custom",
+      "Ricavi": 890000,
+      "Costi": 520000,
+      "Dettaglio": {
+        "Sviluppo": 310000,
+        "Design UI/UX": 120000,
+        "Testing": 60000,
+        "Pubblicazione Store": 30000
+      }
+    },
+    {
+      "Nome": "Business Intelligence",
+      "Ricavi": 1240000,
+      "Costi": 680000,
+      "Dettaglio": {
+        "Licenze BI Tools": 280000,
+        "Data Warehouse": 180000,
+        "Consulenza": 150000,
+        "Supporto": 70000
+      }
+    }
+  ],
+  "Clienti": [
+    {
+      "Nome": "Industria Automotive S.p.A.",
+      "Ricavi": 1850000,
+      "Costi": 980000,
+      "Dettaglio": {
+        "Costi Diretti": 650000,
+        "Costi Indiretti": 230000,
+        "Supporto": 100000
+      }
+    },
+    {
+      "Nome": "Retail Group Italia",
+      "Ricavi": 1420000,
+      "Costi": 760000,
+      "Dettaglio": {
+        "Costi Diretti": 520000,
+        "Costi Indiretti": 180000,
+        "Supporto": 60000
+      }
+    },
+    {
+      "Nome": "Pharma Healthcare",
+      "Ricavi": 2150000,
+      "Costi": 1180000,
+      "Dettaglio": {
+        "Costi Diretti": 820000,
+        "Costi Indiretti": 260000,
+        "Supporto": 100000
+      }
+    },
+    {
+      "Nome": "Logistica Express",
+      "Ricavi": 980000,
+      "Costi": 540000,
+      "Dettaglio": {
+        "Costi Diretti": 380000,
+        "Costi Indiretti": 120000,
+        "Supporto": 40000
+      }
+    },
+    {
+      "Nome": "Banca Regionale",
+      "Ricavi": 1640000,
+      "Costi": 920000,
+      "Dettaglio": {
+        "Costi Diretti": 640000,
+        "Costi Indiretti": 200000,
+        "Supporto": 80000
+      }
+    },
+    {
+      "Nome": "Food & Beverage Corp",
+      "Ricavi": 1120000,
+      "Costi": 590000,
+      "Dettaglio": {
+        "Costi Diretti": 420000,
+        "Costi Indiretti": 130000,
+        "Supporto": 40000
+      }
+    }
+  ],
+  "AreeGeografiche": [
+    {
+      "Nome": "Nord Italia",
+      "Ricavi": 4280000,
+      "Costi": 2240000,
+      "Dettaglio": {
+        "Costi Operativi": 1480000,
+        "Logistica": 420000,
+        "Marketing Locale": 240000,
+        "Struttura": 100000
+      }
+    },
+    {
+      "Nome": "Centro Italia",
+      "Ricavi": 2450000,
+      "Costi": 1380000,
+      "Dettaglio": {
+        "Costi Operativi": 920000,
+        "Logistica": 280000,
+        "Marketing Locale": 140000,
+        "Struttura": 40000
+      }
+    },
+    {
+      "Nome": "Sud Italia e Isole",
+      "Ricavi": 1830000,
+      "Costi": 1120000,
+      "Dettaglio": {
+        "Costi Operativi": 740000,
+        "Logistica": 240000,
+        "Marketing Locale": 100000,
+        "Struttura": 40000
+      }
+    },
+    {
+      "Nome": "Estero (EU)",
+      "Ricavi": 600000,
+      "Costi": 230000,
+      "Dettaglio": {
+        "Costi Operativi": 150000,
+        "Logistica": 50000,
+        "Marketing Locale": 20000,
+        "Struttura": 10000
+      }
+    }
+  ]
+}

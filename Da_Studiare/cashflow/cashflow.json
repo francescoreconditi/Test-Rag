@@ -1,0 +1,105 @@
+{
+  "Periodo": "2024 - Q1-Q3",
+  "Periodi": [
+    {
+      "Nome": "Gennaio 2024",
+      "Incassi": 850000,
+      "Pagamenti": 620000,
+      "Liquidita": 1450000
+    },
+    {
+      "Nome": "Febbraio 2024",
+      "Incassi": 920000,
+      "Pagamenti": 750000,
+      "Liquidita": 1620000
+    },
+    {
+      "Nome": "Marzo 2024",
+      "Incassi": 1050000,
+      "Pagamenti": 880000,
+      "Liquidita": 1790000
+    },
+    {
+      "Nome": "Aprile 2024",
+      "Incassi": 780000,
+      "Pagamenti": 690000,
+      "Liquidita": 1880000
+    },
+    {
+      "Nome": "Maggio 2024",
+      "Incassi": 1100000,
+      "Pagamenti": 820000,
+      "Liquidita": 2160000
+    },
+    {
+      "Nome": "Giugno 2024",
+      "Incassi": 950000,
+      "Pagamenti": 910000,
+      "Liquidita": 2200000
+    },
+    {
+      "Nome": "Luglio 2024",
+      "Incassi": 890000,
+      "Pagamenti": 740000,
+      "Liquidita": 2350000
+    },
+    {
+      "Nome": "Agosto 2024",
+      "Incassi": 650000,
+      "Pagamenti": 580000,
+      "Liquidita": 2420000
+    },
+    {
+      "Nome": "Settembre 2024",
+      "Incassi": 1020000,
+      "Pagamenti": 870000,
+      "Liquidita": 2570000
+    }
+  ],
+  "Incassi": {
+    "Effettivi": {
+      "Vendite prodotti": 3580000,
+      "Servizi ricorrenti": 2340000,
+      "Consulenze": 890000,
+      "Recupero crediti": 420000,
+      "Altri incassi": 180000,
+      "Totale": 7410000
+    },
+    "Previsti": {
+      "Vendite prodotti": 3200000,
+      "Servizi ricorrenti": 2500000,
+      "Consulenze": 950000,
+      "Recupero crediti": 350000,
+      "Altri incassi": 200000,
+      "Totale": 7200000
+    }
+  },
+  "Pagamenti": {
+    "Effettivi": {
+      "Fornitori materie prime": 2150000,
+      "Costi del personale": 1980000,
+      "Affitti e utenze": 420000,
+      "Consulenze esterne": 360000,
+      "Imposte e tasse": 540000,
+      "Investimenti": 380000,
+      "Altri pagamenti": 210000,
+      "Totale": 6040000
+    },
+    "Previsti": {
+      "Fornitori materie prime": 2300000,
+      "Costi del personale": 2000000,
+      "Affitti e utenze": 450000,
+      "Consulenze esterne": 400000,
+      "Imposte e tasse": 500000,
+      "Investimenti": 450000,
+      "Altri pagamenti": 250000,
+      "Totale": 6350000
+    }
+  },
+  "Liquidita": {
+    "Iniziale": 1220000,
+    "Finale": 2570000,
+    "Minima": 1450000,
+    "Media": 1937778
+  }
+}
