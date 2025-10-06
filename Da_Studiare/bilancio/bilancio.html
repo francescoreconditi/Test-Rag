@@ -142,9 +142,32 @@
                         return response.json();
                     })
                     .then(jsonData => {
-                        PERIODO = jsonData.Periodo;
-                        SEZIONI = jsonData.Sezioni;
-                        setData(jsonData);
+                        console.log('JSON caricato:', jsonData);
+                        console.log('Chiavi JSON:', Object.keys(jsonData));
+                        console.log('Sezioni:', jsonData.Sezioni);
+
+                        // Supporta sia "Sezioni" (maiuscolo) che "sezioni" (minuscolo)
+                        if (jsonData.Sezioni) {
+                            PERIODO = jsonData.Periodo;
+                            SEZIONI = jsonData.Sezioni;
+                        } else if (jsonData.sezioni) {
+                            // Formato con "sezioni" minuscolo e meta
+                            PERIODO = jsonData.meta?.periodo || '';
+                            SEZIONI = jsonData.sezioni;
+                        } else {
+                            // Formato alternativo dove le sezioni sono direttamente nell'oggetto
+                            PERIODO = jsonData.Periodo || '';
+                            SEZIONI = jsonData;
+                        }
+
+                        // Normalizza la struttura per il componente
+                        const normalizedData = {
+                            Periodo: PERIODO,
+                            Sezioni: SEZIONI
+                        };
+
+                        console.log('Dati normalizzati:', normalizedData);
+                        setData(normalizedData);
                         setLoading(false);
                     })
                     .catch(err => {
@@ -155,16 +178,16 @@
             }, []);
 
             const kpiSummary = useMemo(() => {
-                if (!data) return null;
+                if (!data || !data.Sezioni) return null;
 
-                const ricavi = SEZIONI.Ricavi?.Consuntivo?.Totale || 0;
-                const ricaviAnnoPrecedente = SEZIONI.Ricavi?.AnnoPrecedente?.Totale || 0;
-                const ricaviBudget = SEZIONI.Ricavi?.Budget?.Totale || 0;
-                const ebitda = SEZIONI.Risultati?.Consuntivo?.EBITDA || 0;
-                const ebitdaAnnoPrecedente = SEZIONI.Risultati?.AnnoPrecedente?.EBITDA || 0;
-                const ebitdaBudget = SEZIONI.Risultati?.Budget?.EBITDA || 0;
-                const ebit = SEZIONI.Risultati?.Consuntivo?.EBIT || 0;
-                const grossMargin = SEZIONI.Margini?.Consuntivo?.["Gross Margin %"] || 0;
+                const ricavi = data.Sezioni.Ricavi?.Consuntivo?.Totale || 0;
+                const ricaviAnnoPrecedente = data.Sezioni.Ricavi?.AnnoPrecedente?.Totale || 0;
+                const ricaviBudget = data.Sezioni.Ricavi?.Budget?.Totale || 0;
+                const ebitda = data.Sezioni.Risultati?.Consuntivo?.EBITDA || 0;
+                const ebitdaAnnoPrecedente = data.Sezioni.Risultati?.AnnoPrecedente?.EBITDA || 0;
+                const ebitdaBudget = data.Sezioni.Risultati?.Budget?.EBITDA || 0;
+                const ebit = data.Sezioni.Risultati?.Consuntivo?.EBIT || 0;
+                const grossMargin = data.Sezioni.Margini?.Consuntivo?.["Gross Margin %"] || 0;
 
                 // Priorità: Anno Precedente > Budget
                 const ricaviCompareTo = ricaviAnnoPrecedente || ricaviBudget;
@@ -213,6 +236,9 @@
                     </div>
                 );
             }
+
+            console.log('data:', data);
+            console.log('kpiSummary:', kpiSummary);
 
             return (
                 <div className="w-full min-h-screen bg-gray-50">
@@ -322,6 +348,7 @@
                     )}
 
                     {/* KPI Cards - Material Design */}
+                    {kpiSummary && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <div className="material-card bg-white rounded-lg p-6 border-l-4 border-emerald-500">
                             <div className="flex items-center justify-between mb-3">
@@ -387,18 +414,26 @@
                             </div>
                         </div>
                     </div>
+                    )}
 
                     {/* Sezioni principali - Material Cards */}
+                    {data && data.Sezioni && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {Object.keys(SEZIONI).map((sectionName) => {
-                            const section = SEZIONI[sectionName];
-                            const consuntivo = section.Consuntivo;
-                            const budget = section.Budget;
-                            const annoPrecedente = section.AnnoPrecedente;
+                        {Object.keys(data.Sezioni).map((sectionName) => {
+                            const section = data.Sezioni[sectionName];
 
-                            const mainValue = consuntivo.Totale || consuntivo.EBITDA || consuntivo["Gross Margin"] || consuntivo["Ricavi netti"];
-                            const annoPrecedenteValue = annoPrecedente.Totale || annoPrecedente.EBITDA || annoPrecedente["Gross Margin"] || annoPrecedente["Ricavi netti"];
-                            const budgetValue = budget.Totale || budget.EBITDA || budget["Gross Margin"] || budget["Ricavi netti"];
+                            // Verifica che la sezione abbia la struttura corretta
+                            if (!section || !section.Consuntivo) {
+                                return null;
+                            }
+
+                            const consuntivo = section.Consuntivo;
+                            const budget = section.Budget || {};
+                            const annoPrecedente = section.AnnoPrecedente || {};
+
+                            const mainValue = consuntivo.Totale || consuntivo.EBITDA || consuntivo["Gross Margin"] || consuntivo["Ricavi netti"] || 0;
+                            const annoPrecedenteValue = annoPrecedente.Totale || annoPrecedente.EBITDA || annoPrecedente["Gross Margin"] || annoPrecedente["Ricavi netti"] || 0;
+                            const budgetValue = budget.Totale || budget.EBITDA || budget["Gross Margin"] || budget["Ricavi netti"] || 0;
 
                             const compareValue = annoPrecedenteValue || budgetValue;
                             const compareLabel = annoPrecedenteValue ? "Anno Prec." : "Budget";
@@ -442,6 +477,7 @@
                             );
                         })}
                     </div>
+                    )}
 
                     {/* Material Bottom Sheet */}
                     {drawerOpen && selectedSection && (
@@ -504,10 +540,10 @@
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {Object.keys(SEZIONI[selectedSection].Consuntivo).map((voce, idx) => {
-                                                    const consuntivo = SEZIONI[selectedSection].Consuntivo[voce];
-                                                    const budget = SEZIONI[selectedSection].Budget?.[voce] || 0;
-                                                    const annoPrecedente = SEZIONI[selectedSection].AnnoPrecedente?.[voce] || 0;
+                                                {data && data.Sezioni && data.Sezioni[selectedSection] && Object.keys(data.Sezioni[selectedSection].Consuntivo).map((voce, idx) => {
+                                                    const consuntivo = data.Sezioni[selectedSection].Consuntivo[voce];
+                                                    const budget = data.Sezioni[selectedSection].Budget?.[voce] || 0;
+                                                    const annoPrecedente = data.Sezioni[selectedSection].AnnoPrecedente?.[voce] || 0;
                                                     const variance = calcVariance(consuntivo, budget);
                                                     const isPercentage = voce.includes("%");
                                                     const isTotal = voce === "Totale" || voce.includes("Totali");
