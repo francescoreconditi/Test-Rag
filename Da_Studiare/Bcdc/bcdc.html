@@ -264,6 +264,16 @@
                                 <span className="font-medium">Periodo:</span> {PERIODO} · <span className="font-medium">Valuta:</span> EUR
                             </div>
                             <div className="flex gap-2">
+                                <button
+                                    onClick={exportToPDF}
+                                    className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-lg transition-all hover:shadow-lg"
+                                    title="Esporta dashboard in PDF"
+                                >
+                                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z"/>
+                                    </svg>
+                                    <span className="font-medium">Esporta PDF</span>
+                                </button>
                                 <div className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-sm font-medium">Consuntivo</div>
                                 <div className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-sm font-medium">Budget</div>
                                 <div className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-sm font-medium">Anno Prec.</div>
