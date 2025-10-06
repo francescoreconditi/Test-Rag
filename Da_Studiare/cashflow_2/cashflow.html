@@ -1,0 +1,819 @@
+<!doctype html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cash Management Dashboard</title>
+    <!-- Version: 2025-10-06 -->
+    <!-- Tailwind via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- html2pdf.js per export PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Chart.js per i grafici -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Roboto', sans-serif; }
+        .material-card {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+            transition: all 0.3s cubic-bezier(.25,.8,.25,1);
+        }
+        .material-card:hover {
+            box-shadow: 0 14px 28px rgba(0,0,0,0.25), 0 10px 10px rgba(0,0,0,0.22);
+            transform: translateY(-2px);
+        }
+        .material-card-elevated {
+            box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+        }
+        .ripple {
+            position: relative;
+            overflow: hidden;
+        }
+        .ripple:active::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            animation: ripple-animation 0.6s ease-out;
+        }
+        @keyframes ripple-animation {
+            to { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .animate-fadeIn { animation: fadeIn 0.2s ease-out; }
+        .sparkline-container {
+            height: 40px;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <!-- React 18 CDN + Babel -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel" data-presets="env,react">
+        const { useMemo, useState, useEffect, useRef } = React;
+
+        // State globale per i dati caricati
+        let DATA = null;
+
+        function numberFmt(val, decimals = 2) {
+            if (val === null || val === undefined) return '$0.00';
+            return val.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: decimals, minimumFractionDigits: decimals });
+        }
+
+        function numberFmtSimple(val, decimals = 0) {
+            if (val === null || val === undefined) return '0';
+            return val.toLocaleString("en-US", { maximumFractionDigits: decimals, minimumFractionDigits: decimals });
+        }
+
+        // Funzione per esportare in PDF
+        function exportToPDF() {
+            const element = document.getElementById('dashboard-content');
+            const opt = {
+                margin: 10,
+                filename: `Cash_Management_Dashboard_${new Date().toISOString().split('T')[0]}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+            };
+            html2pdf().set(opt).from(element).save();
+        }
+
+        // Componente Gauge Semicircolare
+        function GaugeChart({ value, label, max = 100, thresholds = { low: 30, medium: 60 } }) {
+            const canvasRef = useRef(null);
+
+            useEffect(() => {
+                if (!canvasRef.current) return;
+                const ctx = canvasRef.current.getContext('2d');
+                const width = 200;
+                const height = 150;
+                const centerX = width / 2;
+                const centerY = height - 20;
+                const radius = 70;
+
+                // Clear canvas
+                ctx.clearRect(0, 0, width, height);
+
+                // Determina colore basato su thresholds
+                let color = '#10b981'; // green
+                if (value < thresholds.low) color = '#ef4444'; // red
+                else if (value < thresholds.medium) color = '#f59e0b'; // amber
+
+                // Background arc (180 gradi - semicerchio)
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, Math.PI, 2 * Math.PI);
+                ctx.strokeStyle = '#e5e7eb';
+                ctx.lineWidth = 16;
+                ctx.stroke();
+
+                // Value arc
+                const endAngle = Math.PI + (Math.PI * (value / max));
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, Math.PI, endAngle);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 16;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+
+                // Text - valore
+                ctx.fillStyle = '#111827';
+                ctx.font = 'bold 36px Roboto';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(value, centerX, centerY - 10);
+
+                // Text - label
+                ctx.fillStyle = '#6b7280';
+                ctx.font = '500 14px Roboto';
+                ctx.fillText(label, centerX, centerY + 25);
+            }, [value, max, thresholds, label]);
+
+            return (
+                <div className="flex flex-col items-center">
+                    <canvas ref={canvasRef} width="200" height="150"></canvas>
+                </div>
+            );
+        }
+
+        // Componente Sparkline (Mini Line Chart)
+        function SparklineChart({ data, color = "#3b82f6" }) {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!canvasRef.current) return;
+
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                }
+
+                const ctx = canvasRef.current.getContext('2d');
+                chartRef.current = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.map((_, i) => ''),
+                        datasets: [{
+                            data: data,
+                            borderColor: color,
+                            backgroundColor: color + '40',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                        scales: {
+                            y: { display: false },
+                            x: { display: false }
+                        }
+                    }
+                });
+
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [data, color]);
+
+            return <canvas ref={canvasRef}></canvas>;
+        }
+
+        // Componente Bar Chart
+        function BarChart({ data, labels, title, color = "#3b82f6", yAxisLabel = "" }) {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!canvasRef.current) return;
+
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                }
+
+                const ctx = canvasRef.current.getContext('2d');
+                chartRef.current = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: title,
+                            data: data,
+                            backgroundColor: color,
+                            borderRadius: 4,
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: 'rgba(0,0,0,0.8)',
+                                padding: 12,
+                                callbacks: {
+                                    label: function(context) {
+                                        return numberFmt(context.parsed.y, 0);
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    font: { size: 11 },
+                                    callback: function(value) {
+                                        return '$' + (value / 1000).toFixed(0) + 'k';
+                                    }
+                                },
+                                grid: { color: 'rgba(0,0,0,0.05)' },
+                                title: { display: !!yAxisLabel, text: yAxisLabel, font: { size: 12 } }
+                            },
+                            x: {
+                                ticks: { font: { size: 10 } },
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [data, labels, title, color, yAxisLabel]);
+
+            return <canvas ref={canvasRef}></canvas>;
+        }
+
+        // Componente Line Chart
+        function LineChart({ data, labels, title, color = "#3b82f6" }) {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!canvasRef.current) return;
+
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                }
+
+                const ctx = canvasRef.current.getContext('2d');
+                chartRef.current = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: title,
+                            data: data,
+                            borderColor: color,
+                            backgroundColor: color + '20',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: 4,
+                            pointBackgroundColor: color,
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: 'rgba(0,0,0,0.8)',
+                                padding: 12,
+                                callbacks: {
+                                    label: function(context) {
+                                        return numberFmt(context.parsed.y, 0);
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                ticks: {
+                                    font: { size: 11 },
+                                    callback: function(value) {
+                                        return '$' + (value / 1000).toFixed(1) + 'k';
+                                    }
+                                },
+                                grid: { color: 'rgba(0,0,0,0.05)' }
+                            },
+                            x: {
+                                ticks: { font: { size: 10 } },
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [data, labels, title, color]);
+
+            return <canvas ref={canvasRef}></canvas>;
+        }
+
+        // Componente Stacked Bar Chart
+        function StackedBarChart({ datasets, labels, title }) {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!canvasRef.current) return;
+
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                }
+
+                const ctx = canvasRef.current.getContext('2d');
+                chartRef.current = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: datasets.map(ds => ({
+                            ...ds,
+                            borderWidth: 0,
+                            borderRadius: 4
+                        }))
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { font: { size: 11 }, padding: 12 }
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0,0,0,0.8)',
+                                padding: 12,
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.dataset.label + ': ' + numberFmt(context.parsed.y, 0);
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                stacked: true,
+                                beginAtZero: true,
+                                ticks: {
+                                    font: { size: 11 },
+                                    callback: function(value) {
+                                        return '$' + (value / 1000).toFixed(0) + 'k';
+                                    }
+                                },
+                                grid: { color: 'rgba(0,0,0,0.05)' }
+                            },
+                            x: {
+                                stacked: true,
+                                ticks: { font: { size: 10 } },
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [datasets, labels, title]);
+
+            return <canvas ref={canvasRef}></canvas>;
+        }
+
+        // Componente Mixed Chart (AR vs AP Turnover)
+        function MixedTurnoverChart({ arData, apData, labels }) {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!canvasRef.current) return;
+
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                }
+
+                const ctx = canvasRef.current.getContext('2d');
+                chartRef.current = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'AR Turnover',
+                                data: arData,
+                                backgroundColor: '#60a5fa',
+                                borderRadius: 4
+                            },
+                            {
+                                label: 'AP Turnover',
+                                data: apData,
+                                backgroundColor: '#1e3a8a',
+                                borderRadius: 4
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { font: { size: 11 }, padding: 12 }
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0,0,0,0.8)',
+                                padding: 12
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 15,
+                                ticks: { font: { size: 11 }, stepSize: 5 },
+                                grid: { color: 'rgba(0,0,0,0.05)' }
+                            },
+                            x: {
+                                ticks: { font: { size: 10 } },
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [arData, apData, labels]);
+
+            return <canvas ref={canvasRef}></canvas>;
+        }
+
+        function CashManagementDashboard() {
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+            const [data, setData] = useState(null);
+
+            // Carica i dati dal file JSON
+            useEffect(() => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const dataFile = urlParams.get('data') || 'cashflow_data.json';
+
+                console.log(`Caricamento dati da: ${dataFile}`);
+
+                const isExternalUrl = dataFile.startsWith('http://') || dataFile.startsWith('https://');
+                const fetchUrl = isExternalUrl ? dataFile : dataFile;
+
+                fetch(fetchUrl)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status} - File/URL non trovato: ${dataFile}`);
+                        }
+                        return response.json();
+                    })
+                    .then(jsonData => {
+                        DATA = jsonData;
+                        setData(jsonData);
+                        setLoading(false);
+                    })
+                    .catch(err => {
+                        console.error('Errore caricamento dati:', err);
+                        setError(err.message);
+                        setLoading(false);
+                    });
+            }, []);
+
+            // Calcolo Cash Conversion Cycle
+            const ccc = useMemo(() => {
+                if (!data) return 0;
+                return data.cash_conversion.dso + data.cash_conversion.dio - data.cash_conversion.dpo;
+            }, [data]);
+
+            // Schermata di caricamento
+            if (loading) {
+                return (
+                    <div className="w-full h-screen flex items-center justify-center bg-gray-50">
+                        <div className="text-center">
+                            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-cyan-500 border-t-transparent mb-4"></div>
+                            <div className="text-xl font-medium text-gray-700">Caricamento Cash Management Dashboard...</div>
+                            <div className="text-sm text-gray-500 mt-2">Attendere prego</div>
+                        </div>
+                    </div>
+                );
+            }
+
+            // Schermata di errore
+            if (error) {
+                return (
+                    <div className="w-full h-screen flex items-center justify-center bg-gray-50">
+                        <div className="text-center max-w-md material-card-elevated bg-white rounded-lg p-8">
+                            <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                            </svg>
+                            <div className="text-xl font-medium mb-3 text-red-600">Errore caricamento dati</div>
+                            <div className="text-gray-700 mb-4">{error}</div>
+                            <div className="text-sm text-gray-500">Assicurati che il file JSON sia presente nella directory corretta.</div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="w-full min-h-screen bg-gray-50">
+                    {/* Material Design AppBar */}
+                    <div className="bg-gradient-to-r from-cyan-600 to-cyan-700 text-white shadow-lg">
+                        <div className="max-w-7xl mx-auto px-6 py-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/>
+                                    </svg>
+                                    <div>
+                                        <h1 className="text-xl font-medium">Cash Management Dashboard</h1>
+                                        <p className="text-sm text-cyan-100">Data riferimento: {data.metadata.reference_date} · Periodo: {data.metadata.period}</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={exportToPDF}
+                                    className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-lg transition-all hover:shadow-lg ripple"
+                                    title="Esporta dashboard in PDF"
+                                >
+                                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z"/>
+                                    </svg>
+                                    <span className="font-medium">Esporta PDF</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="dashboard-content" className="max-w-7xl mx-auto p-6 space-y-6">
+
+                        {/* Section Header: Working Capital */}
+                        <div className="bg-gradient-to-r from-slate-700 to-slate-800 text-white rounded-lg p-4 shadow-lg">
+                            <h2 className="text-xl font-medium">Working Capital</h2>
+                        </div>
+
+                        {/* Row 1: Quick Ratio, Current Ratio, Cash Balance */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* Quick Ratio */}
+                            <div className="material-card bg-white rounded-lg p-6">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        {data.working_capital.quick_ratio < 1 ? (
+                                            <svg className="w-6 h-6 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                                            </svg>
+                                        ) : (
+                                            <svg className="w-6 h-6 text-green-500" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                            </svg>
+                                        )}
+                                        <div className="text-sm font-medium text-gray-600 uppercase tracking-wide">Quick Ratio</div>
+                                    </div>
+                                </div>
+                                <div className="text-4xl font-bold text-gray-900 mb-3">{data.working_capital.quick_ratio.toFixed(2)}</div>
+                                <div className="sparkline-container">
+                                    <SparklineChart data={data.working_capital.quick_ratio_trend} color={data.working_capital.quick_ratio < 1 ? "#ef4444" : "#fbbf24"} />
+                                </div>
+                                <div className="mt-2 text-xs text-gray-500">Liquidità immediata (senza inventario)</div>
+                            </div>
+
+                            {/* Current Ratio */}
+                            <div className="material-card bg-white rounded-lg p-6">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        {data.working_capital.current_ratio > 1 ? (
+                                            <svg className="w-6 h-6 text-green-500" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                            </svg>
+                                        ) : (
+                                            <svg className="w-6 h-6 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                                            </svg>
+                                        )}
+                                        <div className="text-sm font-medium text-gray-600 uppercase tracking-wide">Current Ratio</div>
+                                    </div>
+                                </div>
+                                <div className="text-4xl font-bold text-gray-900 mb-3">{data.working_capital.current_ratio.toFixed(2)}</div>
+                                <div className="sparkline-container">
+                                    <SparklineChart data={data.working_capital.current_ratio_trend} color="#10b981" />
+                                </div>
+                                <div className="mt-2 text-xs text-gray-500">Capacità di coprire debiti a breve</div>
+                            </div>
+
+                            {/* Cash Balance */}
+                            <div className="material-card bg-white rounded-lg p-6 border-l-4 border-cyan-500">
+                                <div className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-2">Cash Balance</div>
+                                <div className="text-4xl font-bold text-gray-900">{numberFmt(data.cash.balance, 2)}</div>
+                                <div className="mt-4 space-y-2">
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-gray-600">In</span>
+                                        <span className="font-semibold text-green-600">{numberFmt(data.cash.in, 2)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-gray-600">Out</span>
+                                        <span className="font-semibold text-red-600">{numberFmt(data.cash.out, 2)}</span>
+                                    </div>
+                                </div>
+                                <div className="mt-2 text-xs text-gray-500">At the end of {data.metadata.month}</div>
+                            </div>
+                        </div>
+
+                        {/* Row 2: Cash Trend */}
+                        <div className="material-card bg-white rounded-lg p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <svg className="w-5 h-5 text-cyan-600" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4zm2.5 2.1h-15V5h15v14.1zm0-16.1h-15c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/>
+                                    </svg>
+                                    <h2 className="text-lg font-medium text-gray-900">Cash (At the end of {data.metadata.month})</h2>
+                                </div>
+                                <div className="text-2xl font-bold text-cyan-700">{numberFmt(data.cash.balance, 0)}</div>
+                            </div>
+                            <div className="h-64">
+                                <BarChart
+                                    data={data.cash.monthly_trend}
+                                    labels={data.cash.months}
+                                    title="Cash Balance"
+                                    color="#06b6d4"
+                                    yAxisLabel="Cash balance"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Section Header: Cash Conversion */}
+                        <div className="bg-gradient-to-r from-slate-700 to-slate-800 text-white rounded-lg p-4 shadow-lg">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-xl font-medium">Cash Conversion</h2>
+                                <div className="text-sm">
+                                    <span className="text-cyan-100">Cash Conversion Cycle:</span>
+                                    <span className="ml-2 text-2xl font-bold">{ccc} giorni</span>
+                                    <span className="ml-2 text-xs text-cyan-200">(DSO + DIO - DPO)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Row 3: DSO, DIO, DPO */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* DSO */}
+                            <div className="material-card bg-white rounded-lg p-6">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <svg className="w-5 h-5 text-cyan-600" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+                                    </svg>
+                                    <h3 className="text-sm font-medium text-gray-600 uppercase tracking-wide">Days Sales Outstanding</h3>
+                                </div>
+                                <div className="flex justify-center mb-4">
+                                    <GaugeChart
+                                        value={data.cash_conversion.dso}
+                                        label="DSO"
+                                        max={90}
+                                        thresholds={{ low: 30, medium: 60 }}
+                                    />
+                                </div>
+                                <div className="text-center text-sm text-gray-600">Tempo medio incasso crediti</div>
+
+                                {/* AR vs AP Turnover */}
+                                <div className="mt-6">
+                                    <div className="text-xs font-medium text-gray-600 uppercase mb-3">AR Turnover vs AP Turnover</div>
+                                    <div className="h-48">
+                                        <MixedTurnoverChart
+                                            arData={data.cash_conversion.ar_turnover.values}
+                                            apData={data.cash_conversion.ap_turnover.values}
+                                            labels={data.cash_conversion.ar_turnover.months}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* DIO */}
+                            <div className="material-card bg-white rounded-lg p-6">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <svg className="w-5 h-5 text-amber-600" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M20 2H4c-1 0-2 .9-2 2v3.01c0 .72.43 1.34 1 1.69V20c0 1.1 1.1 2 2 2h14c.9 0 2-.9 2-2V8.7c.57-.35 1-.97 1-1.69V4c0-1.1-1-2-2-2zm-5 12H9v-2h6v2zm5-7H4V4h16v3z"/>
+                                    </svg>
+                                    <h3 className="text-sm font-medium text-gray-600 uppercase tracking-wide">Days Inventory Outstanding</h3>
+                                </div>
+                                <div className="flex justify-center mb-4">
+                                    <GaugeChart
+                                        value={data.cash_conversion.dio}
+                                        label="DIO"
+                                        max={90}
+                                        thresholds={{ low: 30, medium: 60 }}
+                                    />
+                                </div>
+                                <div className="text-center text-sm text-gray-600">Tempo medio giacenza magazzino</div>
+
+                                {/* Inventory Trend */}
+                                <div className="mt-6">
+                                    <div className="text-xs font-medium text-gray-600 uppercase mb-3">Inventory</div>
+                                    <div className="h-48">
+                                        <LineChart
+                                            data={data.cash_conversion.inventory_trend.values}
+                                            labels={data.cash_conversion.inventory_trend.months}
+                                            title="Inventory Value"
+                                            color="#f59e0b"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* DPO */}
+                            <div className="material-card bg-white rounded-lg p-6">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <svg className="w-5 h-5 text-slate-600" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M19 14V6c0-1.1-.9-2-2-2H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zm-9-1c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm13-6v11c0 1.1-.9 2-2 2H4v-2h17V7h2z"/>
+                                    </svg>
+                                    <h3 className="text-sm font-medium text-gray-600 uppercase tracking-wide">Days Payable Outstanding</h3>
+                                </div>
+                                <div className="flex justify-center mb-4">
+                                    <GaugeChart
+                                        value={data.cash_conversion.dpo}
+                                        label="DPO"
+                                        max={90}
+                                        thresholds={{ low: 30, medium: 60 }}
+                                    />
+                                </div>
+                                <div className="text-center text-sm text-gray-600">Tempo medio pagamento fornitori</div>
+
+                                {/* Accounts Payable Payment Target */}
+                                <div className="mt-6">
+                                    <div className="text-xs font-medium text-gray-600 uppercase mb-3">Accounts Payable Payment Target</div>
+                                    <div className="h-48">
+                                        <StackedBarChart
+                                            datasets={[
+                                                { label: '90 days', data: [data.cash_conversion.payables_aging.days_90], backgroundColor: '#60a5fa' },
+                                                { label: '60 days', data: [data.cash_conversion.payables_aging.days_60], backgroundColor: '#93c5fd' },
+                                                { label: '30 days', data: [data.cash_conversion.payables_aging.days_30], backgroundColor: '#bfdbfe' },
+                                                { label: '30 days (alt)', data: [data.cash_conversion.payables_aging.days_30_alt], backgroundColor: '#dbeafe' },
+                                                { label: 'Not due', data: [data.cash_conversion.payables_aging.not_due], backgroundColor: '#1e3a8a' }
+                                            ]}
+                                            labels={['Payment Categories']}
+                                            title="Payables Aging"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="material-card bg-white rounded-lg p-4 flex items-center gap-3 text-sm text-gray-600">
+                            <svg className="w-5 h-5 text-cyan-500" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"/>
+                            </svg>
+                            <div>
+                                <span className="font-medium">Dati caricati da:</span> {new URLSearchParams(window.location.search).get('data') || 'cashflow_data.json'}
+                                <span className="mx-2">·</span>
+                                <span className="text-gray-500">Usa ?data=file.json per caricare file diversi</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Mount
+        function App() { return <CashManagementDashboard />; }
+        const root = ReactDOM.createRoot(document.getElementById("root"));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>

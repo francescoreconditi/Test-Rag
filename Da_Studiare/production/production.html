@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Production Quality Dashboard</title>
+    <!-- Version: 2025-10-06 -->
+    <!-- Tailwind via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- html2pdf.js per export PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Chart.js per i grafici -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Roboto', sans-serif; }
+        .material-card {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+            transition: all 0.3s cubic-bezier(.25,.8,.25,1);
+        }
+        .material-card:hover {
+            box-shadow: 0 14px 28px rgba(0,0,0,0.25), 0 10px 10px rgba(0,0,0,0.22);
+            transform: translateY(-2px);
+        }
+        .material-card-elevated {
+            box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+        }
+        .ripple {
+            position: relative;
+            overflow: hidden;
+        }
+        .ripple:active::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            animation: ripple-animation 0.6s ease-out;
+        }
+        @keyframes ripple-animation {
+            to { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .animate-fadeIn { animation: fadeIn 0.2s ease-out; }
+        .gauge-container {
+            position: relative;
+            width: 180px;
+            height: 180px;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <!-- React 18 CDN + Babel -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel" data-presets="env,react">
+        const { useMemo, useState, useEffect, useRef } = React;
+
+        // State globale per i dati caricati
+        let DATA = null;
+
+        function numberFmt(val, decimals = 0) {
+            if (val === null || val === undefined) return '0';
+            return val.toLocaleString("it-IT", { maximumFractionDigits: decimals, minimumFractionDigits: decimals });
+        }
+
+        function pctFmt(val) {
+            if (val === null || val === undefined) return '0%';
+            return `${val}%`;
+        }
+
+        // Funzione per esportare in PDF
+        function exportToPDF() {
+            const element = document.getElementById('dashboard-content');
+            const opt = {
+                margin: 10,
+                filename: `Production_Quality_Dashboard_${new Date().toISOString().split('T')[0]}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+            };
+            html2pdf().set(opt).from(element).save();
+        }
+
+        // Componente Gauge Chart
+        function GaugeChart({ value, label, max = 100, color = "#3b82f6" }) {
+            const canvasRef = useRef(null);
+
+            useEffect(() => {
+                if (!canvasRef.current) return;
+                const ctx = canvasRef.current.getContext('2d');
+                const width = 180;
+                const height = 180;
+                const centerX = width / 2;
+                const centerY = height / 2;
+                const radius = 70;
+
+                // Clear canvas
+                ctx.clearRect(0, 0, width, height);
+
+                // Background arc
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0.75 * Math.PI, 2.25 * Math.PI);
+                ctx.strokeStyle = '#e5e7eb';
+                ctx.lineWidth = 16;
+                ctx.stroke();
+
+                // Value arc
+                const endAngle = 0.75 * Math.PI + (1.5 * Math.PI * (value / max));
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0.75 * Math.PI, endAngle);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 16;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+
+                // Text
+                ctx.fillStyle = '#111827';
+                ctx.font = 'bold 32px Roboto';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`${value}%`, centerX, centerY);
+            }, [value, max, color]);
+
+            return (
+                <div className="flex flex-col items-center">
+                    <canvas ref={canvasRef} width="180" height="180"></canvas>
+                    <div className="text-sm font-medium text-gray-600 mt-2">{label}</div>
+                </div>
+            );
+        }
+
+        // Componente Line Chart
+        function LineChart({ data, labels, title, color = "#3b82f6" }) {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!canvasRef.current) return;
+
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                }
+
+                const ctx = canvasRef.current.getContext('2d');
+                chartRef.current = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: title,
+                            data: data,
+                            borderColor: color,
+                            backgroundColor: color + '20',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: 4,
+                            pointBackgroundColor: color
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: 'rgba(0,0,0,0.8)',
+                                padding: 12,
+                                titleFont: { size: 13 },
+                                bodyFont: { size: 12 }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { font: { size: 11 } },
+                                grid: { color: 'rgba(0,0,0,0.05)' }
+                            },
+                            x: {
+                                ticks: { font: { size: 11 } },
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [data, labels, title, color]);
+
+            return <canvas ref={canvasRef}></canvas>;
+        }
+
+        // Componente Stacked Bar Chart
+        function StackedBarChart({ datasets, labels, title }) {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!canvasRef.current) return;
+
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                }
+
+                const ctx = canvasRef.current.getContext('2d');
+                chartRef.current = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: datasets.map(ds => ({
+                            ...ds,
+                            borderWidth: 0,
+                            borderRadius: 4
+                        }))
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { font: { size: 11 }, padding: 12 }
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0,0,0,0.8)',
+                                padding: 12
+                            }
+                        },
+                        scales: {
+                            y: {
+                                stacked: true,
+                                beginAtZero: true,
+                                ticks: { font: { size: 11 } },
+                                grid: { color: 'rgba(0,0,0,0.05)' }
+                            },
+                            x: {
+                                stacked: true,
+                                ticks: { font: { size: 11 } },
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [datasets, labels, title]);
+
+            return <canvas ref={canvasRef}></canvas>;
+        }
+
+        // Componente Mixed Chart (Bar + Line)
+        function MixedChart({ barData, lineData, labels, title }) {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!canvasRef.current) return;
+
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                }
+
+                const ctx = canvasRef.current.getContext('2d');
+                chartRef.current = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                type: 'bar',
+                                label: 'Total Produced',
+                                data: barData,
+                                backgroundColor: '#fbbf24',
+                                borderRadius: 4,
+                                yAxisID: 'y'
+                            },
+                            {
+                                type: 'line',
+                                label: 'Downtime (min)',
+                                data: lineData,
+                                borderColor: '#ef4444',
+                                backgroundColor: '#ef444420',
+                                borderWidth: 2,
+                                tension: 0.4,
+                                fill: true,
+                                pointRadius: 5,
+                                pointBackgroundColor: '#ef4444',
+                                yAxisID: 'y1'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { font: { size: 11 }, padding: 12 }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                type: 'linear',
+                                position: 'left',
+                                beginAtZero: true,
+                                ticks: { font: { size: 11 } },
+                                grid: { color: 'rgba(0,0,0,0.05)' }
+                            },
+                            y1: {
+                                type: 'linear',
+                                position: 'right',
+                                beginAtZero: true,
+                                ticks: { font: { size: 11 } },
+                                grid: { display: false }
+                            },
+                            x: {
+                                ticks: { font: { size: 11 } },
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [barData, lineData, labels, title]);
+
+            return <canvas ref={canvasRef}></canvas>;
+        }
+
+        function ProductionDashboard() {
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+            const [data, setData] = useState(null);
+
+            // Carica i dati dal file JSON
+            useEffect(() => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const dataFile = urlParams.get('data') || 'production_data.json';
+
+                console.log(`Caricamento dati da: ${dataFile}`);
+
+                const isExternalUrl = dataFile.startsWith('http://') || dataFile.startsWith('https://');
+                const fetchUrl = isExternalUrl ? dataFile : dataFile;
+
+                fetch(fetchUrl)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status} - File/URL non trovato: ${dataFile}`);
+                        }
+                        return response.json();
+                    })
+                    .then(jsonData => {
+                        DATA = jsonData;
+                        setData(jsonData);
+                        setLoading(false);
+                    })
+                    .catch(err => {
+                        console.error('Errore caricamento dati:', err);
+                        setError(err.message);
+                        setLoading(false);
+                    });
+            }, []);
+
+            // Schermata di caricamento
+            if (loading) {
+                return (
+                    <div className="w-full h-screen flex items-center justify-center bg-gray-50">
+                        <div className="text-center">
+                            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mb-4"></div>
+                            <div className="text-xl font-medium text-gray-700">Caricamento dashboard produzione...</div>
+                            <div className="text-sm text-gray-500 mt-2">Attendere prego</div>
+                        </div>
+                    </div>
+                );
+            }
+
+            // Schermata di errore
+            if (error) {
+                return (
+                    <div className="w-full h-screen flex items-center justify-center bg-gray-50">
+                        <div className="text-center max-w-md material-card-elevated bg-white rounded-lg p-8">
+                            <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                            </svg>
+                            <div className="text-xl font-medium mb-3 text-red-600">Errore caricamento dati</div>
+                            <div className="text-gray-700 mb-4">{error}</div>
+                            <div className="text-sm text-gray-500">Assicurati che il file JSON sia presente nella directory corretta.</div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="w-full min-h-screen bg-gray-50">
+                    {/* Material Design AppBar */}
+                    <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-lg">
+                        <div className="max-w-7xl mx-auto px-6 py-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                                    </svg>
+                                    <div>
+                                        <h1 className="text-xl font-medium">Production Quality Dashboard</h1>
+                                        <p className="text-sm text-indigo-100">Data riferimento: {data.metadata.reference_date} · Periodo: {data.metadata.period}</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={exportToPDF}
+                                    className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-lg transition-all hover:shadow-lg ripple"
+                                    title="Esporta dashboard in PDF"
+                                >
+                                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z"/>
+                                    </svg>
+                                    <span className="font-medium">Esporta PDF</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="dashboard-content" className="max-w-7xl mx-auto p-6 space-y-6">
+
+                        {/* KPI Cards Top Row */}
+                        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+                            <div className="material-card bg-white rounded-lg p-4 border-l-4 border-orange-500">
+                                <div className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-1">Defect Rate</div>
+                                <div className="text-3xl font-bold text-gray-900">{pctFmt(data.kpi.defect_rate)}</div>
+                                <div className="mt-2 text-xs text-gray-500">Tasso difettosità</div>
+                            </div>
+
+                            <div className="material-card bg-white rounded-lg p-4 border-l-4 border-emerald-500">
+                                <div className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-1">FPY</div>
+                                <div className="text-3xl font-bold text-gray-900">{pctFmt(data.kpi.first_pass_yield)}</div>
+                                <div className="mt-2 text-xs text-gray-500">First Pass Yield</div>
+                            </div>
+
+                            <div className="material-card bg-white rounded-lg p-4 border-l-4 border-red-500">
+                                <div className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-1">Scrap Rate</div>
+                                <div className="text-3xl font-bold text-gray-900">{pctFmt(data.kpi.scrap_rate)}</div>
+                                <div className="mt-2 text-xs text-gray-500">Tasso scarto</div>
+                            </div>
+
+                            <div className="material-card bg-white rounded-lg p-4 border-l-4 border-blue-500">
+                                <div className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-1">Total Defects</div>
+                                <div className="text-3xl font-bold text-gray-900">{numberFmt(data.kpi.total_defects)}</div>
+                                <div className="mt-2 text-xs text-gray-500">Difetti totali</div>
+                            </div>
+
+                            <div className="material-card bg-white rounded-lg p-4 border-l-4 border-purple-500">
+                                <div className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-1">Total Downtime</div>
+                                <div className="text-3xl font-bold text-gray-900">{pctFmt(data.kpi.total_downtime_pct)}</div>
+                                <div className="mt-2 text-xs text-gray-500">{numberFmt(data.kpi.downtime_minutes)} min</div>
+                            </div>
+
+                            <div className="material-card bg-white rounded-lg p-4 border-l-4 border-cyan-500">
+                                <div className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-1">Equipment Avail.</div>
+                                <div className="text-3xl font-bold text-gray-900">{pctFmt(data.kpi.equipment_availability)}</div>
+                                <div className="mt-2 text-xs text-gray-500">Disponibilità</div>
+                            </div>
+                        </div>
+
+                        {/* Row 2: Trend Charts */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* Defect Rate Over Time */}
+                            <div className="material-card bg-white rounded-lg p-6">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <svg className="w-5 h-5 text-orange-600" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                                    </svg>
+                                    <h2 className="text-lg font-medium text-gray-900">Defect Rate Over Time</h2>
+                                </div>
+                                <div className="h-64">
+                                    <LineChart
+                                        data={data.trends.defect_rate_over_time.values}
+                                        labels={data.trends.defect_rate_over_time.months}
+                                        title="Defect Rate %"
+                                        color="#f97316"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Quality Metric Over Time */}
+                            <div className="material-card bg-white rounded-lg p-6">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <svg className="w-5 h-5 text-emerald-600" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                                    </svg>
+                                    <h2 className="text-lg font-medium text-gray-900">Quality Metric Over Time</h2>
+                                </div>
+                                <div className="h-64">
+                                    <LineChart
+                                        data={data.trends.quality_metric_over_time.values}
+                                        labels={data.trends.quality_metric_over_time.months}
+                                        title="Quality %"
+                                        color="#10b981"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Downtime Impact */}
+                            <div className="material-card bg-white rounded-lg p-6">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <svg className="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+                                    </svg>
+                                    <h2 className="text-lg font-medium text-gray-900">Downtime Impact on Production</h2>
+                                </div>
+                                <div className="h-64">
+                                    <MixedChart
+                                        barData={data.production.total_produced.values}
+                                        lineData={data.production.downtime_minutes.values}
+                                        labels={data.production.total_produced.dates}
+                                        title="Production vs Downtime"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Row 3: Defect Analysis + Production Overview */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Defect, Rework and Scrap Counts by Month */}
+                            <div className="material-card bg-white rounded-lg p-6">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+                                    </svg>
+                                    <h2 className="text-lg font-medium text-gray-900">Defect, Rework and Scrap Counts by Month</h2>
+                                </div>
+                                <div className="h-80">
+                                    <StackedBarChart
+                                        datasets={[
+                                            {
+                                                label: 'Defect Count',
+                                                data: data.monthly_analysis.defect_count,
+                                                backgroundColor: '#fbbf24'
+                                            },
+                                            {
+                                                label: 'Rework Count',
+                                                data: data.monthly_analysis.rework_count,
+                                                backgroundColor: '#1f2937'
+                                            },
+                                            {
+                                                label: 'Scrap Count',
+                                                data: data.monthly_analysis.scrap_count,
+                                                backgroundColor: '#a855f7'
+                                            }
+                                        ]}
+                                        labels={data.monthly_analysis.months}
+                                        title="Monthly Counts"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Monthly Production vs Good Production */}
+                            <div className="material-card bg-white rounded-lg p-6">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.20.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/>
+                                    </svg>
+                                    <h2 className="text-lg font-medium text-gray-900">Monthly Production vs Good Production Overview</h2>
+                                </div>
+                                <div className="h-80">
+                                    <StackedBarChart
+                                        datasets={[
+                                            {
+                                                label: 'Total Production',
+                                                data: data.production_overview.total_production,
+                                                backgroundColor: '#fbbf24'
+                                            },
+                                            {
+                                                label: 'Good Production',
+                                                data: data.production_overview.good_production,
+                                                backgroundColor: '#1f2937'
+                                            }
+                                        ]}
+                                        labels={data.production_overview.months}
+                                        title="Production Overview"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Row 4: Gauges */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Quality Overtime */}
+                            <div className="material-card bg-white rounded-lg p-6">
+                                <div className="flex items-center gap-2 mb-6">
+                                    <svg className="w-5 h-5 text-amber-600" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+                                    </svg>
+                                    <h2 className="text-lg font-medium text-gray-900">Quality Overtime</h2>
+                                </div>
+                                <div className="flex justify-center">
+                                    <GaugeChart value={data.gauges.quality_overtime} label="Quality Overtime" color="#f59e0b" />
+                                </div>
+                            </div>
+
+                            {/* Equipment Availability */}
+                            <div className="material-card bg-white rounded-lg p-6">
+                                <div className="flex items-center gap-2 mb-6">
+                                    <svg className="w-5 h-5 text-cyan-600" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                                    </svg>
+                                    <h2 className="text-lg font-medium text-gray-900">Equipment Availability</h2>
+                                </div>
+                                <div className="flex justify-center">
+                                    <GaugeChart value={data.gauges.equipment_availability} label="Equipment Availability" color="#06b6d4" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="material-card bg-white rounded-lg p-4 flex items-center gap-3 text-sm text-gray-600">
+                            <svg className="w-5 h-5 text-indigo-500" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"/>
+                            </svg>
+                            <div>
+                                <span className="font-medium">Dati caricati da:</span> {new URLSearchParams(window.location.search).get('data') || 'production_data.json'}
+                                <span className="mx-2">·</span>
+                                <span className="text-gray-500">Usa ?data=file.json per caricare file diversi</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Mount
+        function App() { return <ProductionDashboard />; }
+        const root = ReactDOM.createRoot(document.getElementById("root"));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>

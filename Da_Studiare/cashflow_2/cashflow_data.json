@@ -1,0 +1,46 @@
+{
+  "metadata": {
+    "reference_date": "2023-12-31",
+    "period": "January - December 2023",
+    "month": "April month",
+    "company": "Manufacturing Corp.",
+    "generated_at": "2025-10-06T10:00:00Z"
+  },
+  "working_capital": {
+    "quick_ratio": 0.46,
+    "current_ratio": 2.08,
+    "quick_ratio_trend": [0.42, 0.44, 0.45, 0.43, 0.46, 0.47, 0.45, 0.46, 0.48, 0.46, 0.45, 0.46],
+    "current_ratio_trend": [1.95, 2.00, 2.05, 2.03, 2.08, 2.10, 2.07, 2.08, 2.12, 2.08, 2.06, 2.08]
+  },
+  "cash": {
+    "balance": 183308.86,
+    "in": 311625.06,
+    "out": 106319.14,
+    "months": ["Jan 2023", "Feb 2023", "Mar 2023", "Apr 2023", "May 2023", "Jun 2023", "Jul 2023", "Aug 2023", "Sep 2023", "Oct 2023", "Nov 2023", "Dec 2023"],
+    "monthly_trend": [195000, 185000, 205000, 183308.86, 198000, 175000, 188000, 172000, 192000, 178000, 195000, 168000]
+  },
+  "cash_conversion": {
+    "dso": 26,
+    "dio": 50,
+    "dpo": 31,
+    "ar_turnover": {
+      "months": ["Jan 2023", "Feb 2023", "Mar 2023", "Apr 2023", "May 2023", "Jun 2023", "Jul 2023", "Aug 2023", "Sep 2023", "Oct 2023", "Nov 2023", "Dec 2023"],
+      "values": [5, 6, 5, 4, 5, 8, 7, 10, 10, 10, 11, 10]
+    },
+    "ap_turnover": {
+      "months": ["Jan 2023", "Feb 2023", "Mar 2023", "Apr 2023", "May 2023", "Jun 2023", "Jul 2023", "Aug 2023", "Sep 2023", "Oct 2023", "Nov 2023", "Dec 2023"],
+      "values": [3, 3, 4, 3, 4, 3, 3, 3, 3, 3, 3, 3]
+    },
+    "inventory_trend": {
+      "months": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+      "values": [11200, 11300, 11650, 11450, 11700, 11800, 11600, 11750, 11850, 11700, 11800, 11900]
+    },
+    "payables_aging": {
+      "days_90": 5000,
+      "days_60": 17000,
+      "days_30": 8000,
+      "days_30_alt": 28000,
+      "not_due": 35000
+    }
+  }
+}

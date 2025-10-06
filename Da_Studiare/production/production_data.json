@@ -1,0 +1,52 @@
+{
+  "metadata": {
+    "reference_date": "2024-12-31",
+    "period": "January - December 2024",
+    "plant": "Manufacturing Plant #1",
+    "generated_at": "2025-10-06T10:00:00Z"
+  },
+  "kpi": {
+    "defect_rate": 7,
+    "first_pass_yield": 91,
+    "scrap_rate": 8,
+    "total_defects": 99,
+    "total_downtime_pct": 63,
+    "downtime_minutes": 426,
+    "equipment_availability": 95
+  },
+  "trends": {
+    "defect_rate_over_time": {
+      "months": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+      "values": [5, 4, 7, 5, 6, 7, 7, 8, 6, 8, 8, 14]
+    },
+    "quality_metric_over_time": {
+      "months": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+      "values": [70, 75, 80, 67, 83, 78, 65, 80, 81, 84, 90, 74, 66]
+    }
+  },
+  "monthly_analysis": {
+    "months": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+    "defect_count": [7, 8, 8, 6, 11, 8, 8, 10, 11, 9, 14, 16],
+    "rework_count": [15, 8, 20, 11, 17, 11, 10, 12, 13, 9, 14, 18],
+    "scrap_count": [13, 12, 40, 18, 19, 15, 17, 15, 16, 12, 19, 20]
+  },
+  "production": {
+    "total_produced": {
+      "dates": ["2024-03-10", "2024-04-10", "2024-05-10", "2024-06-10", "2024-07-10", "2024-08-10", "2024-09-10", "2024-10-10", "2024-11-10", "2024-12-10"],
+      "values": [120, 100, 135, 111, 110, 120, 80, 132, 142, 120, 125, 110]
+    },
+    "downtime_minutes": {
+      "dates": ["2024-03-10", "2024-04-10", "2024-05-10", "2024-06-10", "2024-07-10", "2024-08-10", "2024-09-10", "2024-10-10", "2024-11-10", "2024-12-10"],
+      "values": [89, 88, 90, 88, 88, 88, 88, 88, 96, 88, 88, 88]
+    }
+  },
+  "production_overview": {
+    "months": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+    "total_production": [100, 80, 120, 130, 110, 135, 95, 130, 115, 110, 120, 105],
+    "good_production": [68, 63, 85, 98, 72, 95, 68, 98, 88, 88, 95, 78]
+  },
+  "gauges": {
+    "quality_overtime": 66,
+    "equipment_availability": 95
+  }
+}
