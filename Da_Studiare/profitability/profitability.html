@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Profitability Analysis Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Roboto', sans-serif; }
+        .material-card { box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); transition: all 0.3s; }
+        .material-card:hover { box-shadow: 0 14px 28px rgba(0,0,0,0.25), 0 10px 10px rgba(0,0,0,0.22); transform: translateY(-2px); }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        function euroFmt(val) { return '€' + val.toLocaleString("it-IT", { maximumFractionDigits: 0 }); }
+        function exportToPDF() {
+            html2pdf().set({
+                margin: 10, filename: `Profitability_${new Date().toISOString().split('T')[0]}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+            }).from(document.getElementById('dashboard-content')).save();
+        }
+
+        function WaterfallChart({ data }) {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+            useEffect(() => {
+                if (!canvasRef.current) return;
+                if (chartRef.current) chartRef.current.destroy();
+                const ctx = canvasRef.current.getContext('2d');
+                chartRef.current = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Ricavi', 'Costi Diretti', 'Costi Indiretti', 'Margine'],
+                        datasets: [{
+                            data: [data.ricavi, -data.costi_diretti, -data.costi_indiretti, data.margine],
+                            backgroundColor: ['#10b981', '#ef4444', '#f59e0b', '#3b82f6']
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true } }
+                    }
+                });
+                return () => { if (chartRef.current) chartRef.current.destroy(); };
+            }, [data]);
+            return <canvas ref={canvasRef}></canvas>;
+        }
+
+        function TreemapChart({ items }) {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+            useEffect(() => {
+                if (!canvasRef.current) return;
+                if (chartRef.current) chartRef.current.destroy();
+                const ctx = canvasRef.current.getContext('2d');
+                const treeData = items.map(item => ({
+                    x: item.name,
+                    y: item.margin_pct,
+                    v: item.ricavi
+                }));
+                chartRef.current = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: items.map(i => i.name),
+                        datasets: [{
+                            label: 'Margine %',
+                            data: items.map(i => i.margin_pct),
+                            backgroundColor: items.map(i => i.margin_pct > 30 ? '#10b981' : i.margin_pct > 20 ? '#fbbf24' : '#ef4444')
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+                        plugins: { legend: { display: false } }
+                    }
+                });
+                return () => { if (chartRef.current) chartRef.current.destroy(); };
+            }, [items]);
+            return <canvas ref={canvasRef}></canvas>;
+        }
+
+        function ProfitabilityDashboard() {
+            const [loading, setLoading] = useState(true);
+            const [data, setData] = useState(null);
+
+            useEffect(() => {
+                fetch(new URLSearchParams(window.location.search).get('data') || 'profitability_data.json')
+                    .then(r => r.json()).then(d => { setData(d); setLoading(false); })
+                    .catch(() => setLoading(false));
+            }, []);
+
+            if (loading) return <div className="h-screen flex items-center justify-center"><div className="text-xl">Caricamento...</div></div>;
+            if (!data) return <div className="h-screen flex items-center justify-center"><div className="text-xl text-red-600">Errore caricamento</div></div>;
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 text-white shadow-lg">
+                        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+                            <div>
+                                <h1 className="text-xl font-medium">Profitability Analysis Dashboard</h1>
+                                <p className="text-sm text-emerald-100">{data.metadata.period}</p>
+                            </div>
+                            <button onClick={exportToPDF} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg">Esporta PDF</button>
+                        </div>
+                    </div>
+
+                    <div id="dashboard-content" className="max-w-7xl mx-auto p-6 space-y-6">
+                        <div className="grid grid-cols-4 gap-6">
+                            <div className="material-card bg-white rounded-lg p-6 border-l-4 border-emerald-500">
+                                <div className="text-sm text-gray-600 uppercase mb-2">Ricavi Totali</div>
+                                <div className="text-3xl font-bold">{euroFmt(data.totals.ricavi)}</div>
+                            </div>
+                            <div className="material-card bg-white rounded-lg p-6 border-l-4 border-red-500">
+                                <div className="text-sm text-gray-600 uppercase mb-2">Costi Totali</div>
+                                <div className="text-3xl font-bold">{euroFmt(data.totals.costi)}</div>
+                            </div>
+                            <div className="material-card bg-white rounded-lg p-6 border-l-4 border-blue-500">
+                                <div className="text-sm text-gray-600 uppercase mb-2">Margine</div>
+                                <div className="text-3xl font-bold text-blue-600">{euroFmt(data.totals.margine)}</div>
+                            </div>
+                            <div className="material-card bg-white rounded-lg p-6 border-l-4 border-purple-500">
+                                <div className="text-sm text-gray-600 uppercase mb-2">Margine %</div>
+                                <div className="text-3xl font-bold">{data.totals.margin_pct.toFixed(1)}%</div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-6">
+                            <div className="material-card bg-white rounded-lg p-6">
+                                <h2 className="text-lg font-medium mb-4">Waterfall Ricavi → Margine</h2>
+                                <div className="h-80"><WaterfallChart data={data.waterfall} /></div>
+                            </div>
+                            <div className="material-card bg-white rounded-lg p-6">
+                                <h2 className="text-lg font-medium mb-4">Marginalità per Prodotto</h2>
+                                <div className="h-80"><TreemapChart items={data.products} /></div>
+                            </div>
+                        </div>
+
+                        <div className="material-card bg-white rounded-lg p-6">
+                            <h2 className="text-lg font-medium mb-4">Dettaglio Prodotti</h2>
+                            <table className="w-full text-sm">
+                                <thead className="bg-gray-50 border-b-2 border-emerald-500">
+                                    <tr>
+                                        <th className="py-3 px-4 text-left">Prodotto</th>
+                                        <th className="py-3 px-4 text-right">Ricavi</th>
+                                        <th className="py-3 px-4 text-right">Costi</th>
+                                        <th className="py-3 px-4 text-right">Margine</th>
+                                        <th className="py-3 px-4 text-right">Margine %</th>
+                                        <th className="py-3 px-4 text-right">ROI</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {data.products.map((p, i) => (
+                                        <tr key={i} className="border-b hover:bg-emerald-50">
+                                            <td className="py-3 px-4 font-medium">{p.name}</td>
+                                            <td className="py-3 px-4 text-right">{euroFmt(p.ricavi)}</td>
+                                            <td className="py-3 px-4 text-right">{euroFmt(p.costi)}</td>
+                                            <td className="py-3 px-4 text-right font-semibold text-blue-600">{euroFmt(p.margine)}</td>
+                                            <td className="py-3 px-4 text-right">
+                                                <span className={`px-2 py-1 rounded ${p.margin_pct > 30 ? 'bg-green-100 text-green-800' : p.margin_pct > 20 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>
+                                                    {p.margin_pct.toFixed(1)}%
+                                                </span>
+                                            </td>
+                                            <td className="py-3 px-4 text-right font-semibold">{p.roi.toFixed(1)}%</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div className="material-card bg-white rounded-lg p-6">
+                            <h2 className="text-lg font-medium mb-4">Top Clienti per Marginalità</h2>
+                            <table className="w-full text-sm">
+                                <thead className="bg-gray-50 border-b-2 border-emerald-500">
+                                    <tr>
+                                        <th className="py-3 px-4 text-left">Cliente</th>
+                                        <th className="py-3 px-4 text-right">Ricavi</th>
+                                        <th className="py-3 px-4 text-right">Costi</th>
+                                        <th className="py-3 px-4 text-right">Margine</th>
+                                        <th className="py-3 px-4 text-right">Margine %</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {data.clients.map((c, i) => (
+                                        <tr key={i} className="border-b hover:bg-emerald-50">
+                                            <td className="py-3 px-4 font-medium">{c.name}</td>
+                                            <td className="py-3 px-4 text-right">{euroFmt(c.ricavi)}</td>
+                                            <td className="py-3 px-4 text-right">{euroFmt(c.costi)}</td>
+                                            <td className="py-3 px-4 text-right font-semibold text-emerald-600">{euroFmt(c.margine)}</td>
+                                            <td className="py-3 px-4 text-right font-semibold">{c.margin_pct.toFixed(1)}%</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById("root")).render(<ProfitabilityDashboard />);
+    </script>
+</body>
+</html>

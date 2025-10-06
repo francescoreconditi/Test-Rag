@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8" />
+    <title>Executive Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>* { font-family: 'Roboto', sans-serif; } .material-card { box-shadow: 0 1px 3px rgba(0,0,0,0.12); transition: all 0.3s; } .material-card:hover { box-shadow: 0 14px 28px rgba(0,0,0,0.25); transform: translateY(-2px); }</style>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        function euroFmt(val) { return '€' + val.toLocaleString("it-IT", {maximumFractionDigits:0}); }
+        function pctFmt(val) { return val.toFixed(1) + '%'; }
+        function exportToPDF() { html2pdf().set({margin:10, filename:`Executive_${new Date().toISOString().split('T')[0]}.pdf`, image:{type:'jpeg',quality:0.98}, html2canvas:{scale:2}, jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}}).from(document.getElementById('dashboard-content')).save(); }
+
+        function WaterfallChart({data}) {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+            useEffect(() => {
+                if (!canvasRef.current) return;
+                if (chartRef.current) chartRef.current.destroy();
+                const ctx = canvasRef.current.getContext('2d');
+                const values = [data.ricavi, -data.consumi, -data.costi_lavoro, -data.opex, -data.ammortamenti, data.ebit];
+                chartRef.current = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Ricavi', 'Consumi', 'Costo Lavoro', 'OPEX', 'Amm.ti', 'EBIT'],
+                        datasets: [{data: values, backgroundColor: values.map((v,i) => i===0 || i===5 ? '#10b981' : '#ef4444')}]
+                    },
+                    options: {responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}}
+                });
+                return () => { if (chartRef.current) chartRef.current.destroy(); };
+            }, [data]);
+            return <canvas ref={canvasRef}></canvas>;
+        }
+
+        function ExecutiveDashboard() {
+            const [loading, setLoading] = useState(true);
+            const [data, setData] = useState(null);
+
+            useEffect(() => {
+                fetch(new URLSearchParams(window.location.search).get('data') || 'executive_data.json')
+                    .then(r => r.json()).then(d => { setData(d); setLoading(false); }).catch(() => setLoading(false));
+            }, []);
+
+            if (loading) return <div className="h-screen flex items-center justify-center"><div className="text-xl">Caricamento...</div></div>;
+            if (!data) return <div className="h-screen flex items-center justify-center"><div className="text-xl text-red-600">Errore</div></div>;
+
+            const actual = data.pl.actual;
+            const budget = data.pl.budget;
+            const py = data.pl.previous_year;
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <div className="bg-gradient-to-r from-slate-800 to-slate-900 text-white shadow-lg">
+                        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+                            <div><h1 className="text-2xl font-bold">Executive Dashboard</h1><p className="text-sm text-slate-300">{data.metadata.period} · Conto Economico</p></div>
+                            <button onClick={exportToPDF} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg">Esporta PDF</button>
+                        </div>
+                    </div>
+
+                    <div id="dashboard-content" className="max-w-7xl mx-auto p-6 space-y-6">
+                        {/* Big Numbers */}
+                        <div className="grid grid-cols-5 gap-4">
+                            <div className="material-card bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg p-6">
+                                <div className="text-xs uppercase mb-2 opacity-80">Ricavi Totali</div>
+                                <div className="text-3xl font-bold">{euroFmt(actual.ricavi)}</div>
+                                <div className="text-xs mt-2 opacity-90">vs Budget: {((actual.ricavi-budget.ricavi)/budget.ricavi*100).toFixed(1)}%</div>
+                            </div>
+                            <div className="material-card bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-lg p-6">
+                                <div className="text-xs uppercase mb-2 opacity-80">Gross Margin</div>
+                                <div className="text-3xl font-bold">{pctFmt(actual.gross_margin_pct)}</div>
+                                <div className="text-xs mt-2">{euroFmt(actual.gross_margin)}</div>
+                            </div>
+                            <div className="material-card bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg p-6">
+                                <div className="text-xs uppercase mb-2 opacity-80">EBITDA</div>
+                                <div className="text-3xl font-bold">{euroFmt(actual.ebitda)}</div>
+                                <div className="text-xs mt-2">{pctFmt(actual.ebitda/actual.ricavi*100)} margin</div>
+                            </div>
+                            <div className="material-card bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-lg p-6">
+                                <div className="text-xs uppercase mb-2 opacity-80">EBIT</div>
+                                <div className="text-3xl font-bold">{euroFmt(actual.ebit)}</div>
+                                <div className="text-xs mt-2">{pctFmt(actual.ebit/actual.ricavi*100)} margin</div>
+                            </div>
+                            <div className="material-card bg-gradient-to-br from-cyan-500 to-cyan-600 text-white rounded-lg p-6">
+                                <div className="text-xs uppercase mb-2 opacity-80">EBT</div>
+                                <div className="text-3xl font-bold">{euroFmt(actual.ebt)}</div>
+                                <div className="text-xs mt-2">After fin. charges</div>
+                            </div>
+                        </div>
+
+                        {/* Waterfall */}
+                        <div className="material-card bg-white rounded-lg p-6">
+                            <h2 className="text-xl font-bold mb-4">P&L Waterfall: Ricavi → EBIT</h2>
+                            <div className="h-96">
+                                <WaterfallChart data={{
+                                    ricavi: actual.ricavi,
+                                    consumi: actual.consumi,
+                                    costi_lavoro: actual.costo_lavoro,
+                                    opex: actual.opex_totali,
+                                    ammortamenti: actual.ammortamenti,
+                                    ebit: actual.ebit
+                                }} />
+                            </div>
+                        </div>
+
+                        {/* P&L Table */}
+                        <div className="material-card bg-white rounded-lg p-6">
+                            <h2 className="text-xl font-bold mb-4">Conto Economico - Dettaglio</h2>
+                            <table className="w-full text-sm">
+                                <thead className="bg-slate-100 border-b-2 border-slate-700">
+                                    <tr>
+                                        <th className="py-3 px-4 text-left font-bold">Voce</th>
+                                        <th className="py-3 px-4 text-right font-bold">Consuntivo</th>
+                                        <th className="py-3 px-4 text-right font-bold">Budget</th>
+                                        <th className="py-3 px-4 text-right font-bold">Anno Prec.</th>
+                                        <th className="py-3 px-4 text-right font-bold">Var vs Budget</th>
+                                        <th className="py-3 px-4 text-right font-bold">Var vs PY</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {[
+                                        {label: 'RICAVI', key: 'ricavi', bold: true, color: 'text-blue-700'},
+                                        {label: 'Vendite', key: 'vendite', indent: true},
+                                        {label: 'Servizi', key: 'servizi', indent: true},
+                                        {label: 'Assistenze', key: 'assistenze', indent: true},
+                                        {label: 'Altri ricavi', key: 'altri_ricavi', indent: true},
+                                        {label: '', key: null, separator: true},
+                                        {label: 'CONSUMI', key: 'consumi', bold: true, color: 'text-red-700'},
+                                        {label: 'GROSS MARGIN', key: 'gross_margin', bold: true, color: 'text-green-700', highlight: true},
+                                        {label: 'Gross Margin %', key: 'gross_margin_pct', bold: true, color: 'text-green-600', pct: true},
+                                        {label: '', key: null, separator: true},
+                                        {label: 'Costo del Lavoro', key: 'costo_lavoro', bold: true, color: 'text-red-700'},
+                                        {label: 'OPEX Totali', key: 'opex_totali', bold: true, color: 'text-red-700'},
+                                        {label: '  - OPEX Industriali', key: 'opex_industriali', indent: true},
+                                        {label: '  - OPEX Commerciali', key: 'opex_commerciali', indent: true},
+                                        {label: '  - OPEX Amministrative', key: 'opex_amministrative', indent: true},
+                                        {label: 'Ammortamenti', key: 'ammortamenti', bold: true, color: 'text-red-700'},
+                                        {label: '', key: null, separator: true},
+                                        {label: 'EBITDA', key: 'ebitda', bold: true, color: 'text-purple-700', highlight: true},
+                                        {label: 'EBIT', key: 'ebit', bold: true, color: 'text-indigo-700', highlight: true},
+                                        {label: 'Oneri finanziari', key: 'oneri_finanziari', color: 'text-red-700'},
+                                        {label: 'EBT', key: 'ebt', bold: true, color: 'text-cyan-700', highlight: true}
+                                    ].map((row, i) => {
+                                        if (row.separator) return <tr key={i}><td colSpan="6" className="h-2"></td></tr>;
+                                        const varBudget = actual[row.key] - budget[row.key];
+                                        const varPY = actual[row.key] - py[row.key];
+                                        const varBudgetPct = budget[row.key] ? (varBudget/Math.abs(budget[row.key])*100).toFixed(1) : 0;
+                                        const varPYPct = py[row.key] ? (varPY/Math.abs(py[row.key])*100).toFixed(1) : 0;
+                                        return (
+                                            <tr key={i} className={`border-b ${row.highlight ? 'bg-slate-50' : ''} hover:bg-slate-100`}>
+                                                <td className={`py-2 px-4 ${row.bold ? 'font-bold' : ''} ${row.indent ? 'pl-8 text-gray-600' : ''} ${row.color || ''}`}>{row.label}</td>
+                                                <td className={`py-2 px-4 text-right ${row.bold ? 'font-bold' : ''} ${row.color || ''}`}>{row.pct ? pctFmt(actual[row.key]) : euroFmt(actual[row.key])}</td>
+                                                <td className="py-2 px-4 text-right text-gray-600">{row.pct ? pctFmt(budget[row.key]) : euroFmt(budget[row.key])}</td>
+                                                <td className="py-2 px-4 text-right text-gray-600">{row.pct ? pctFmt(py[row.key]) : euroFmt(py[row.key])}</td>
+                                                <td className={`py-2 px-4 text-right font-medium ${varBudget >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                    {row.pct ? '' : (varBudget >= 0 ? '+' : '') + euroFmt(varBudget)} ({varBudget >= 0 ? '+' : ''}{varBudgetPct}%)
+                                                </td>
+                                                <td className={`py-2 px-4 text-right font-medium ${varPY >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                    {row.pct ? '' : (varPY >= 0 ? '+' : '') + euroFmt(varPY)} ({varPY >= 0 ? '+' : ''}{varPYPct}%)
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div className="material-card bg-white rounded-lg p-4 text-sm text-gray-600">
+                            <span className="font-medium">Executive Summary</span> · Dati: {new URLSearchParams(window.location.search).get('data') || 'executive_data.json'}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById("root")).render(<ExecutiveDashboard />);
+    </script>
+</body>
+</html>

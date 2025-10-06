@@ -1,0 +1,152 @@
+{
+  "metadata": {
+    "period": "2024 - Q1-Q4",
+    "generated_at": "2025-10-06T10:00:00Z"
+  },
+  "projects": [
+    {
+      "name": "Implementazione ERP Industria 4.0",
+      "client": "Automotive Manufacturing S.p.A.",
+      "status": "In Corso",
+      "total_value": 850000,
+      "revenue": 520000,
+      "costs": 380000,
+      "completion": 65,
+      "hours_planned": 2400,
+      "hours_worked": 1560,
+      "notes": "Progetto in linea con le tempistiche. Prossima milestone: modulo produzione a fine mese."
+    },
+    {
+      "name": "Migrazione Cloud Infrastructure",
+      "client": "Retail Group Italia",
+      "status": "In Ritardo",
+      "total_value": 420000,
+      "revenue": 180000,
+      "costs": 210000,
+      "completion": 45,
+      "hours_planned": 1200,
+      "hours_worked": 840,
+      "notes": "ATTENZIONE: Ritardo di 3 settimane. Problemi tecnici con sistema legacy. Budget sforato del 16%."
+    },
+    {
+      "name": "Dashboard Business Intelligence",
+      "client": "Pharma Healthcare",
+      "status": "Completato",
+      "total_value": 180000,
+      "revenue": 180000,
+      "costs": 120000,
+      "completion": 100,
+      "hours_planned": 600,
+      "hours_worked": 580,
+      "notes": "Progetto completato con successo in anticipo di 5 giorni. Cliente molto soddisfatto."
+    },
+    {
+      "name": "App Mobile per Logistica",
+      "client": "Logistica Express",
+      "status": "In Corso",
+      "total_value": 320000,
+      "revenue": 240000,
+      "costs": 180000,
+      "completion": 75,
+      "hours_planned": 900,
+      "hours_worked": 675,
+      "notes": "Sviluppo procedendo regolarmente. Testing in corso su versione beta."
+    },
+    {
+      "name": "Sistema CRM Enterprise",
+      "client": "Banca Regionale",
+      "status": "In Corso",
+      "total_value": 650000,
+      "revenue": 390000,
+      "costs": 320000,
+      "completion": 60,
+      "hours_planned": 1800,
+      "hours_worked": 1080,
+      "notes": "Progetto complesso ma sotto controllo. Integrazione con core banking in fase di test."
+    },
+    {
+      "name": "E-commerce Platform B2B",
+      "client": "Food & Beverage Corp",
+      "status": "In Corso",
+      "total_value": 280000,
+      "revenue": 112000,
+      "costs": 95000,
+      "completion": 40,
+      "hours_planned": 800,
+      "hours_worked": 320,
+      "notes": "Avvio regolare. Frontend completato, backend in sviluppo."
+    },
+    {
+      "name": "Digital Transformation Consulting",
+      "client": "Costruzioni Edili S.r.l.",
+      "status": "Completato",
+      "total_value": 95000,
+      "revenue": 95000,
+      "costs": 62000,
+      "completion": 100,
+      "hours_planned": 320,
+      "hours_worked": 310,
+      "notes": "Consulenza strategica completata. Cliente ha già avviato implementazione raccomandazioni."
+    },
+    {
+      "name": "Cybersecurity Assessment",
+      "client": "Assicurazioni Nazionali",
+      "status": "In Corso",
+      "total_value": 125000,
+      "revenue": 87500,
+      "costs": 68000,
+      "completion": 70,
+      "hours_planned": 450,
+      "hours_worked": 315,
+      "notes": "Assessment vulnerability completato. In corso implementazione patch e hardening."
+    },
+    {
+      "name": "IoT Monitoring System",
+      "client": "Energia Rinnovabile S.p.A.",
+      "status": "In Pausa",
+      "total_value": 540000,
+      "revenue": 162000,
+      "costs": 145000,
+      "completion": 30,
+      "hours_planned": 1500,
+      "hours_worked": 450,
+      "notes": "Progetto sospeso temporaneamente su richiesta cliente per riorganizzazione interna. Ripresa prevista Q1 2025."
+    },
+    {
+      "name": "Data Warehouse & Analytics",
+      "client": "Telecomunicazioni Italia",
+      "status": "In Corso",
+      "total_value": 480000,
+      "revenue": 336000,
+      "costs": 260000,
+      "completion": 70,
+      "hours_planned": 1400,
+      "hours_worked": 980,
+      "notes": "ETL pipeline operativo. In corso sviluppo dashboard avanzate e modelli predittivi."
+    },
+    {
+      "name": "Portale Web Istituzionale",
+      "client": "Ente Pubblico Regionale",
+      "status": "Completato",
+      "total_value": 85000,
+      "revenue": 85000,
+      "costs": 58000,
+      "completion": 100,
+      "hours_planned": 380,
+      "hours_worked": 375,
+      "notes": "Portale rilasciato con successo. Conformità WCAG 2.1 AA garantita."
+    },
+    {
+      "name": "AI Chatbot Customer Service",
+      "client": "E-commerce Fashion",
+      "status": "In Ritardo",
+      "total_value": 195000,
+      "revenue": 97500,
+      "costs": 112000,
+      "completion": 50,
+      "hours_planned": 550,
+      "hours_worked": 420,
+      "notes": "ATTENZIONE: Training del modello richiede più tempo del previsto. Slittamento di 4 settimane."
+    }
+  ]
+}

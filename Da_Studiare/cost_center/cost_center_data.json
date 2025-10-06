@@ -1,0 +1,13 @@
+{
+  "metadata": {"period": "Aprile 2025 YTD"},
+  "centers": [
+    {"name": "Produzione", "tipo": "Produzione", "ricavi": 2850000, "costi": 2100000, "budget_ricavi": 2750000, "margine_pct": 26.3},
+    {"name": "Commerciale", "tipo": "Commerciale", "ricavi": 1850000, "costi": 950000, "budget_ricavi": 1800000, "margine_pct": 48.6},
+    {"name": "Logistica", "tipo": "Logistica", "ricavi": 520000, "costi": 380000, "budget_ricavi": 500000, "margine_pct": 26.9},
+    {"name": "Marketing", "tipo": "Marketing", "ricavi": 420000, "costi": 310000, "budget_ricavi": 400000, "margine_pct": 26.2},
+    {"name": "R&D", "tipo": "R&D", "ricavi": 350000, "costi": 580000, "budget_ricavi": 300000, "margine_pct": -65.7},
+    {"name": "IT", "tipo": "IT", "ricavi": 180000, "costi": 420000, "budget_ricavi": 150000, "margine_pct": -133.3},
+    {"name": "Amministrazione", "tipo": "Amministrazione", "ricavi": 0, "costi": 450000, "budget_ricavi": 0, "margine_pct": 0},
+    {"name": "HR", "tipo": "HR", "ricavi": 0, "costi": 280000, "budget_ricavi": 0, "margine_pct": 0}
+  ]
+}

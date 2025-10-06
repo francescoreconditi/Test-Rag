@@ -1,0 +1,40 @@
+{
+  "metadata": {"period": "Aprile 2025 YTD"},
+  "summary": {
+    "actual": 5530000,
+    "budget": 5280000,
+    "previous_year": 5100000
+  },
+  "categories": [
+    {"name": "Prodotti Hardware", "actual": 1850000, "budget": 1750000, "previous_year": 1680000},
+    {"name": "Licenze Software", "actual": 1250000, "budget": 1200000, "previous_year": 1100000},
+    {"name": "Servizi di Manutenzione", "actual": 980000, "budget": 950000, "previous_year": 920000},
+    {"name": "Consulenze IT", "actual": 680000, "budget": 650000, "previous_year": 620000},
+    {"name": "Servizi Cloud", "actual": 450000, "budget": 420000, "previous_year": 380000},
+    {"name": "Formazione", "actual": 320000, "budget": 300000, "previous_year": 280000}
+  ],
+  "top_clients": [
+    {"name": "Cliente A - Acme", "revenue": 1250000},
+    {"name": "Cliente B - TechSolutions", "revenue": 980000},
+    {"name": "Cliente C - InnovaSystems", "revenue": 750000},
+    {"name": "Cliente D - Global Ent.", "revenue": 620000},
+    {"name": "Cliente E - DataCenter", "revenue": 480000},
+    {"name": "Cliente F - SmartBusiness", "revenue": 380000},
+    {"name": "Cliente G - CloudTech", "revenue": 320000},
+    {"name": "Cliente H - Digital Srv", "revenue": 280000},
+    {"name": "Cliente I - NetSolutions", "revenue": 240000},
+    {"name": "Cliente J - Consulting", "revenue": 230000}
+  ],
+  "top_products": [
+    {"name": "Server Enterprise X500", "category": "Hardware", "revenue": 650000, "quantity": 45},
+    {"name": "Licenza Office 365 Enterprise", "category": "Software", "revenue": 580000, "quantity": 1200},
+    {"name": "Contratto Manutenzione Premium", "category": "Manutenzione", "revenue": 480000, "quantity": 85},
+    {"name": "Storage Cloud 1TB", "category": "Servizi", "revenue": 420000, "quantity": 350},
+    {"name": "Consulenza Migrazione Cloud", "category": "Consulenze", "revenue": 380000, "quantity": 28},
+    {"name": "Workstation Pro W7000", "category": "Hardware", "revenue": 350000, "quantity": 125},
+    {"name": "Corso Cybersecurity Advanced", "category": "Formazione", "revenue": 280000, "quantity": 56},
+    {"name": "Licenza Antivirus Enterprise", "category": "Software", "revenue": 250000, "quantity": 850},
+    {"name": "Backup as a Service", "category": "Servizi", "revenue": 220000, "quantity": 180},
+    {"name": "Switch di Rete 48 porte", "category": "Hardware", "revenue": 180000, "quantity": 95}
+  ]
+}

@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Revenue Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Roboto', sans-serif; }
+        .material-card { box-shadow: 0 1px 3px rgba(0,0,0,0.12); transition: all 0.3s; }
+        .material-card:hover { box-shadow: 0 14px 28px rgba(0,0,0,0.25); transform: translateY(-2px); }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        function euroFmt(val) { return '€' + val.toLocaleString("it-IT", { maximumFractionDigits: 0 }); }
+        function exportToPDF() {
+            html2pdf().set({
+                margin: 10, filename: `Revenue_${new Date().toISOString().split('T')[0]}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+            }).from(document.getElementById('dashboard-content')).save();
+        }
+
+        function PieChart({ data, labels, colors }) {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+            useEffect(() => {
+                if (!canvasRef.current) return;
+                if (chartRef.current) chartRef.current.destroy();
+                const ctx = canvasRef.current.getContext('2d');
+                chartRef.current = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: labels,
+                        datasets: [{ data: data, backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+                });
+                return () => { if (chartRef.current) chartRef.current.destroy(); };
+            }, [data, labels, colors]);
+            return <canvas ref={canvasRef}></canvas>;
+        }
+
+        function BarChart({ data, labels, colors }) {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+            useEffect(() => {
+                if (!canvasRef.current) return;
+                if (chartRef.current) chartRef.current.destroy();
+                const ctx = canvasRef.current.getContext('2d');
+                chartRef.current = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{ data: data, backgroundColor: colors, borderRadius: 4 }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+                        plugins: { legend: { display: false } }
+                    }
+                });
+                return () => { if (chartRef.current) chartRef.current.destroy(); };
+            }, [data, labels, colors]);
+            return <canvas ref={canvasRef}></canvas>;
+        }
+
+        function RevenueDashboard() {
+            const [loading, setLoading] = useState(true);
+            const [data, setData] = useState(null);
+
+            useEffect(() => {
+                fetch(new URLSearchParams(window.location.search).get('data') || 'revenue_data.json')
+                    .then(r => r.json()).then(d => { setData(d); setLoading(false); })
+                    .catch(() => setLoading(false));
+            }, []);
+
+            if (loading) return <div className="h-screen flex items-center justify-center"><div className="text-xl">Caricamento...</div></div>;
+            if (!data) return <div className="h-screen flex items-center justify-center"><div className="text-xl text-red-600">Errore</div></div>;
+
+            const variance = data.summary.actual - data.summary.budget;
+            const variancePct = (variance / data.summary.budget * 100).toFixed(1);
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-lg">
+                        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+                            <div>
+                                <h1 className="text-xl font-medium">Revenue Dashboard</h1>
+                                <p className="text-sm text-indigo-100">{data.metadata.period}</p>
+                            </div>
+                            <button onClick={exportToPDF} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg">Esporta PDF</button>
+                        </div>
+                    </div>
+
+                    <div id="dashboard-content" className="max-w-7xl mx-auto p-6 space-y-6">
+                        <div className="grid grid-cols-4 gap-6">
+                            <div className="material-card bg-white rounded-lg p-6 border-l-4 border-indigo-500">
+                                <div className="text-sm text-gray-600 uppercase mb-2">Fatturato YTD</div>
+                                <div className="text-3xl font-bold">{euroFmt(data.summary.actual)}</div>
+                                <div className="text-sm text-gray-500 mt-2">Consuntivo</div>
+                            </div>
+                            <div className="material-card bg-white rounded-lg p-6 border-l-4 border-gray-400">
+                                <div className="text-sm text-gray-600 uppercase mb-2">Budget</div>
+                                <div className="text-3xl font-bold">{euroFmt(data.summary.budget)}</div>
+                                <div className="text-sm text-gray-500 mt-2">Target annuale</div>
+                            </div>
+                            <div className="material-card bg-white rounded-lg p-6 border-l-4 border-blue-400">
+                                <div className="text-sm text-gray-600 uppercase mb-2">Anno Precedente</div>
+                                <div className="text-3xl font-bold">{euroFmt(data.summary.previous_year)}</div>
+                                <div className="text-sm text-gray-500 mt-2">YTD 2023</div>
+                            </div>
+                            <div className={`material-card bg-white rounded-lg p-6 border-l-4 ${variance >= 0 ? 'border-green-500' : 'border-red-500'}`}>
+                                <div className="text-sm text-gray-600 uppercase mb-2">Varianza vs Budget</div>
+                                <div className={`text-3xl font-bold ${variance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {variance >= 0 ? '+' : ''}{euroFmt(variance)}
+                                </div>
+                                <div className={`text-sm font-medium mt-2 ${variance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {variance >= 0 ? '+' : ''}{variancePct}%
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-6">
+                            <div className="material-card bg-white rounded-lg p-6">
+                                <h2 className="text-lg font-medium mb-4">Revenue Mix per Categoria</h2>
+                                <div className="h-80">
+                                    <PieChart
+                                        data={data.categories.map(c => c.actual)}
+                                        labels={data.categories.map(c => c.name)}
+                                        colors={['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4']}
+                                    />
+                                </div>
+                            </div>
+                            <div className="material-card bg-white rounded-lg p-6">
+                                <h2 className="text-lg font-medium mb-4">Top 10 Clienti</h2>
+                                <div className="h-80">
+                                    <BarChart
+                                        data={data.top_clients.map(c => c.revenue)}
+                                        labels={data.top_clients.map(c => c.name)}
+                                        colors={data.top_clients.map((_, i) => `hsl(${230 + i * 10}, 70%, 60%)`)}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="material-card bg-white rounded-lg p-6">
+                            <h2 className="text-lg font-medium mb-4">Dettaglio per Categoria</h2>
+                            <table className="w-full text-sm">
+                                <thead className="bg-gray-50 border-b-2 border-indigo-500">
+                                    <tr>
+                                        <th className="py-3 px-4 text-left">Categoria</th>
+                                        <th className="py-3 px-4 text-right">Consuntivo</th>
+                                        <th className="py-3 px-4 text-right">Budget</th>
+                                        <th className="py-3 px-4 text-right">Anno Prec.</th>
+                                        <th className="py-3 px-4 text-right">Varianza vs Budget</th>
+                                        <th className="py-3 px-4 text-right">Growth YoY</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {data.categories.map((c, i) => {
+                                        const variance = c.actual - c.budget;
+                                        const variancePct = (variance / c.budget * 100).toFixed(1);
+                                        const growth = ((c.actual - c.previous_year) / c.previous_year * 100).toFixed(1);
+                                        return (
+                                            <tr key={i} className="border-b hover:bg-indigo-50">
+                                                <td className="py-3 px-4 font-medium">{c.name}</td>
+                                                <td className="py-3 px-4 text-right font-semibold">{euroFmt(c.actual)}</td>
+                                                <td className="py-3 px-4 text-right text-gray-600">{euroFmt(c.budget)}</td>
+                                                <td className="py-3 px-4 text-right text-gray-600">{euroFmt(c.previous_year)}</td>
+                                                <td className={`py-3 px-4 text-right font-medium ${variance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                    {variance >= 0 ? '+' : ''}{euroFmt(variance)} ({variance >= 0 ? '+' : ''}{variancePct}%)
+                                                </td>
+                                                <td className={`py-3 px-4 text-right font-medium ${growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                    {growth >= 0 ? '+' : ''}{growth}%
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div className="material-card bg-white rounded-lg p-6">
+                            <h2 className="text-lg font-medium mb-4">Top 10 Prodotti per Fatturato</h2>
+                            <table className="w-full text-sm">
+                                <thead className="bg-gray-50 border-b-2 border-indigo-500">
+                                    <tr>
+                                        <th className="py-3 px-4 text-left">Prodotto</th>
+                                        <th className="py-3 px-4 text-left">Categoria</th>
+                                        <th className="py-3 px-4 text-right">Fatturato</th>
+                                        <th className="py-3 px-4 text-right">Quantità</th>
+                                        <th className="py-3 px-4 text-right">% sul Totale</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {data.top_products.map((p, i) => {
+                                        const pct = (p.revenue / data.summary.actual * 100).toFixed(1);
+                                        return (
+                                            <tr key={i} className="border-b hover:bg-indigo-50">
+                                                <td className="py-3 px-4 font-medium">{p.name}</td>
+                                                <td className="py-3 px-4 text-gray-600">{p.category}</td>
+                                                <td className="py-3 px-4 text-right font-semibold">{euroFmt(p.revenue)}</td>
+                                                <td className="py-3 px-4 text-right">{p.quantity}</td>
+                                                <td className="py-3 px-4 text-right text-indigo-600 font-medium">{pct}%</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById("root")).render(<RevenueDashboard />);
+    </script>
+</body>
+</html>

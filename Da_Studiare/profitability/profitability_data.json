@@ -1,0 +1,31 @@
+{
+  "metadata": {"period": "2024 - Anno Completo"},
+  "totals": {
+    "ricavi": 9160000,
+    "costi": 4970000,
+    "margine": 4190000,
+    "margin_pct": 45.7
+  },
+  "waterfall": {
+    "ricavi": 9160000,
+    "costi_diretti": 3200000,
+    "costi_indiretti": 1770000,
+    "margine": 4190000
+  },
+  "products": [
+    {"name": "Software Gestionale ERP", "ricavi": 2850000, "costi": 1420000, "margine": 1430000, "margin_pct": 50.2, "roi": 100.7},
+    {"name": "Cloud Infrastructure", "ricavi": 1920000, "costi": 1150000, "margine": 770000, "margin_pct": 40.1, "roi": 67.0},
+    {"name": "Servizi Consulenza IT", "ricavi": 1680000, "costi": 920000, "margine": 760000, "margin_pct": 45.2, "roi": 82.6},
+    {"name": "Business Intelligence", "ricavi": 1240000, "costi": 680000, "margine": 560000, "margin_pct": 45.2, "roi": 82.4},
+    {"name": "App Mobile Custom", "ricavi": 890000, "costi": 520000, "margine": 370000, "margin_pct": 41.6, "roi": 71.2},
+    {"name": "Formazione Aziendale", "ricavi": 580000, "costi": 280000, "margine": 300000, "margin_pct": 51.7, "roi": 107.1}
+  ],
+  "clients": [
+    {"name": "Pharma Healthcare", "ricavi": 2150000, "costi": 1180000, "margine": 970000, "margin_pct": 45.1},
+    {"name": "Industria Automotive", "ricavi": 1850000, "costi": 980000, "margine": 870000, "margin_pct": 47.0},
+    {"name": "Banca Regionale", "ricavi": 1640000, "costi": 920000, "margine": 720000, "margin_pct": 43.9},
+    {"name": "Retail Group Italia", "ricavi": 1420000, "costi": 760000, "margine": 660000, "margin_pct": 46.5},
+    {"name": "Food & Beverage Corp", "ricavi": 1120000, "costi": 590000, "margine": 530000, "margin_pct": 47.3},
+    {"name": "Logistica Express", "ricavi": 980000, "costi": 540000, "margine": 440000, "margin_pct": 44.9}
+  ]
+}

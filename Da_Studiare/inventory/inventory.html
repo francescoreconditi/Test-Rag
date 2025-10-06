@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Inventory Management Dashboard</title>
+    <!-- Version: 2025-10-06 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Roboto', sans-serif; }
+        .material-card {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+            transition: all 0.3s cubic-bezier(.25,.8,.25,1);
+        }
+        .material-card:hover {
+            box-shadow: 0 14px 28px rgba(0,0,0,0.25), 0 10px 10px rgba(0,0,0,0.22);
+            transform: translateY(-2px);
+        }
+        .ripple {
+            position: relative;
+            overflow: hidden;
+        }
+        .ripple:active::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            animation: ripple-animation 0.6s ease-out;
+        }
+        @keyframes ripple-animation {
+            to { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .animate-fadeIn { animation: fadeIn 0.2s ease-out; }
+    </style>
+</head>
+
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel" data-presets="env,react">
+        const { useMemo, useState, useEffect, useRef } = React;
+
+        let DATA = null;
+
+        function numberFmt(val, decimals = 0) {
+            if (val === null || val === undefined) return '0';
+            return val.toLocaleString("it-IT", { maximumFractionDigits: decimals, minimumFractionDigits: decimals });
+        }
+
+        function euroFmt(val) {
+            if (val === null || val === undefined) return '€0';
+            return '€' + val.toLocaleString("it-IT", { maximumFractionDigits: 0 });
+        }
+
+        function exportToPDF() {
+            const element = document.getElementById('dashboard-content');
+            const opt = {
+                margin: 10,
+                filename: `Inventory_Dashboard_${new Date().toISOString().split('T')[0]}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+            };
+            html2pdf().set(opt).from(element).save();
+        }
+
+        function DoughnutChart({ data, labels, colors }) {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!canvasRef.current) return;
+                if (chartRef.current) chartRef.current.destroy();
+
+                const ctx = canvasRef.current.getContext('2d');
+                chartRef.current = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: data,
+                            backgroundColor: colors,
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { font: { size: 11 }, padding: 12 }
+                            }
+                        }
+                    }
+                });
+
+                return () => { if (chartRef.current) chartRef.current.destroy(); };
+            }, [data, labels, colors]);
+
+            return <canvas ref={canvasRef}></canvas>;
+        }
+
+        function BarChart({ data, labels, color = "#3b82f6" }) {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!canvasRef.current) return;
+                if (chartRef.current) chartRef.current.destroy();
+
+                const ctx = canvasRef.current.getContext('2d');
+                chartRef.current = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: data,
+                            backgroundColor: color,
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { font: { size: 11 } }
+                            },
+                            x: {
+                                ticks: { font: { size: 10 } }
+                            }
+                        }
+                    }
+                });
+
+                return () => { if (chartRef.current) chartRef.current.destroy(); };
+            }, [data, labels, color]);
+
+            return <canvas ref={canvasRef}></canvas>;
+        }
+
+        function InventoryDashboard() {
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+            const [data, setData] = useState(null);
+            const [filterStatus, setFilterStatus] = useState('Tutti');
+
+            useEffect(() => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const dataFile = urlParams.get('data') || 'inventory_data.json';
+
+                fetch(dataFile)
+                    .then(response => {
+                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        return response.json();
+                    })
+                    .then(jsonData => {
+                        DATA = jsonData;
+                        setData(jsonData);
+                        setLoading(false);
+                    })
+                    .catch(err => {
+                        console.error('Errore caricamento dati:', err);
+                        setError(err.message);
+                        setLoading(false);
+                    });
+            }, []);
+
+            const filteredProducts = useMemo(() => {
+                if (!data) return [];
+                if (filterStatus === 'Tutti') return data.products;
+                return data.products.filter(p => p.status === filterStatus);
+            }, [data, filterStatus]);
+
+            const statusCounts = useMemo(() => {
+                if (!data) return {};
+                return data.products.reduce((acc, p) => {
+                    acc[p.status] = (acc[p.status] || 0) + 1;
+                    return acc;
+                }, {});
+            }, [data]);
+
+            const getStatusBadge = (status) => {
+                const badges = {
+                    'OK': 'bg-green-100 text-green-800',
+                    'Attenzione': 'bg-yellow-100 text-yellow-800',
+                    'Critico': 'bg-red-100 text-red-800',
+                    'Eccesso': 'bg-purple-100 text-purple-800'
+                };
+                return badges[status] || 'bg-gray-100 text-gray-800';
+            };
+
+            if (loading) {
+                return (
+                    <div className="w-full h-screen flex items-center justify-center bg-gray-50">
+                        <div className="text-center">
+                            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mb-4"></div>
+                            <div className="text-xl font-medium text-gray-700">Caricamento Inventory Dashboard...</div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (error) {
+                return (
+                    <div className="w-full h-screen flex items-center justify-center bg-gray-50">
+                        <div className="text-center max-w-md material-card bg-white rounded-lg p-8">
+                            <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                            </svg>
+                            <div className="text-xl font-medium mb-3 text-red-600">Errore caricamento dati</div>
+                            <div className="text-gray-700">{error}</div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="w-full min-h-screen bg-gray-50">
+                    <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg">
+                        <div className="max-w-7xl mx-auto px-6 py-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M20 2H4c-1 0-2 .9-2 2v3.01c0 .72.43 1.34 1 1.69V20c0 1.1 1.1 2 2 2h14c.9 0 2-.9 2-2V8.7c.57-.35 1-.97 1-1.69V4c0-1.1-1-2-2-2zm-5 12H9v-2h6v2zm5-7H4V4h16v3z"/>
+                                    </svg>
+                                    <div>
+                                        <h1 className="text-xl font-medium">Inventory Management Dashboard</h1>
+                                        <p className="text-sm text-blue-100">Periodo: {data.metadata.period} · {data.products.length} SKU totali</p>
+                                    </div>
+                                </div>
+                                <button onClick={exportToPDF} className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-all ripple">
+                                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z"/>
+                                    </svg>
+                                    <span className="font-medium">Esporta PDF</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="dashboard-content" className="max-w-7xl mx-auto p-6 space-y-6">
+
+                        {/* KPI Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                            <div className="material-card bg-white rounded-lg p-6 border-l-4 border-green-500">
+                                <div className="text-sm font-medium text-gray-600 uppercase mb-2">Stock OK</div>
+                                <div className="text-4xl font-bold text-gray-900">{statusCounts['OK'] || 0}</div>
+                                <div className="text-sm text-gray-500 mt-2">Livello ottimale</div>
+                            </div>
+
+                            <div className="material-card bg-white rounded-lg p-6 border-l-4 border-yellow-500">
+                                <div className="text-sm font-medium text-gray-600 uppercase mb-2">Attenzione</div>
+                                <div className="text-4xl font-bold text-gray-900">{statusCounts['Attenzione'] || 0}</div>
+                                <div className="text-sm text-gray-500 mt-2">Da riordinare presto</div>
+                            </div>
+
+                            <div className="material-card bg-white rounded-lg p-6 border-l-4 border-red-500">
+                                <div className="text-sm font-medium text-gray-600 uppercase mb-2">Critici</div>
+                                <div className="text-4xl font-bold text-gray-900">{statusCounts['Critico'] || 0}</div>
+                                <div className="text-sm text-gray-500 mt-2">Urgente riordino</div>
+                            </div>
+
+                            <div className="material-card bg-white rounded-lg p-6 border-l-4 border-purple-500">
+                                <div className="text-sm font-medium text-gray-600 uppercase mb-2">Eccesso</div>
+                                <div className="text-4xl font-bold text-gray-900">{statusCounts['Eccesso'] || 0}</div>
+                                <div className="text-sm text-gray-500 mt-2">Sovrastock</div>
+                            </div>
+                        </div>
+
+                        {/* Charts */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="material-card bg-white rounded-lg p-6">
+                                <h2 className="text-lg font-medium text-gray-900 mb-4">Distribuzione Stock per Stato</h2>
+                                <div className="h-64">
+                                    <DoughnutChart
+                                        data={[statusCounts['OK'] || 0, statusCounts['Attenzione'] || 0, statusCounts['Critico'] || 0, statusCounts['Eccesso'] || 0]}
+                                        labels={['OK', 'Attenzione', 'Critico', 'Eccesso']}
+                                        colors={['#10b981', '#fbbf24', '#ef4444', '#a855f7']}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="material-card bg-white rounded-lg p-6">
+                                <h2 className="text-lg font-medium text-gray-900 mb-4">Indice Rotazione per Categoria</h2>
+                                <div className="h-64">
+                                    <BarChart
+                                        data={data.categories.map(c => c.avg_rotation)}
+                                        labels={data.categories.map(c => c.name)}
+                                        color="#3b82f6"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Filters */}
+                        <div className="material-card bg-white rounded-lg p-4">
+                            <div className="flex flex-wrap gap-2">
+                                {['Tutti', 'OK', 'Attenzione', 'Critico', 'Eccesso'].map(status => (
+                                    <button
+                                        key={status}
+                                        onClick={() => setFilterStatus(status)}
+                                        className={`ripple px-4 py-2 rounded-lg text-sm font-medium transition ${
+                                            filterStatus === status
+                                                ? 'bg-blue-600 text-white shadow-lg'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        {status} {status !== 'Tutti' && `(${statusCounts[status] || 0})`}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Products Table */}
+                        <div className="material-card bg-white rounded-lg p-6">
+                            <h2 className="text-lg font-medium text-gray-900 mb-4">Prodotti in Stock ({filteredProducts.length})</h2>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-gray-50">
+                                        <tr className="border-b-2 border-blue-500">
+                                            <th className="py-3 px-4 text-left font-medium text-gray-700">SKU</th>
+                                            <th className="py-3 px-4 text-left font-medium text-gray-700">Nome</th>
+                                            <th className="py-3 px-4 text-left font-medium text-gray-700">Categoria</th>
+                                            <th className="py-3 px-4 text-right font-medium text-gray-700">Giacenza</th>
+                                            <th className="py-3 px-4 text-right font-medium text-gray-700">Scorta Sic.</th>
+                                            <th className="py-3 px-4 text-right font-medium text-gray-700">Rotazione</th>
+                                            <th className="py-3 px-4 text-right font-medium text-gray-700">Giorni Cop.</th>
+                                            <th className="py-3 px-4 text-center font-medium text-gray-700">Stato</th>
+                                            <th className="py-3 px-4 text-left font-medium text-gray-700">Azione</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredProducts.map((p, idx) => (
+                                            <tr key={idx} className="border-b border-gray-100 hover:bg-blue-50">
+                                                <td className="py-3 px-4 font-mono text-xs">{p.sku}</td>
+                                                <td className="py-3 px-4 font-medium">{p.name}</td>
+                                                <td className="py-3 px-4 text-gray-600">{p.category}</td>
+                                                <td className="py-3 px-4 text-right font-semibold">{numberFmt(p.current_stock)}</td>
+                                                <td className="py-3 px-4 text-right text-gray-600">{numberFmt(p.safety_stock)}</td>
+                                                <td className="py-3 px-4 text-right">{numberFmt(p.rotation_index, 1)}</td>
+                                                <td className="py-3 px-4 text-right">{numberFmt(p.days_coverage)}</td>
+                                                <td className="py-3 px-4 text-center">
+                                                    <span className={`px-3 py-1 rounded-lg text-xs font-medium ${getStatusBadge(p.status)}`}>
+                                                        {p.status}
+                                                    </span>
+                                                </td>
+                                                <td className="py-3 px-4 text-xs text-gray-600">{p.action}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="material-card bg-white rounded-lg p-4 text-sm text-gray-600">
+                            <span className="font-medium">Dati caricati da:</span> {new URLSearchParams(window.location.search).get('data') || 'inventory_data.json'}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById("root"));
+        root.render(<InventoryDashboard />);
+    </script>
+</body>
+
+</html>

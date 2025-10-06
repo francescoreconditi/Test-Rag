@@ -1,0 +1,235 @@
+{
+  "metadata": {
+    "period": "2024 - Q4",
+    "generated_at": "2025-10-06T10:00:00Z"
+  },
+  "categories": [
+    {"name": "Elettronica", "avg_rotation": 21.2},
+    {"name": "Componentistica", "avg_rotation": 9.7},
+    {"name": "Accessori", "avg_rotation": 10.8},
+    {"name": "Consumabili", "avg_rotation": 25.1},
+    {"name": "Ricambi", "avg_rotation": 6.0}
+  ],
+  "products": [
+    {
+      "sku": "ELE-002",
+      "name": "Processore AMD Ryzen 9",
+      "category": "Elettronica",
+      "current_stock": 12,
+      "safety_stock": 25,
+      "rotation_index": 28.0,
+      "days_coverage": 13,
+      "status": "Critico",
+      "action": "URGENTE: Ordinare 50 unità"
+    },
+    {
+      "sku": "ELE-003",
+      "name": "Scheda Video RTX 4070",
+      "category": "Elettronica",
+      "current_stock": 8,
+      "safety_stock": 15,
+      "rotation_index": 33.0,
+      "days_coverage": 11,
+      "status": "Critico",
+      "action": "URGENTE: Ordinare 40 unità"
+    },
+    {
+      "sku": "CON-002",
+      "name": "Toner Laser Nero",
+      "category": "Consumabili",
+      "current_stock": 18,
+      "safety_stock": 30,
+      "rotation_index": 43.3,
+      "days_coverage": 8,
+      "status": "Critico",
+      "action": "URGENTE: Ordinare 80 unità"
+    },
+    {
+      "sku": "CON-004",
+      "name": "Penna USB 64GB",
+      "category": "Consumabili",
+      "current_stock": 5,
+      "safety_stock": 50,
+      "rotation_index": 324.0,
+      "days_coverage": 1,
+      "status": "Critico",
+      "action": "EMERGENZA: Ordine EXPRESS 200 unità"
+    },
+    {
+      "sku": "COM-002",
+      "name": "SSD NVMe 1TB",
+      "category": "Componentistica",
+      "current_stock": 65,
+      "safety_stock": 40,
+      "rotation_index": 16.9,
+      "days_coverage": 21,
+      "status": "Attenzione",
+      "action": "Ordinare 100 unità entro 1 settimana"
+    },
+    {
+      "sku": "ACC-003",
+      "name": "Webcam Full HD",
+      "category": "Accessori",
+      "current_stock": 32,
+      "safety_stock": 25,
+      "rotation_index": 14.3,
+      "days_coverage": 25,
+      "status": "Attenzione",
+      "action": "Ordinare 60 unità"
+    },
+    {
+      "sku": "RIC-003",
+      "name": "Pasta Termica Premium",
+      "category": "Ricambi",
+      "current_stock": 62,
+      "safety_stock": 40,
+      "rotation_index": 14.5,
+      "days_coverage": 25,
+      "status": "Attenzione",
+      "action": "Ordinare 80 unità"
+    },
+    {
+      "sku": "ELE-004",
+      "name": "Monitor 27\" 4K",
+      "category": "Elettronica",
+      "current_stock": 15,
+      "safety_stock": 10,
+      "rotation_index": 14.4,
+      "days_coverage": 25,
+      "status": "Attenzione",
+      "action": "Ordinare 30 unità (lead time lungo)"
+    },
+    {
+      "sku": "ELE-001",
+      "name": "Scheda Madre ATX X570",
+      "category": "Elettronica",
+      "current_stock": 45,
+      "safety_stock": 20,
+      "rotation_index": 9.3,
+      "days_coverage": 39,
+      "status": "OK",
+      "action": "Livello ottimale"
+    },
+    {
+      "sku": "COM-001",
+      "name": "Modulo RAM DDR5 32GB",
+      "category": "Componentistica",
+      "current_stock": 120,
+      "safety_stock": 50,
+      "rotation_index": 8.5,
+      "days_coverage": 42,
+      "status": "OK",
+      "action": "Prossimo ordine tra 3 settimane"
+    },
+    {
+      "sku": "ACC-001",
+      "name": "Mouse Wireless Gaming",
+      "category": "Accessori",
+      "current_stock": 210,
+      "safety_stock": 60,
+      "rotation_index": 8.3,
+      "days_coverage": 43,
+      "status": "OK",
+      "action": "Best seller, mantenere livello"
+    },
+    {
+      "sku": "ACC-002",
+      "name": "Tastiera Meccanica RGB",
+      "category": "Accessori",
+      "current_stock": 88,
+      "safety_stock": 45,
+      "rotation_index": 9.8,
+      "days_coverage": 37,
+      "status": "OK",
+      "action": "Riordino tra 20 giorni"
+    },
+    {
+      "sku": "CON-001",
+      "name": "Carta A4 Risma 500 Fogli",
+      "category": "Consumabili",
+      "current_stock": 145,
+      "safety_stock": 80,
+      "rotation_index": 18.2,
+      "days_coverage": 20,
+      "status": "OK",
+      "action": "Ordinare 150 unità tra 10 giorni"
+    },
+    {
+      "sku": "CON-003",
+      "name": "Cartucce Inkjet Colore",
+      "category": "Consumabili",
+      "current_stock": 95,
+      "safety_stock": 50,
+      "rotation_index": 13.9,
+      "days_coverage": 26,
+      "status": "OK",
+      "action": "Scorte adeguate"
+    },
+    {
+      "sku": "RIC-001",
+      "name": "Ventola PC 120mm",
+      "category": "Ricambi",
+      "current_stock": 280,
+      "safety_stock": 60,
+      "rotation_index": 4.1,
+      "days_coverage": 88,
+      "status": "OK",
+      "action": "Nessuna azione richiesta"
+    },
+    {
+      "sku": "RIC-002",
+      "name": "Cavo SATA 50cm",
+      "category": "Ricambi",
+      "current_stock": 420,
+      "safety_stock": 100,
+      "rotation_index": 5.1,
+      "days_coverage": 70,
+      "status": "OK",
+      "action": "Livello ottimale"
+    },
+    {
+      "sku": "ACC-004",
+      "name": "Cuffie Gaming 7.1",
+      "category": "Accessori",
+      "current_stock": 72,
+      "safety_stock": 30,
+      "rotation_index": 9.7,
+      "days_coverage": 37,
+      "status": "OK",
+      "action": "Equilibrio perfetto"
+    },
+    {
+      "sku": "RIC-004",
+      "name": "Batteria CMOS CR2032",
+      "category": "Ricambi",
+      "current_stock": 850,
+      "safety_stock": 200,
+      "rotation_index": 4.5,
+      "days_coverage": 80,
+      "status": "OK",
+      "action": "Gestione ottimale"
+    },
+    {
+      "sku": "COM-003",
+      "name": "Alimentatore 850W Modulare",
+      "category": "Componentistica",
+      "current_stock": 180,
+      "safety_stock": 30,
+      "rotation_index": 1.7,
+      "days_coverage": 216,
+      "status": "Eccesso",
+      "action": "Promozione, sospendere ordini 6 mesi"
+    },
+    {
+      "sku": "COM-004",
+      "name": "Hard Disk 4TB SATA",
+      "category": "Componentistica",
+      "current_stock": 155,
+      "safety_stock": 35,
+      "rotation_index": 3.2,
+      "days_coverage": 111,
+      "status": "Eccesso",
+      "action": "Ridurre ordini futuri del 30%"
+    }
+  ]
+}
