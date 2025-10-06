@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sales Dashboard</title>
+    <!-- Version: 2025-10-06 -->
+    <!-- Tailwind via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- html2pdf.js per export PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Chart.js per i grafici -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Roboto', sans-serif; }
+        body { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); }
+        .material-card {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+            transition: all 0.3s cubic-bezier(.25,.8,.25,1);
+        }
+        .material-card:hover {
+            box-shadow: 0 14px 28px rgba(0,0,0,0.25), 0 10px 10px rgba(0,0,0,0.22);
+            transform: translateY(-2px);
+        }
+        .material-card-elevated {
+            box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+        }
+        .ripple {
+            position: relative;
+            overflow: hidden;
+        }
+        .ripple:active::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            animation: ripple-animation 0.6s ease-out;
+        }
+        @keyframes ripple-animation {
+            to { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .animate-fadeIn { animation: fadeIn 0.2s ease-out; }
+        .dark-card {
+            background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <!-- React 18 CDN + Babel -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel" data-presets="env,react">
+        const { useMemo, useState, useEffect, useRef } = React;
+
+        // State globale per i dati caricati
+        let DATA = null;
+
+        function numberFmt(val, decimals = 1) {
+            if (val === null || val === undefined) return '$0';
+            if (val >= 1000) {
+                return '$' + (val / 1000).toFixed(decimals) + 'K';
+            }
+            return '$' + val.toFixed(0);
+        }
+
+        function numberFmtSimple(val) {
+            if (val === null || val === undefined) return '0';
+            return val.toLocaleString("en-US");
+        }
+
+        // Funzione per esportare in PDF
+        function exportToPDF() {
+            const element = document.getElementById('dashboard-content');
+            const opt = {
+                margin: 10,
+                filename: `Sales_Dashboard_${new Date().toISOString().split('T')[0]}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+            };
+            html2pdf().set(opt).from(element).save();
+        }
+
+        // Componente Gauge Circolare
+        function GaugeChart({ value, label, max = 50, color = "#10b981" }) {
+            const canvasRef = useRef(null);
+
+            useEffect(() => {
+                if (!canvasRef.current) return;
+                const ctx = canvasRef.current.getContext('2d');
+                const width = 200;
+                const height = 200;
+                const centerX = width / 2;
+                const centerY = height / 2;
+                const radius = 80;
+
+                // Clear canvas
+                ctx.clearRect(0, 0, width, height);
+
+                // Background arc
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0.75 * Math.PI, 2.25 * Math.PI);
+                ctx.strokeStyle = '#374151';
+                ctx.lineWidth = 20;
+                ctx.stroke();
+
+                // Value arc
+                const endAngle = 0.75 * Math.PI + (1.5 * Math.PI * (value / max));
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0.75 * Math.PI, endAngle);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 20;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+
+                // Text - valore
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 36px Roboto';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`${value.toFixed(2)}%`, centerX, centerY);
+
+                // Text - label
+                ctx.fillStyle = '#9ca3af';
+                ctx.font = '500 14px Roboto';
+                ctx.fillText(label, centerX, centerY + 35);
+            }, [value, max, color, label]);
+
+            return (
+                <div className="flex flex-col items-center">
+                    <canvas ref={canvasRef} width="200" height="200"></canvas>
+                </div>
+            );
+        }
+
+        // Componente Bar Chart Cumulativo
+        function CumulativeBarChart({ data, labels, threshold }) {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!canvasRef.current) return;
+
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                }
+
+                const ctx = canvasRef.current.getContext('2d');
+
+                // Colora le barre: ciano se < threshold, verde se >= threshold
+                const backgroundColors = data.map(val => val >= threshold ? '#10b981' : '#06b6d4');
+
+                chartRef.current = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: data,
+                            backgroundColor: backgroundColors,
+                            borderRadius: 4,
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: 'rgba(0,0,0,0.8)',
+                                padding: 12,
+                                callbacks: {
+                                    label: function(context) {
+                                        return numberFmt(context.parsed.y, 0);
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    font: { size: 11 },
+                                    color: '#9ca3af',
+                                    callback: function(value) {
+                                        return '$' + (value / 1000).toFixed(0) + 'K';
+                                    }
+                                },
+                                grid: { color: 'rgba(255,255,255,0.1)' }
+                            },
+                            x: {
+                                ticks: { font: { size: 10 }, color: '#9ca3af' },
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [data, labels, threshold]);
+
+            return <canvas ref={canvasRef}></canvas>;
+        }
+
+        // Componente Grouped Bar Chart (SDR Activity)
+        function GroupedBarChart({ callsData, meetingsData, labels }) {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!canvasRef.current) return;
+
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                }
+
+                const ctx = canvasRef.current.getContext('2d');
+                chartRef.current = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Calls',
+                                data: callsData,
+                                backgroundColor: '#06b6d4',
+                                borderRadius: 4
+                            },
+                            {
+                                label: 'Meetings booked',
+                                data: meetingsData,
+                                backgroundColor: '#fbbf24',
+                                borderRadius: 4
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: { font: { size: 11 }, color: '#9ca3af', padding: 12 }
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0,0,0,0.8)',
+                                padding: 12
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: { font: { size: 11 }, color: '#9ca3af', stepSize: 50 },
+                                grid: { color: 'rgba(255,255,255,0.1)' }
+                            },
+                            x: {
+                                ticks: { font: { size: 10 }, color: '#9ca3af' },
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [callsData, meetingsData, labels]);
+
+            return <canvas ref={canvasRef}></canvas>;
+        }
+
+        function SalesDashboard() {
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+            const [data, setData] = useState(null);
+
+            // Carica i dati dal file JSON
+            useEffect(() => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const dataFile = urlParams.get('data') || 'sales_data.json';
+
+                console.log(`Caricamento dati da: ${dataFile}`);
+
+                const isExternalUrl = dataFile.startsWith('http://') || dataFile.startsWith('https://');
+                const fetchUrl = isExternalUrl ? dataFile : dataFile;
+
+                fetch(fetchUrl)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status} - File/URL non trovato: ${dataFile}`);
+                        }
+                        return response.json();
+                    })
+                    .then(jsonData => {
+                        DATA = jsonData;
+                        setData(jsonData);
+                        setLoading(false);
+                    })
+                    .catch(err => {
+                        console.error('Errore caricamento dati:', err);
+                        setError(err.message);
+                        setLoading(false);
+                    });
+            }, []);
+
+            // Schermata di caricamento
+            if (loading) {
+                return (
+                    <div className="w-full h-screen flex items-center justify-center" style={{background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)'}}>
+                        <div className="text-center">
+                            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-cyan-500 border-t-transparent mb-4"></div>
+                            <div className="text-xl font-medium text-white">Caricamento Sales Dashboard...</div>
+                            <div className="text-sm text-gray-400 mt-2">Attendere prego</div>
+                        </div>
+                    </div>
+                );
+            }
+
+            // Schermata di errore
+            if (error) {
+                return (
+                    <div className="w-full h-screen flex items-center justify-center" style={{background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)'}}>
+                        <div className="text-center max-w-md material-card-elevated bg-slate-800 rounded-lg p-8">
+                            <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                            </svg>
+                            <div className="text-xl font-medium mb-3 text-red-400">Errore caricamento dati</div>
+                            <div className="text-gray-300 mb-4">{error}</div>
+                            <div className="text-sm text-gray-400">Assicurati che il file JSON sia presente nella directory corretta.</div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="w-full min-h-screen" style={{background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)'}}>
+                    {/* Material Design AppBar */}
+                    <div className="bg-gradient-to-r from-slate-800 to-slate-900 text-white shadow-lg border-b border-slate-700">
+                        <div className="max-w-7xl mx-auto px-6 py-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <svg className="w-8 h-8 text-cyan-400" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+                                    </svg>
+                                    <div>
+                                        <h1 className="text-xl font-medium">Salesforce Dashboard</h1>
+                                        <p className="text-sm text-slate-300">Powered by Geckoboard · Periodo: {data.metadata.period}</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={exportToPDF}
+                                    className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-all hover:shadow-lg ripple"
+                                    title="Esporta dashboard in PDF"
+                                >
+                                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z"/>
+                                    </svg>
+                                    <span className="font-medium">Esporta PDF</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="dashboard-content" className="max-w-7xl mx-auto p-6 space-y-6">
+
+                        {/* Row 1: Main KPIs */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* Closed this quarter */}
+                            <div className="material-card dark-card rounded-lg p-6">
+                                <div className="text-6xl font-bold text-white mb-2">{numberFmt(data.kpi.closed_quarter, 1)}</div>
+                                <div className="text-lg text-slate-300 mb-4">Closed this quarter</div>
+                                <div className="relative w-full h-3 bg-slate-700 rounded-full overflow-hidden mb-2">
+                                    <div
+                                        className="absolute top-0 left-0 h-full bg-gradient-to-r from-cyan-500 to-cyan-400 transition-all"
+                                        style={{width: `${data.kpi.progress_pct}%`}}
+                                    ></div>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-cyan-400 font-semibold">{data.kpi.progress_pct}%</span>
+                                    <span className="text-green-400 font-semibold">+{data.kpi.target_pct}%</span>
+                                </div>
+                            </div>
+
+                            {/* Pipeline */}
+                            <div className="material-card dark-card rounded-lg p-6">
+                                <div className="text-xl font-medium text-white mb-4">Pipeline</div>
+                                <div className="space-y-4">
+                                    {data.pipeline.map((stage, idx) => (
+                                        <div key={idx}>
+                                            <div className="flex justify-between text-sm mb-2">
+                                                <span className="text-slate-300">{stage.name}</span>
+                                                <span className="text-white font-semibold">{stage.count}</span>
+                                            </div>
+                                            <div className="relative w-full h-2 bg-slate-700 rounded-full overflow-hidden">
+                                                <div
+                                                    className="absolute top-0 left-0 h-full bg-cyan-400 transition-all"
+                                                    style={{width: `${(stage.count / 754) * 100}%`}}
+                                                ></div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Closed/Won */}
+                            <div className="material-card dark-card rounded-lg p-6">
+                                <div className="text-lg font-medium text-slate-300 mb-4">Closed / won</div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="border-2 border-slate-600 rounded-lg p-4 relative">
+                                        <div className="text-3xl font-bold text-white mb-1">{numberFmt(data.kpi.closed_month, 1)}</div>
+                                        <div className="text-sm text-slate-400">This month</div>
+                                        <div className="absolute -bottom-3 -right-3 bg-green-500 rounded-full w-12 h-12 flex items-center justify-center">
+                                            <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    <div className="rounded-lg p-4 bg-slate-700">
+                                        <div className="text-3xl font-bold text-white mb-1">{numberFmt(data.kpi.closed_today, 0)}</div>
+                                        <div className="text-sm text-slate-400">Today</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Row 2: Charts */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Recent deals */}
+                            <div className="material-card dark-card rounded-lg p-6">
+                                <div className="text-lg font-medium text-white mb-4">Recent deals</div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="border-b border-slate-600">
+                                                <th className="py-3 px-2 text-left text-slate-400 font-medium">Client</th>
+                                                <th className="py-3 px-2 text-right text-slate-400 font-medium">Value</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {data.recent_deals.map((deal, idx) => (
+                                                <tr key={idx} className="border-b border-slate-700 last:border-b-0">
+                                                    <td className="py-3 px-2 text-white">{deal.client}</td>
+                                                    <td className="py-3 px-2 text-right text-white font-semibold">{numberFmt(deal.value, 1)}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {/* Deals closed this month */}
+                            <div className="material-card dark-card rounded-lg p-6">
+                                <div className="text-lg font-medium text-white mb-4">Deals closed this month</div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="border-b border-slate-600">
+                                                <th className="py-3 px-2 text-left text-slate-400 font-medium">Exec</th>
+                                                <th className="py-3 px-2 text-center text-slate-400 font-medium">Deals</th>
+                                                <th className="py-3 px-2 text-right text-slate-400 font-medium">Value</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {data.deals_closed_month.map((exec, idx) => (
+                                                <tr key={idx} className="border-b border-slate-700 last:border-b-0">
+                                                    <td className="py-3 px-2 text-white">{exec.name}</td>
+                                                    <td className="py-3 px-2 text-center text-white">{exec.deals}</td>
+                                                    <td className="py-3 px-2 text-right text-white font-semibold">{numberFmt(exec.value, 1)}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Row 3: Cumulative Sales + Gauges */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* Cumulative sales this month */}
+                            <div className="md:col-span-2 material-card dark-card rounded-lg p-6">
+                                <div className="text-lg font-medium text-white mb-4">Cumulative sales this month</div>
+                                <div className="h-80">
+                                    <CumulativeBarChart
+                                        data={data.cumulative_sales.values}
+                                        labels={data.cumulative_sales.dates}
+                                        threshold={100000}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Lead close rate + Renewals */}
+                            <div className="space-y-6">
+                                {/* Lead close rate */}
+                                <div className="material-card dark-card rounded-lg p-6">
+                                    <div className="text-lg font-medium text-white mb-2">Lead close rate</div>
+                                    <div className="flex justify-center">
+                                        <GaugeChart
+                                            value={data.kpi.lead_close_rate}
+                                            label=""
+                                            max={50}
+                                            color="#10b981"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Renewals at risk */}
+                                <div className="material-card rounded-lg p-6 bg-gradient-to-br from-red-900 to-red-800 border-2 border-red-600 relative">
+                                    <div className="text-6xl font-bold text-white mb-2">{data.kpi.renewals_at_risk}</div>
+                                    <div className="text-lg text-red-100">Renewals at risk</div>
+                                    <div className="absolute top-4 right-4 bg-red-500 rounded-full w-12 h-12 flex items-center justify-center shadow-lg">
+                                        <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Row 4: SDR Activity */}
+                        <div className="material-card dark-card rounded-lg p-6">
+                            <div className="text-lg font-medium text-white mb-4">SDR activity</div>
+                            <div className="h-80">
+                                <GroupedBarChart
+                                    callsData={data.sdr_activity.calls}
+                                    meetingsData={data.sdr_activity.meetings}
+                                    labels={data.sdr_activity.names}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="material-card dark-card rounded-lg p-4 flex items-center gap-3 text-sm">
+                            <svg className="w-5 h-5 text-cyan-400" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"/>
+                            </svg>
+                            <div className="text-slate-300">
+                                <span className="font-medium">Dati caricati da:</span> {new URLSearchParams(window.location.search).get('data') || 'sales_data.json'}
+                                <span className="mx-2">·</span>
+                                <span className="text-slate-400">Usa ?data=file.json per caricare file diversi</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Mount
+        function App() { return <SalesDashboard />; }
+        const root = ReactDOM.createRoot(document.getElementById("root"));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>
