@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dashboard Contabilità Analitica</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- html2pdf.js per export PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
         * { font-family: 'Roboto', sans-serif; }
@@ -81,6 +83,19 @@
         }
 
         function pctFmt(val) { return `${val.toFixed(1)}%`; }
+
+        // Funzione per esportare in PDF
+        function exportToPDF() {
+            const element = document.getElementById('dashboard-content');
+            const opt = {
+                margin: 10,
+                filename: `Dashboard_BCDC_${new Date().toISOString().split('T')[0]}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().set(opt).from(element).save();
+        }
 
         function calcVariance(actual, target) {
             if (!target) return 0;

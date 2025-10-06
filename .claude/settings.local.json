@@ -92,7 +92,10 @@
       "Bash(robocopy:*)",
       "Bash(xcopy:*)",
       "Bash(npm cache clean:*)",
-      "Bash(del /Q package-lock.json)"
+      "Bash(del /Q package-lock.json)",
+      "Bash(for file in Bcdc/bcdc.html Fatturato/fatturato.html Magazzino/Magazzino.html bilancio/bilancio.html cashflow/cashflow.html marginalita/marginalita.html)",
+      "Bash(do echo \"Processing: $file\")",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": []
