@@ -1,0 +1,148 @@
+{
+  "Periodo": "2024 - Q1-Q4",
+  "Commesse": [
+    {
+      "Nome": "Produzione Componenti Automotive Q3",
+      "Cliente": "Automotive Manufacturing S.p.A.",
+      "Tipo": "Produzione",
+      "Stato": "In Corso",
+      "ValoreTotale": 850000,
+      "Fatturato": 520000,
+      "CostiSostenuti": 380000,
+      "AvanzamentoPerc": 65.0,
+      "DataInizio": "01/01/2024",
+      "DataFinePrevista": "31/12/2024",
+      "OrePreviste": 2400,
+      "OreLavorate": 1560,
+      "Note": "Produzione componenti meccanici di precisione. 3 linee produttive attive.",
+      "Semilavorati": [
+        {
+          "Codice": "SL-001",
+          "Descrizione": "Albero motore tipo A - Acciaio legato",
+          "QuantitaPrevista": 1200,
+          "QuantitaProdotta": 840,
+          "QuantitaCollaudata": 780,
+          "QuantitaScarti": 60,
+          "FaseProduzione": "Tornitura",
+          "StatoAvanzamento": 70.0,
+          "DataInizioPrevista": "01/01/2024",
+          "DataFinePrevista": "31/03/2024",
+          "Note": "In linea con tempistiche. Prossimo lotto: 200 pz"
+        },
+        {
+          "Codice": "SL-002",
+          "Descrizione": "Carter motore tipo B - Alluminio",
+          "QuantitaPrevista": 800,
+          "QuantitaProdotta": 480,
+          "QuantitaCollaudata": 450,
+          "QuantitaScarti": 30,
+          "FaseProduzione": "Fresatura CNC",
+          "StatoAvanzamento": 60.0,
+          "DataInizioPrevista": "15/01/2024",
+          "DataFinePrevista": "30/04/2024",
+          "Note": "Lieve ritardo su fornitura materia prima. Recupero previsto entro fine mese."
+        },
+        {
+          "Codice": "SL-003",
+          "Descrizione": "Pistone tipo C - Titanio",
+          "QuantitaPrevista": 2400,
+          "QuantitaProdotta": 1560,
+          "QuantitaCollaudata": 1500,
+          "QuantitaScarti": 60,
+          "FaseProduzione": "Trattamento termico",
+          "StatoAvanzamento": 65.0,
+          "DataInizioPrevista": "01/02/2024",
+          "DataFinePrevista": "31/05/2024",
+          "Note": "Produzione regolare. QC al 96%"
+        },
+        {
+          "Codice": "SL-004",
+          "Descrizione": "Bronzina tipo D - Rame-Stagno",
+          "QuantitaPrevista": 4800,
+          "QuantitaProdotta": 3360,
+          "QuantitaCollaudata": 3200,
+          "QuantitaScarti": 160,
+          "FaseProduzione": "Sinterizzazione",
+          "StatoAvanzamento": 70.0,
+          "DataInizioPrevista": "15/02/2024",
+          "DataFinePrevista": "30/06/2024",
+          "Note": "Tasso di scarto elevato (4.8%). Analisi cause in corso."
+        }
+      ]
+    },
+    {
+      "Nome": "Migrazione Cloud Infrastructure",
+      "Cliente": "Retail Group Italia",
+      "Tipo": "Generica",
+      "Stato": "In Ritardo",
+      "ValoreTotale": 420000,
+      "Fatturato": 180000,
+      "CostiSostenuti": 210000,
+      "AvanzamentoPerc": 45.0,
+      "DataInizio": "15/02/2024",
+      "DataFinePrevista": "30/09/2024",
+      "OrePreviste": 1200,
+      "OreLavorate": 840,
+      "Note": "ATTENZIONE: Ritardo di 3 settimane. Problemi tecnici con sistema legacy. Budget sforato del 16%."
+    },
+    {
+      "Nome": "Produzione Stampi Industriali Q2",
+      "Cliente": "Plastica Moderna S.r.l.",
+      "Tipo": "Produzione",
+      "Stato": "In Corso",
+      "ValoreTotale": 320000,
+      "Fatturato": 240000,
+      "CostiSostenuti": 180000,
+      "AvanzamentoPerc": 75.0,
+      "DataInizio": "01/03/2024",
+      "DataFinePrevista": "31/08/2024",
+      "OrePreviste": 900,
+      "OreLavorate": 675,
+      "Note": "Produzione stampi per iniezione plastica. Alta precisione richiesta.",
+      "Semilavorati": [
+        {
+          "Codice": "ST-101",
+          "Descrizione": "Stampo componente A - Acciaio temprato",
+          "QuantitaPrevista": 12,
+          "QuantitaProdotta": 9,
+          "QuantitaCollaudata": 9,
+          "QuantitaScarti": 0,
+          "FaseProduzione": "Rettifica finale",
+          "StatoAvanzamento": 75.0,
+          "DataInizioPrevista": "01/03/2024",
+          "DataFinePrevista": "30/06/2024",
+          "Note": "Precisione tolleranze: ±0.01mm. Test di prova superati."
+        },
+        {
+          "Codice": "ST-102",
+          "Descrizione": "Stampo componente B - Acciaio inox",
+          "QuantitaPrevista": 8,
+          "QuantitaProdotta": 6,
+          "QuantitaCollaudata": 5,
+          "QuantitaScarti": 1,
+          "FaseProduzione": "Lucidatura",
+          "StatoAvanzamento": 75.0,
+          "DataInizioPrevista": "15/03/2024",
+          "DataFinePrevista": "31/07/2024",
+          "Note": "1 pezzo scartato per difetto superficie. Rifacimento in corso."
+        }
+      ]
+    },
+    {
+      "Nome": "Dashboard Business Intelligence",
+      "Cliente": "Pharma Healthcare",
+      "Tipo": "Generica",
+      "Stato": "Completata",
+      "ValoreTotale": 180000,
+      "Fatturato": 180000,
+      "CostiSostenuti": 120000,
+      "AvanzamentoPerc": 100.0,
+      "DataInizio": "10/01/2024",
+      "DataFinePrevista": "30/06/2024",
+      "DataFineEffettiva": "25/06/2024",
+      "OrePreviste": 600,
+      "OreLavorate": 580,
+      "Note": "Progetto completato con successo in anticipo di 5 giorni. Cliente molto soddisfatto."
+    }
+  ]
+}
