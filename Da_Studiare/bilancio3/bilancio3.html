@@ -529,12 +529,12 @@
                             </div>
                             <div className="h-96">
                                 <WaterfallChart data={{
-                                    ricavi: data.pl.actual.ricavi,
-                                    consumi: data.pl.actual.consumi,
-                                    costi_lavoro: data.pl.actual.costo_lavoro,
-                                    opex: data.pl.actual.opex_totali,
-                                    ammortamenti: data.pl.actual.ammortamenti,
-                                    ebit: data.pl.actual.ebit
+                                    ricavi: data.pl?.actual?.ricavi || 0,
+                                    consumi: data.pl?.actual?.consumi || 0,
+                                    costi_lavoro: data.pl?.actual?.costo_lavoro || 0,
+                                    opex: data.pl?.actual?.opex_totali || 0,
+                                    ammortamenti: data.pl?.actual?.ammortamenti || 0,
+                                    ebit: data.pl?.actual?.ebit || 0
                                 }} />
                             </div>
                         </div>
@@ -587,9 +587,9 @@
                                         ].map((row, i) => {
                                             if (row.separator) return <tr key={i}><td colSpan="6" className="h-2"></td></tr>;
 
-                                            const actual = data.pl.actual[row.key];
-                                            const budget = data.pl.budget[row.key];
-                                            const py = data.pl.previous_year[row.key];
+                                            const actual = data.pl?.actual?.[row.key] || 0;
+                                            const budget = data.pl?.budget?.[row.key] || 0;
+                                            const py = data.pl?.previous_year?.[row.key] || 0;
 
                                             const varBudget = actual - budget;
                                             const varPY = actual - py;
