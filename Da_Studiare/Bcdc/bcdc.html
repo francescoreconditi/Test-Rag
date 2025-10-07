@@ -148,23 +148,23 @@
             const chartRef = React.useRef(null);
 
             React.useEffect(() => {
-                if (!canvasRef.current) return;
+                if (!canvasRef.current || !centers || centers.length === 0) return;
                 if (chartRef.current) chartRef.current.destroy();
 
                 const ctx = canvasRef.current.getContext('2d');
                 chartRef.current = new Chart(ctx, {
                     type: 'bar',
                     data: {
-                        labels: centers.map(c => c.Nome),
+                        labels: centers.map(c => c?.Nome || 'N/A'),
                         datasets: [
                             {
                                 label: 'Ricavi',
-                                data: centers.map(c => c.Consuntivo.Ricavi),
+                                data: centers.map(c => c?.Consuntivo?.Ricavi || 0),
                                 backgroundColor: '#10b981'
                             },
                             {
                                 label: 'Costi',
-                                data: centers.map(c => -c.Consuntivo.Costi),
+                                data: centers.map(c => -(c?.Consuntivo?.Costi || 0)),
                                 backgroundColor: '#ef4444'
                             }
                         ]
@@ -259,12 +259,12 @@
                 let totaleCostiOperativi = 0;
 
                 CENTRI_DI_COSTO.forEach(cdc => {
-                    totaleRicavi += cdc.Consuntivo.Ricavi || 0;
-                    totaleCosti += cdc.Consuntivo.Costi || 0;
-                    totaleRicaviAP += cdc.AnnoPrecedente?.Ricavi || 0;
-                    totaleCostiAP += cdc.AnnoPrecedente?.Costi || 0;
-                    totaleCostiPersonale += cdc.Consuntivo.CostoPersonale || 0;
-                    totaleCostiOperativi += cdc.Consuntivo.CostiOperativi || 0;
+                    totaleRicavi += cdc?.Consuntivo?.Ricavi || 0;
+                    totaleCosti += cdc?.Consuntivo?.Costi || 0;
+                    totaleRicaviAP += cdc?.AnnoPrecedente?.Ricavi || 0;
+                    totaleCostiAP += cdc?.AnnoPrecedente?.Costi || 0;
+                    totaleCostiPersonale += cdc?.Consuntivo?.CostoPersonale || 0;
+                    totaleCostiOperativi += cdc?.Consuntivo?.CostiOperativi || 0;
                 });
 
                 const margine = totaleRicavi - totaleCosti;
@@ -542,34 +542,34 @@
                     {/* Centri di Costo Material */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {CENTRI_DI_COSTO.map((cdc, index) => {
-                            const ricavi = cdc.Consuntivo.Ricavi || 0;
-                            const costi = cdc.Consuntivo.Costi || 0;
+                            const ricavi = cdc?.Consuntivo?.Ricavi || 0;
+                            const costi = cdc?.Consuntivo?.Costi || 0;
                             const margine = ricavi - costi;
                             const marginePercent = ricavi ? (margine / ricavi) * 100 : 0;
 
-                            const ricaviAP = cdc.AnnoPrecedente?.Ricavi || 0;
-                            const costiAP = cdc.AnnoPrecedente?.Costi || 0;
+                            const ricaviAP = cdc?.AnnoPrecedente?.Ricavi || 0;
+                            const costiAP = cdc?.AnnoPrecedente?.Costi || 0;
                             const margineAP = ricaviAP - costiAP;
 
                             const margineVar = calcVariance(margine, margineAP);
 
                             return (
                                 <div
-                                    key={cdc.Nome}
+                                    key={cdc?.Nome || `cdc-${index}`}
                                     onClick={() => { setSelectedCdc(cdc); setDrawerOpen(true); }}
                                     className={`material-card rounded-2xl border p-5 cursor-pointer ripple bg-white`}
                                 >
                                     <div className="flex items-center justify-between mb-3">
                                         <div className="flex items-center gap-2">
-                                            <div dangerouslySetInnerHTML={{ __html: getIconForType(cdc.Tipo) }} className="text-gray-700" />
-                                            <div className="font-medium text-gray-900">{cdc.Nome}</div>
+                                            <div dangerouslySetInnerHTML={{ __html: getIconForType(cdc?.Tipo) }} className="text-gray-700" />
+                                            <div className="font-medium text-gray-900">{cdc?.Nome || 'N/A'}</div>
                                         </div>
                                         <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
                                             <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"/>
                                         </svg>
                                     </div>
                                     <div className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 text-xs font-medium text-gray-700 mb-4">
-                                        {cdc.Tipo}
+                                        {cdc?.Tipo || 'N/A'}
                                     </div>
                                     <div className="space-y-2">
                                         <div className="flex justify-between text-sm">
@@ -610,11 +610,11 @@
                                 <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 rounded-t-3xl">
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="flex items-center gap-3">
-                                            <div dangerouslySetInnerHTML={{ __html: getIconForType(selectedCdc.Tipo) }} className="text-white" />
+                                            <div dangerouslySetInnerHTML={{ __html: getIconForType(selectedCdc?.Tipo) }} className="text-white" />
                                             <div>
                                                 <div className="text-xs opacity-75 font-medium uppercase tracking-wide">Dettaglio Centro di Costo</div>
-                                                <h2 className="text-xl font-medium">{selectedCdc.Nome}</h2>
-                                                <p className="text-sm opacity-90 mt-1">Periodo: {PERIODO} · Tipo: {selectedCdc.Tipo}</p>
+                                                <h2 className="text-xl font-medium">{selectedCdc?.Nome || 'N/A'}</h2>
+                                                <p className="text-sm opacity-90 mt-1">Periodo: {PERIODO} · Tipo: {selectedCdc?.Tipo || 'N/A'}</p>
                                             </div>
                                         </div>
                                         <button
@@ -641,10 +641,10 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {Object.keys(selectedCdc.Consuntivo).map((voce) => {
-                                                        const consuntivo = selectedCdc.Consuntivo[voce];
-                                                        const budget = selectedCdc.Budget?.[voce] || 0;
-                                                        const annoPrecedente = selectedCdc.AnnoPrecedente?.[voce] || 0;
+                                                    {selectedCdc?.Consuntivo && Object.keys(selectedCdc.Consuntivo).map((voce) => {
+                                                        const consuntivo = selectedCdc?.Consuntivo?.[voce] || 0;
+                                                        const budget = selectedCdc?.Budget?.[voce] || 0;
+                                                        const annoPrecedente = selectedCdc?.AnnoPrecedente?.[voce] || 0;
                                                         const variance = calcVariance(consuntivo, budget);
                                                         const isPercentage = voce.includes("%");
 
