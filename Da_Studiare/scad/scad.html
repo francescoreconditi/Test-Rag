@@ -14,22 +14,29 @@
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
-        * { font-family: 'Roboto', sans-serif; }
-        .material-card {
-            box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
-            transition: all 0.3s cubic-bezier(.25,.8,.25,1);
+        * {
+            font-family: 'Roboto', sans-serif;
         }
+
+        .material-card {
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+            transition: all 0.3s cubic-bezier(.25, .8, .25, 1);
+        }
+
         .material-card:hover {
-            box-shadow: 0 14px 28px rgba(0,0,0,0.25), 0 10px 10px rgba(0,0,0,0.22);
+            box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
             transform: translateY(-2px);
         }
+
         .material-card-elevated {
-            box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
         }
+
         .ripple {
             position: relative;
             overflow: hidden;
         }
+
         .ripple:active::after {
             content: "";
             position: absolute;
@@ -37,37 +44,92 @@
             left: 50%;
             width: 100%;
             height: 100%;
-            background: rgba(255,255,255,0.3);
+            background: rgba(255, 255, 255, 0.3);
             border-radius: 50%;
             transform: translate(-50%, -50%) scale(0);
             animation: ripple-animation 0.6s ease-out;
         }
+
         @keyframes ripple-animation {
-            to { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+            to {
+                transform: translate(-50%, -50%) scale(2);
+                opacity: 0;
+            }
         }
+
         @keyframes slideUp {
-            from { transform: translateY(100%); }
-            to { transform: translateY(0); }
+            from {
+                transform: translateY(100%);
+            }
+
+            to {
+                transform: translateY(0);
+            }
         }
+
         @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
         }
-        .animate-slideUp { animation: slideUp 0.3s cubic-bezier(0.4, 0.0, 0.2, 1); }
-        .animate-fadeIn { animation: fadeIn 0.2s ease-out; }
+
+        .animate-slideUp {
+            animation: slideUp 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+        }
+
+        .animate-fadeIn {
+            animation: fadeIn 0.2s ease-out;
+        }
 
         /* Dark Mode Styles */
-        body.dark-mode { background: #1a202c; color: #e2e8f0; }
-        body.dark-mode .bg-gray-50 { background: #1a202c; }
-        body.dark-mode .bg-white { background: #2d3748; }
-        body.dark-mode .text-gray-900 { color: #e2e8f0; }
-        body.dark-mode .text-gray-700 { color: #cbd5e0; }
-        body.dark-mode .text-gray-600 { color: #a0aec0; }
-        body.dark-mode .text-gray-500 { color: #718096; }
-        body.dark-mode .border-gray-200 { border-color: #4a5568; }
-        body.dark-mode .material-card { box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.24); }
-        body.dark-mode .material-card:hover { box-shadow: 0 14px 28px rgba(0,0,0,0.4), 0 10px 10px rgba(0,0,0,0.3); }
-        body.dark-mode .bg-gray-100 { background: #4a5568; }
+        body.dark-mode {
+            background: #1a202c;
+            color: #e2e8f0;
+        }
+
+        body.dark-mode .bg-gray-50 {
+            background: #1a202c;
+        }
+
+        body.dark-mode .bg-white {
+            background: #2d3748;
+        }
+
+        body.dark-mode .text-gray-900 {
+            color: #e2e8f0;
+        }
+
+        body.dark-mode .text-gray-700 {
+            color: #cbd5e0;
+        }
+
+        body.dark-mode .text-gray-600 {
+            color: #a0aec0;
+        }
+
+        body.dark-mode .text-gray-500 {
+            color: #718096;
+        }
+
+        body.dark-mode .border-gray-200 {
+            border-color: #4a5568;
+        }
+
+        body.dark-mode .material-card {
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.24);
+        }
+
+        body.dark-mode .material-card:hover {
+            box-shadow: 0 14px 28px rgba(0, 0, 0, 0.4), 0 10px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        body.dark-mode .bg-gray-100 {
+            background: #4a5568;
+        }
     </style>
 </head>
 
@@ -185,30 +247,30 @@
                 <div className="relative" ref={dropdownRef}>
                     <button onClick={() => setIsOpen(!isOpen)} className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-all ripple">
                         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z"/>
+                            <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z" />
                         </svg>
                         <span className="font-medium">Esporta</span>
                         <svg className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/>
+                            <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
                         </svg>
                     </button>
                     {isOpen && (
                         <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl z-50 animate-fadeIn">
                             <button onClick={() => { exportToPDF(); setIsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-gray-100 text-gray-700 rounded-t-lg flex items-center gap-3 transition">
                                 <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z"/>
+                                    <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z" />
                                 </svg>
                                 <span className="font-medium">PDF</span>
                             </button>
                             <button onClick={() => { exportToExcel(data); setIsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-gray-100 text-gray-700 flex items-center gap-3 transition">
                                 <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z"/>
+                                    <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z" />
                                 </svg>
                                 <span className="font-medium">Excel (.xlsx)</span>
                             </button>
                             <button onClick={() => { exportToCSV(data); setIsOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-gray-100 text-gray-700 rounded-b-lg flex items-center gap-3 transition">
                                 <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z"/>
+                                    <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z" />
                                 </svg>
                                 <span className="font-medium">CSV</span>
                             </button>
@@ -403,7 +465,7 @@
                     <div className="w-full h-screen flex items-center justify-center bg-gray-50">
                         <div className="text-center max-w-md material-card-elevated bg-white rounded-lg p-8">
                             <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
                             </svg>
                             <div className="text-xl font-medium mb-3 text-red-600">Errore caricamento dati</div>
                             <div className="text-gray-700 mb-4">{error}</div>
@@ -421,7 +483,7 @@
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M19 14V6c0-1.1-.9-2-2-2H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zm-9-1c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm13-6v11c0 1.1-.9 2-2 2H4v-2h17V7h2z"/>
+                                        <path d="M19 14V6c0-1.1-.9-2-2-2H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zm-9-1c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm13-6v11c0 1.1-.9 2-2 2H4v-2h17V7h2z" />
                                     </svg>
                                     <div>
                                         <h1 className="text-xl font-medium">Scadenzario AR — Panoramica</h1>
@@ -431,7 +493,7 @@
                                 <div className="flex items-center gap-2">
                                     <button onClick={toggleDarkMode} className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-all ripple" title="Toggle Dark Mode">
                                         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                                         </svg>
                                         <span className="font-medium">Dark</span>
                                     </button>
@@ -441,13 +503,13 @@
                             {(selectedBucket !== "Tutti" || selectedClient) && (
                                 <div className="mt-3 flex items-center gap-2 text-sm text-blue-100">
                                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+                                        <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
                                     </svg>
                                     <span>Panoramica</span>
                                     {selectedBucket !== "Tutti" && (
                                         <>
                                             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                                <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                                                <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
                                             </svg>
                                             <span className="font-medium text-white">{selectedBucket}</span>
                                         </>
@@ -455,7 +517,7 @@
                                     {selectedClient && (
                                         <>
                                             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                                <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                                                <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
                                             </svg>
                                             <span className="font-medium text-white">{selectedClient}</span>
                                         </>
@@ -467,325 +529,325 @@
 
                     <div id="dashboard-content" className="max-w-7xl mx-auto p-6 space-y-6">
 
-                    {/* Sezione Analisi - Mostrata solo se c'è almeno un file */}
-                    {(PDF_ANALISI || MP3_ANALISI) && (
-                        <div className="material-card bg-white rounded-lg p-6">
-                            <div className="flex items-center gap-3 mb-4">
-                                <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
-                                </svg>
-                                <h2 className="text-xl font-medium text-gray-900">Analisi</h2>
-                            </div>
-                            <div className={`grid grid-cols-1 ${PDF_ANALISI && MP3_ANALISI ? 'md:grid-cols-2' : ''} gap-4`}>
-                                {/* PDF Link */}
-                                {PDF_ANALISI && (
-                                    <a
-                                        href={PDF_ANALISI}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex items-center gap-3 p-4 bg-gradient-to-r from-red-50 to-red-100 rounded-lg hover:from-red-100 hover:to-red-200 transition-all ripple group"
-                                    >
-                                        <div className="bg-red-600 text-white p-3 rounded-lg group-hover:scale-110 transition-transform">
-                                            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                                                <path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z"/>
+                        {/* Sezione Analisi - Mostrata solo se c'è almeno un file */}
+                        {(PDF_ANALISI || MP3_ANALISI) && (
+                            <div className="material-card bg-white rounded-lg p-6">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
+                                    </svg>
+                                    <h2 className="text-xl font-medium text-gray-900">Analisi</h2>
+                                </div>
+                                <div className={`grid grid-cols-1 ${PDF_ANALISI && MP3_ANALISI ? 'md:grid-cols-2' : ''} gap-4`}>
+                                    {/* PDF Link */}
+                                    {PDF_ANALISI && (
+                                        <a
+                                            href={PDF_ANALISI}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-3 p-4 bg-gradient-to-r from-red-50 to-red-100 rounded-lg hover:from-red-100 hover:to-red-200 transition-all ripple group"
+                                        >
+                                            <div className="bg-red-600 text-white p-3 rounded-lg group-hover:scale-110 transition-transform">
+                                                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z" />
+                                                </svg>
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="font-medium text-gray-900">Analisi Riassuntiva (PDF)</div>
+                                                <div className="text-sm text-gray-600">Rapporto completo dei dati del bilancio</div>
+                                            </div>
+                                            <svg className="w-5 h-5 text-red-600 group-hover:translate-x-1 transition-transform" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
                                             </svg>
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="font-medium text-gray-900">Analisi Riassuntiva (PDF)</div>
-                                            <div className="text-sm text-gray-600">Rapporto completo dei dati del bilancio</div>
-                                        </div>
-                                        <svg className="w-5 h-5 text-red-600 group-hover:translate-x-1 transition-transform" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
-                                        </svg>
-                                    </a>
-                                )}
+                                        </a>
+                                    )}
 
-                                {/* MP3 Link - Condizionale */}
-                                {MP3_ANALISI && (
-                                    <a
-                                        href={MP3_ANALISI}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex items-center gap-3 p-4 bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg hover:from-purple-100 hover:to-purple-200 transition-all ripple group"
-                                    >
-                                        <div className="bg-purple-600 text-white p-3 rounded-lg group-hover:scale-110 transition-transform">
-                                            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                                                <path d="M12 3v9.28c-.47-.17-.97-.28-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z"/>
+                                    {/* MP3 Link - Condizionale */}
+                                    {MP3_ANALISI && (
+                                        <a
+                                            href={MP3_ANALISI}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-3 p-4 bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg hover:from-purple-100 hover:to-purple-200 transition-all ripple group"
+                                        >
+                                            <div className="bg-purple-600 text-white p-3 rounded-lg group-hover:scale-110 transition-transform">
+                                                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M12 3v9.28c-.47-.17-.97-.28-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z" />
+                                                </svg>
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="font-medium text-gray-900">Podcast Analisi (MP3)</div>
+                                                <div className="text-sm text-gray-600">Commento audio dei dati principali</div>
+                                            </div>
+                                            <svg className="w-5 h-5 text-purple-600 group-hover:translate-x-1 transition-transform" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
                                             </svg>
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="font-medium text-gray-900">Podcast Analisi (MP3)</div>
-                                            <div className="text-sm text-gray-600">Commento audio dei dati principali</div>
-                                        </div>
-                                        <svg className="w-5 h-5 text-purple-600 group-hover:translate-x-1 transition-transform" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
-                                        </svg>
-                                    </a>
-                                )}
+                                        </a>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    {/* KPI Cards - Material Design */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="material-card bg-white rounded-lg p-6 border-l-4 border-emerald-500">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="text-sm font-medium text-gray-600 uppercase tracking-wide">Crediti Netti</div>
-                                <svg className="w-6 h-6 text-emerald-500" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/>
-                                </svg>
+                        {/* KPI Cards - Material Design */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="material-card bg-white rounded-lg p-6 border-l-4 border-emerald-500">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="text-sm font-medium text-gray-600 uppercase tracking-wide">Crediti Netti</div>
+                                    <svg className="w-6 h-6 text-emerald-500" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z" />
+                                    </svg>
+                                </div>
+                                <div className="text-3xl font-bold text-gray-900">{numberFmt(kpi.total)}</div>
+                                <div className="mt-3 text-sm text-gray-600">
+                                    Lordi {numberFmt(SUMMARY.totals.gross)} · Fondo {numberFmt(SUMMARY.totals.allowance)}
+                                </div>
                             </div>
-                            <div className="text-3xl font-bold text-gray-900">{numberFmt(kpi.total)}</div>
-                            <div className="mt-3 text-sm text-gray-600">
-                                Lordi {numberFmt(SUMMARY.totals.gross)} · Fondo {numberFmt(SUMMARY.totals.allowance)}
+                            <div className="material-card bg-white rounded-lg p-6 border-l-4 border-red-500">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="text-sm font-medium text-gray-600 uppercase tracking-wide">Scaduto Totale</div>
+                                    <svg className="w-6 h-6 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
+                                    </svg>
+                                </div>
+                                <div className="text-3xl font-bold text-gray-900">{numberFmt(kpi.overdue)}</div>
+                                <div className="mt-3 flex items-center gap-2">
+                                    <div className="text-sm font-medium text-red-600">
+                                        {pctFmt(SUMMARY.totals.overduePct)} del totale
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div className="material-card bg-white rounded-lg p-6 border-l-4 border-red-500">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="text-sm font-medium text-gray-600 uppercase tracking-wide">Scaduto Totale</div>
-                                <svg className="w-6 h-6 text-red-500" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
-                                </svg>
-                            </div>
-                            <div className="text-3xl font-bold text-gray-900">{numberFmt(kpi.overdue)}</div>
-                            <div className="mt-3 flex items-center gap-2">
-                                <div className="text-sm font-medium text-red-600">
-                                    {pctFmt(SUMMARY.totals.overduePct)} del totale
+                            <div className="material-card bg-white rounded-lg p-6 border-l-4 border-blue-500">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="text-sm font-medium text-gray-600 uppercase tracking-wide">DSO Scaduto</div>
+                                    <svg className="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
+                                    </svg>
+                                </div>
+                                <div className="text-3xl font-bold text-gray-900">{SUMMARY.totals.dso} giorni</div>
+                                <div className="mt-3 text-sm text-gray-500">
+                                    DSO delle sole Scadenze Scadute
                                 </div>
                             </div>
                         </div>
-                        <div className="material-card bg-white rounded-lg p-6 border-l-4 border-blue-500">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="text-sm font-medium text-gray-600 uppercase tracking-wide">DSO</div>
-                                <svg className="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
-                                </svg>
-                            </div>
-                            <div className="text-3xl font-bold text-gray-900">{SUMMARY.totals.dso} giorni</div>
-                            <div className="mt-3 text-sm text-gray-500">
-                                Crediti medi / vendite gg × 365
+                        {/* Filtri Bucket - Material Design */}
+                        <div className="material-card bg-white rounded-lg p-4">
+                            <div className="flex flex-wrap gap-2">
+                                {BUCKETS.map((b) => {
+                                    const getBucketColor = (bucket) => {
+                                        if (bucket === "Tutti") return "bg-gray-100 text-gray-800";
+                                        if (bucket === "Non scaduto") return "bg-emerald-50 text-emerald-700 hover:bg-emerald-100";
+                                        if (bucket === "0–30 gg") return "bg-blue-50 text-blue-700 hover:bg-blue-100";
+                                        if (bucket === "31–60 gg") return "bg-amber-50 text-amber-700 hover:bg-amber-100";
+                                        if (bucket === "61–90 gg") return "bg-orange-50 text-orange-700 hover:bg-orange-100";
+                                        if (bucket === ">90 gg") return "bg-red-50 text-red-700 hover:bg-red-100";
+                                        return "bg-white";
+                                    };
+                                    const isActive = selectedBucket === b;
+                                    return (
+                                        <button key={b} onClick={() => setSelectedBucket(b)}
+                                            className={`ripple px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap ${isActive ? "bg-blue-600 text-white shadow-lg" : getBucketColor(b)}`}>
+                                            {b}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
-                    </div>
-                    {/* Filtri Bucket - Material Design */}
-                    <div className="material-card bg-white rounded-lg p-4">
-                        <div className="flex flex-wrap gap-2">
-                            {BUCKETS.map((b) => {
-                                const getBucketColor = (bucket) => {
-                                    if (bucket === "Tutti") return "bg-gray-100 text-gray-800";
-                                    if (bucket === "Non scaduto") return "bg-emerald-50 text-emerald-700 hover:bg-emerald-100";
-                                    if (bucket === "0–30 gg") return "bg-blue-50 text-blue-700 hover:bg-blue-100";
-                                    if (bucket === "31–60 gg") return "bg-amber-50 text-amber-700 hover:bg-amber-100";
-                                    if (bucket === "61–90 gg") return "bg-orange-50 text-orange-700 hover:bg-orange-100";
-                                    if (bucket === ">90 gg") return "bg-red-50 text-red-700 hover:bg-red-100";
-                                    return "bg-white";
-                                };
-                                const isActive = selectedBucket === b;
-                                return (
-                                    <button key={b} onClick={() => setSelectedBucket(b)}
-                                        className={`ripple px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap ${isActive ? "bg-blue-600 text-white shadow-lg" : getBucketColor(b)}`}>
-                                        {b}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
 
-                    {/* Distribuzione Aging - Material Design */}
-                    <div className="material-card bg-white rounded-lg p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                                <svg className="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4zm2.5 2.1h-15V5h15v14.1zm0-16.1h-15c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/>
-                                </svg>
-                                <div className="font-medium text-gray-900">Distribuzione per aging</div>
+                        {/* Distribuzione Aging - Material Design */}
+                        <div className="material-card bg-white rounded-lg p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <svg className="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4zm2.5 2.1h-15V5h15v14.1zm0-16.1h-15c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z" />
+                                    </svg>
+                                    <div className="font-medium text-gray-900">Distribuzione per aging</div>
+                                </div>
+                                <div className="text-sm text-gray-500">Click per filtrare</div>
                             </div>
-                            <div className="text-sm text-gray-500">Click per filtrare</div>
-                        </div>
-                        <div className="flex w-full h-10 overflow-hidden rounded-lg border shadow-inner">
-                            {SUMMARY.aging.map((a) => {
-                                const w = (a.value / totalAging) * 100;
-                                const active = selectedBucket === a.bucket;
-                                const getAgingColor = (bucket) => {
-                                    if (bucket === "Non scaduto") return "bg-green-500";
-                                    if (bucket === "0–30 gg") return "bg-blue-500";
-                                    if (bucket === "31–60 gg") return "bg-yellow-500";
-                                    if (bucket === "61–90 gg") return "bg-orange-500";
-                                    if (bucket === ">90 gg") return "bg-red-500";
-                                    return "bg-gray-400";
-                                };
-                                return (
-                                    <button key={a.bucket} title={`${a.bucket} — ${numberFmt(a.value)}`}
-                                        onClick={() => setSelectedBucket(a.bucket)}
-                                        style={{ width: `${w}%` }}
-                                        className={`h-full text-[10px] md:text-xs flex items-center justify-center border-r last:border-r-0 transition font-medium ${active ? "ring-2 ring-black ring-inset scale-105 z-10" : ""} ${getAgingColor(a.bucket)} text-white hover:opacity-90`}>
-                                        <div className="px-1 truncate">{a.bucket}</div>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                        <div className="mt-4 flex items-center justify-between bg-purple-50 rounded-lg p-3">
-                            <span className="text-sm font-medium text-gray-700">Quota selezionata:</span>
-                            <div className="flex items-center gap-2">
-                                <span className="text-lg font-bold text-purple-900">{numberFmt(kpi.bucketValue)}</span>
-                                <span className="text-sm text-gray-600">({pctFmt(kpi.bucketPct)})</span>
+                            <div className="flex w-full h-10 overflow-hidden rounded-lg border shadow-inner">
+                                {SUMMARY.aging.map((a) => {
+                                    const w = (a.value / totalAging) * 100;
+                                    const active = selectedBucket === a.bucket;
+                                    const getAgingColor = (bucket) => {
+                                        if (bucket === "Non scaduto") return "bg-green-500";
+                                        if (bucket === "0–30 gg") return "bg-blue-500";
+                                        if (bucket === "31–60 gg") return "bg-yellow-500";
+                                        if (bucket === "61–90 gg") return "bg-orange-500";
+                                        if (bucket === ">90 gg") return "bg-red-500";
+                                        return "bg-gray-400";
+                                    };
+                                    return (
+                                        <button key={a.bucket} title={`${a.bucket} — ${numberFmt(a.value)}`}
+                                            onClick={() => setSelectedBucket(a.bucket)}
+                                            style={{ width: `${w}%` }}
+                                            className={`h-full text-[10px] md:text-xs flex items-center justify-center border-r last:border-r-0 transition font-medium ${active ? "ring-2 ring-black ring-inset scale-105 z-10" : ""} ${getAgingColor(a.bucket)} text-white hover:opacity-90`}>
+                                            <div className="px-1 truncate">{a.bucket}</div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <div className="mt-4 flex items-center justify-between bg-purple-50 rounded-lg p-3">
+                                <span className="text-sm font-medium text-gray-700">Quota selezionata:</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-lg font-bold text-purple-900">{numberFmt(kpi.bucketValue)}</span>
+                                    <span className="text-sm text-gray-600">({pctFmt(kpi.bucketPct)})</span>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    {/* Top Clienti - Material Design */}
-                    <div className="material-card bg-white rounded-lg p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                                <svg className="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
-                                </svg>
-                                <div className="font-medium text-gray-900">Top clienti ({filteredClients.length})</div>
+                        {/* Top Clienti - Material Design */}
+                        <div className="material-card bg-white rounded-lg p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <svg className="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
+                                    </svg>
+                                    <div className="font-medium text-gray-900">Top clienti ({filteredClients.length})</div>
+                                </div>
+                                <div className="text-sm text-gray-500">Click per dettagli</div>
                             </div>
-                            <div className="text-sm text-gray-500">Click per dettagli</div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-gray-50">
+                                        <tr className="text-left border-b-2 border-indigo-500">
+                                            <th className="py-4 px-4 font-medium text-gray-700 uppercase text-xs tracking-wide">Cliente</th>
+                                            <th className="py-4 px-4 text-right font-medium text-gray-700 uppercase text-xs tracking-wide">Esposizione</th>
+                                            <th className="py-4 px-4 text-right font-medium text-gray-700 uppercase text-xs tracking-wide">Quota su totale</th>
+                                            <th className="py-4 px-4 text-right font-medium text-gray-700 uppercase text-xs tracking-wide">{"Quota >90 gg"}</th>
+                                            <th className="py-4 px-4"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredClients.map((c, idx) => {
+                                            const pct = (c.total / SUMMARY.totals.net) * 100;
+                                            const gt90pct = c.total ? (c.gt90 / c.total) * 100 : 0;
+                                            const getRiskBadge = (pct) => {
+                                                if (pct > 30) return <span className="ml-2 px-2 py-1 bg-red-100 text-red-700 text-xs rounded-lg font-medium">Alto</span>;
+                                                if (pct > 10) return <span className="ml-2 px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded-lg font-medium">Medio</span>;
+                                                if (pct > 0) return <span className="ml-2 px-2 py-1 bg-amber-100 text-amber-700 text-xs rounded-lg font-medium">Basso</span>;
+                                                return <span className="ml-2 px-2 py-1 bg-emerald-100 text-emerald-700 text-xs rounded-lg font-medium">OK</span>;
+                                            };
+                                            return (
+                                                <tr key={c.name} className="border-b border-gray-100 hover:bg-indigo-50 cursor-pointer transition-colors" onClick={() => { setSelectedClient(c.name); setDrawerOpen(true); }}>
+                                                    <td className="py-3 px-4"><div className="font-medium text-gray-900">{idx + 1}. {c.name}</div></td>
+                                                    <td className="py-3 px-4 font-semibold text-right text-gray-900">{numberFmt(c.total)}</td>
+                                                    <td className="py-3 px-4 text-right text-gray-600">{pctFmt(pct)}</td>
+                                                    <td className="py-3 px-4 text-right">
+                                                        <div className="flex items-center justify-end text-gray-900">
+                                                            {pctFmt(gt90pct)}
+                                                            {getRiskBadge(gt90pct)}
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-3 px-4 text-right">
+                                                        <svg className="w-5 h-5 text-indigo-600 inline-block" fill="currentColor" viewBox="0 0 24 24">
+                                                            <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+                                                        </svg>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead className="bg-gray-50">
-                                    <tr className="text-left border-b-2 border-indigo-500">
-                                        <th className="py-4 px-4 font-medium text-gray-700 uppercase text-xs tracking-wide">Cliente</th>
-                                        <th className="py-4 px-4 text-right font-medium text-gray-700 uppercase text-xs tracking-wide">Esposizione</th>
-                                        <th className="py-4 px-4 text-right font-medium text-gray-700 uppercase text-xs tracking-wide">Quota su totale</th>
-                                        <th className="py-4 px-4 text-right font-medium text-gray-700 uppercase text-xs tracking-wide">{"Quota >90 gg"}</th>
-                                        <th className="py-4 px-4"></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredClients.map((c, idx) => {
-                                        const pct = (c.total / SUMMARY.totals.net) * 100;
-                                        const gt90pct = c.total ? (c.gt90 / c.total) * 100 : 0;
-                                        const getRiskBadge = (pct) => {
-                                            if (pct > 30) return <span className="ml-2 px-2 py-1 bg-red-100 text-red-700 text-xs rounded-lg font-medium">Alto</span>;
-                                            if (pct > 10) return <span className="ml-2 px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded-lg font-medium">Medio</span>;
-                                            if (pct > 0) return <span className="ml-2 px-2 py-1 bg-amber-100 text-amber-700 text-xs rounded-lg font-medium">Basso</span>;
-                                            return <span className="ml-2 px-2 py-1 bg-emerald-100 text-emerald-700 text-xs rounded-lg font-medium">OK</span>;
-                                        };
-                                        return (
-                                            <tr key={c.name} className="border-b border-gray-100 hover:bg-indigo-50 cursor-pointer transition-colors" onClick={() => { setSelectedClient(c.name); setDrawerOpen(true); }}>
-                                                <td className="py-3 px-4"><div className="font-medium text-gray-900">{idx + 1}. {c.name}</div></td>
-                                                <td className="py-3 px-4 font-semibold text-right text-gray-900">{numberFmt(c.total)}</td>
-                                                <td className="py-3 px-4 text-right text-gray-600">{pctFmt(pct)}</td>
-                                                <td className="py-3 px-4 text-right">
-                                                    <div className="flex items-center justify-end text-gray-900">
-                                                        {pctFmt(gt90pct)}
-                                                        {getRiskBadge(gt90pct)}
-                                                    </div>
-                                                </td>
-                                                <td className="py-3 px-4 text-right">
-                                                    <svg className="w-5 h-5 text-indigo-600 inline-block" fill="currentColor" viewBox="0 0 24 24">
-                                                        <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
-                                                    </svg>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
 
-                    { /* Material Bottom Sheet */}
-                    {drawerOpen && (
-                        <div className="fixed inset-0 z-50 animate-fadeIn">
-                            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setDrawerOpen(false)} />
-                            <div className="absolute bottom-0 left-0 w-full h-[75vh] bg-white shadow-2xl overflow-hidden animate-slideUp">
-                                {/* Header Material Design */}
-                                <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-5 shadow-md">
-                                    <div className="flex items-start justify-between gap-4">
-                                        <div className="flex items-center gap-3">
-                                            <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
-                                                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                                            </svg>
-                                            <div>
-                                                <div className="text-xs text-indigo-100 uppercase tracking-wide">Dettaglio Cliente</div>
-                                                <h2 className="text-2xl font-medium mt-1">{selectedClient}</h2>
-                                                {selectedBucket !== "Tutti" && <div className="mt-2 inline-block px-3 py-1 bg-white/20 backdrop-blur-sm text-white text-xs rounded-lg font-medium">{selectedBucket}</div>}
+                        { /* Material Bottom Sheet */}
+                        {drawerOpen && (
+                            <div className="fixed inset-0 z-50 animate-fadeIn">
+                                <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setDrawerOpen(false)} />
+                                <div className="absolute bottom-0 left-0 w-full h-[75vh] bg-white shadow-2xl overflow-hidden animate-slideUp">
+                                    {/* Header Material Design */}
+                                    <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-5 shadow-md">
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div className="flex items-center gap-3">
+                                                <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                                                </svg>
+                                                <div>
+                                                    <div className="text-xs text-indigo-100 uppercase tracking-wide">Dettaglio Cliente</div>
+                                                    <h2 className="text-2xl font-medium mt-1">{selectedClient}</h2>
+                                                    {selectedBucket !== "Tutti" && <div className="mt-2 inline-block px-3 py-1 bg-white/20 backdrop-blur-sm text-white text-xs rounded-lg font-medium">{selectedBucket}</div>}
+                                                </div>
+                                            </div>
+                                            <button
+                                                className="ripple bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
+                                                onClick={() => setDrawerOpen(false)}
+                                            >
+                                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                                                </svg>
+                                                <span className="font-medium">Chiudi</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="p-6 overflow-y-auto h-[calc(100%-110px)]">
+                                        <div className="material-card-elevated rounded-lg overflow-hidden bg-white">
+                                            <div className="bg-gray-50 px-4 py-3 border-b flex items-center gap-2">
+                                                <svg className="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+                                                </svg>
+                                                <div className="text-sm font-medium text-gray-900">Fatture ({(selectedClient && (INVOICES[selectedClient] || []).filter(i => selectedBucket === "Tutti" || i.bucket === selectedBucket).length) || 0})</div>
+                                            </div>
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-sm">
+                                                    <thead className="bg-gray-50">
+                                                        <tr className="text-left border-b-2 border-indigo-500">
+                                                            <th className="py-4 px-4 font-medium text-gray-700 uppercase text-xs tracking-wide">Tipo</th>
+                                                            <th className="py-4 px-4 font-medium text-gray-700 uppercase text-xs tracking-wide">N. Doc</th>
+                                                            <th className="py-4 px-4 font-medium text-gray-700 uppercase text-xs tracking-wide">Data Doc</th>
+                                                            <th className="py-4 px-4 font-medium text-gray-700 uppercase text-xs tracking-wide">Scadenza</th>
+                                                            <th className="py-4 px-4 font-medium text-gray-700 uppercase text-xs tracking-wide">Residuo</th>
+                                                            <th className="py-4 px-4 font-medium text-gray-700 uppercase text-xs tracking-wide">Aging</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {((selectedClient && (INVOICES[selectedClient] || [])) || [])
+                                                            .filter(i => selectedBucket === "Tutti" || i.bucket === selectedBucket)
+                                                            .map((i, idx) => {
+                                                                const getBucketBadge = (bucket) => {
+                                                                    if (bucket === "Non scaduto") return "bg-emerald-100 text-emerald-800";
+                                                                    if (bucket === "0–30 gg") return "bg-blue-100 text-blue-800";
+                                                                    if (bucket === "31–60 gg") return "bg-amber-100 text-amber-800";
+                                                                    if (bucket === "61–90 gg") return "bg-orange-100 text-orange-800";
+                                                                    if (bucket === ">90 gg") return "bg-red-100 text-red-800";
+                                                                    return "bg-gray-100 text-gray-800";
+                                                                };
+                                                                return (
+                                                                    <tr key={idx} className="border-b border-gray-100 last:border-b-0 hover:bg-indigo-50 transition-colors">
+                                                                        <td className="py-3 px-4"><span className="px-3 py-1 bg-indigo-100 text-indigo-800 text-xs rounded-lg font-medium">{i.docType}</span></td>
+                                                                        <td className="py-3 px-4 font-mono text-sm text-gray-900">{i.docNo}</td>
+                                                                        <td className="py-3 px-4 text-sm text-gray-600">{i.docDate}</td>
+                                                                        <td className="py-3 px-4 text-sm text-gray-600">{i.dueDate}</td>
+                                                                        <td className="py-3 px-4 font-semibold text-gray-900">{numberFmt(i.residual)}</td>
+                                                                        <td className="py-3 px-4"><span className={`px-3 py-1 text-xs rounded-lg font-medium ${getBucketBadge(i.bucket)}`}>{i.bucket}</span></td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        {(!selectedClient || ((INVOICES[selectedClient] || []).filter(i => selectedBucket === "Tutti" || i.bucket === selectedBucket).length === 0)) && (
+                                                            <tr><td colSpan="6" className="py-8 text-center text-gray-500">Nessuna fattura per il filtro selezionato.</td></tr>
+                                                        )}
+                                                    </tbody>
+                                                </table>
                                             </div>
                                         </div>
-                                        <button
-                                            className="ripple bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
-                                            onClick={() => setDrawerOpen(false)}
-                                        >
-                                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                                            </svg>
-                                            <span className="font-medium">Chiudi</span>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="p-6 overflow-y-auto h-[calc(100%-110px)]">
-                                    <div className="material-card-elevated rounded-lg overflow-hidden bg-white">
-                                        <div className="bg-gray-50 px-4 py-3 border-b flex items-center gap-2">
-                                            <svg className="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 24 24">
-                                                <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
-                                            </svg>
-                                            <div className="text-sm font-medium text-gray-900">Fatture ({(selectedClient && (INVOICES[selectedClient] || []).filter(i => selectedBucket === "Tutti" || i.bucket === selectedBucket).length) || 0})</div>
-                                        </div>
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-sm">
-                                                <thead className="bg-gray-50">
-                                                    <tr className="text-left border-b-2 border-indigo-500">
-                                                        <th className="py-4 px-4 font-medium text-gray-700 uppercase text-xs tracking-wide">Tipo</th>
-                                                        <th className="py-4 px-4 font-medium text-gray-700 uppercase text-xs tracking-wide">N. Doc</th>
-                                                        <th className="py-4 px-4 font-medium text-gray-700 uppercase text-xs tracking-wide">Data Doc</th>
-                                                        <th className="py-4 px-4 font-medium text-gray-700 uppercase text-xs tracking-wide">Scadenza</th>
-                                                        <th className="py-4 px-4 font-medium text-gray-700 uppercase text-xs tracking-wide">Residuo</th>
-                                                        <th className="py-4 px-4 font-medium text-gray-700 uppercase text-xs tracking-wide">Aging</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {((selectedClient && (INVOICES[selectedClient] || [])) || [])
-                                                        .filter(i => selectedBucket === "Tutti" || i.bucket === selectedBucket)
-                                                        .map((i, idx) => {
-                                                            const getBucketBadge = (bucket) => {
-                                                                if (bucket === "Non scaduto") return "bg-emerald-100 text-emerald-800";
-                                                                if (bucket === "0–30 gg") return "bg-blue-100 text-blue-800";
-                                                                if (bucket === "31–60 gg") return "bg-amber-100 text-amber-800";
-                                                                if (bucket === "61–90 gg") return "bg-orange-100 text-orange-800";
-                                                                if (bucket === ">90 gg") return "bg-red-100 text-red-800";
-                                                                return "bg-gray-100 text-gray-800";
-                                                            };
-                                                            return (
-                                                                <tr key={idx} className="border-b border-gray-100 last:border-b-0 hover:bg-indigo-50 transition-colors">
-                                                                    <td className="py-3 px-4"><span className="px-3 py-1 bg-indigo-100 text-indigo-800 text-xs rounded-lg font-medium">{i.docType}</span></td>
-                                                                    <td className="py-3 px-4 font-mono text-sm text-gray-900">{i.docNo}</td>
-                                                                    <td className="py-3 px-4 text-sm text-gray-600">{i.docDate}</td>
-                                                                    <td className="py-3 px-4 text-sm text-gray-600">{i.dueDate}</td>
-                                                                    <td className="py-3 px-4 font-semibold text-gray-900">{numberFmt(i.residual)}</td>
-                                                                    <td className="py-3 px-4"><span className={`px-3 py-1 text-xs rounded-lg font-medium ${getBucketBadge(i.bucket)}`}>{i.bucket}</span></td>
-                                                                </tr>
-                                                            );
-                                                        })}
-                                                    {(!selectedClient || ((INVOICES[selectedClient] || []).filter(i => selectedBucket === "Tutti" || i.bucket === selectedBucket).length === 0)) && (
-                                                        <tr><td colSpan="6" className="py-8 text-center text-gray-500">Nessuna fattura per il filtro selezionato.</td></tr>
-                                                    )}
-                                                </tbody>
-                                            </table>
-                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    {/* Footer Material */}
-                    <div className="material-card bg-white rounded-lg p-4 flex items-center gap-3 text-sm text-gray-600">
-                        <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"/>
-                        </svg>
-                        <div>
-                            <span className="font-medium">Dati caricati da:</span> {new URLSearchParams(window.location.search).get('data') || 'drill.json'}
-                            <span className="mx-2">·</span>
-                            <span className="text-gray-500">Usa ?data=file.json per caricare file diversi</span>
+                        {/* Footer Material */}
+                        <div className="material-card bg-white rounded-lg p-4 flex items-center gap-3 text-sm text-gray-600">
+                            <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z" />
+                            </svg>
+                            <div>
+                                <span className="font-medium">Dati caricati da:</span> {new URLSearchParams(window.location.search).get('data') || 'drill.json'}
+                                <span className="mx-2">·</span>
+                                <span className="text-gray-500">Usa ?data=file.json per caricare file diversi</span>
+                            </div>
                         </div>
                     </div>
-                </div>
                 </div>
             );
         }

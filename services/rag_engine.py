@@ -668,31 +668,78 @@ class RAGEngine:
             raise
 
     def _load_text(self, file_path: str, metadata: Optional[dict[str, Any]] = None) -> list[Document]:
-        """Load text or markdown files."""
-        try:
-            with open(file_path, encoding="utf-8") as f:
-                content = f.read()
+        """Load text or markdown files with automatic encoding detection."""
+        # Common encodings to try, in order of preference
+        encodings = ["utf-8", "latin-1", "cp1252", "iso-8859-1", "utf-16"]
 
-            doc = Document(text=content, metadata={"source": file_path})
-            if metadata:
-                doc.metadata.update(metadata)
+        content = None
+        used_encoding = None
 
-            return [doc]
+        for encoding in encodings:
+            try:
+                with open(file_path, encoding=encoding) as f:
+                    content = f.read()
+                used_encoding = encoding
+                break
+            except (UnicodeDecodeError, LookupError):
+                continue
 
-        except Exception as e:
-            logger.error(f"Error loading text file {file_path}: {str(e)}")
-            raise
+        if content is None:
+            # Last resort: read as binary and decode with errors='replace'
+            try:
+                with open(file_path, "rb") as f:
+                    raw_content = f.read()
+                content = raw_content.decode("utf-8", errors="replace")
+                used_encoding = "utf-8 (with replacements)"
+                logger.warning(f"Text file {file_path} loaded with character replacements")
+            except Exception as e:
+                logger.error(f"Error loading text file {file_path}: {str(e)}")
+                raise
+
+        # Create document with encoding information
+        file_metadata = {"source": file_path, "encoding": used_encoding}
+        if metadata:
+            file_metadata.update(metadata)
+
+        doc = Document(text=content, metadata=file_metadata)
+
+        if used_encoding != "utf-8":
+            logger.info(f"Text file {file_path} loaded with encoding: {used_encoding}")
+
+        return [doc]
 
     def _load_json(self, file_path: str, metadata: Optional[dict[str, Any]] = None) -> list[Document]:
-        """Load JSON files with enhanced metadata detection."""
+        """Load JSON files with enhanced metadata detection and automatic encoding."""
         try:
             import json
 
-            with open(file_path, encoding="utf-8") as f:
-                content = f.read()
+            # Try multiple encodings
+            encodings = ["utf-8", "latin-1", "cp1252", "iso-8859-1", "utf-16"]
+            content = None
+            used_encoding = None
+
+            for encoding in encodings:
+                try:
+                    with open(file_path, encoding=encoding) as f:
+                        content = f.read()
+                    used_encoding = encoding
+                    break
+                except (UnicodeDecodeError, LookupError):
+                    continue
+
+            if content is None:
+                # Last resort: read as binary and decode with errors='replace'
+                with open(file_path, "rb") as f:
+                    raw_content = f.read()
+                content = raw_content.decode("utf-8", errors="replace")
+                used_encoding = "utf-8 (with replacements)"
+                logger.warning(f"JSON file {file_path} loaded with character replacements")
 
             # Enhanced metadata for JSON files
-            enhanced_metadata = {"source": file_path, "file_type": "json"}
+            enhanced_metadata = {"source": file_path, "file_type": "json", "encoding": used_encoding}
+
+            if used_encoding != "utf-8":
+                logger.info(f"JSON file {file_path} loaded with encoding: {used_encoding}")
 
             # Try to detect document type from JSON content
             try:
@@ -1590,14 +1637,31 @@ class RAGEngine:
             # Retrieve points with pagination and filters
             # Note: Qdrant doesn't support traditional pagination, so we use scroll
             # Prende dal db
-            points, next_offset = self.client.scroll(
-                collection_name=self.collection_name,
-                limit=limit,
-                offset=offset,
-                scroll_filter=scroll_filter,
-                with_payload=True,
-                with_vectors=False,  # Don't need vectors for exploration
-            )
+            try:
+                points, next_offset = self.client.scroll(
+                    collection_name=self.collection_name,
+                    limit=limit,
+                    offset=offset,
+                    scroll_filter=scroll_filter,
+                    with_payload=True,
+                    with_vectors=False,  # Don't need vectors for exploration
+                )
+            except Exception as scroll_error:
+                error_msg = str(scroll_error)
+                if "500" in error_msg or "Internal Server Error" in error_msg or "panic" in error_msg.lower():
+                    logger.error(
+                        f"Qdrant internal error during explore_database. Collection may have corrupted data. "
+                        f"Use clear_index() to reset the collection. Error: {error_msg[:200]}"
+                    )
+                    return {
+                        "documents": [],
+                        "total_count": 0,
+                        "unique_sources": [],
+                        "stats": {},
+                        "error": "Database has corrupted data. Please clear and re-upload documents.",
+                        "recovery_action": "clear_required",
+                    }
+                raise
 
             # Process points to extract document information
             documents = []
@@ -1657,29 +1721,48 @@ class RAGEngine:
             return {"documents": [], "total_count": 0, "unique_sources": [], "stats": {}, "error": str(e)}
 
     def _get_unique_sources_details(self) -> list[dict[str, Any]]:
-        """Get detailed information about unique document sources."""
+        """Get detailed information about unique document sources with error recovery."""
         try:
             # Use scroll to get all points and extract unique sources
             all_points = []
             offset = None
+            max_iterations = 1000  # Safety limit to prevent infinite loops
+            iteration = 0
 
-            while True:
-                points, next_offset = self.client.scroll(
-                    collection_name=self.collection_name,
-                    limit=100,
-                    offset=offset,
-                    with_payload=True,
-                    with_vectors=False,
-                )
+            while iteration < max_iterations:
+                try:
+                    points, next_offset = self.client.scroll(
+                        collection_name=self.collection_name,
+                        limit=100,
+                        offset=offset,
+                        with_payload=True,
+                        with_vectors=False,
+                    )
 
-                if not points:
-                    break
+                    if not points:
+                        break
 
-                all_points.extend(points)
-                offset = next_offset
+                    all_points.extend(points)
+                    offset = next_offset
 
-                if offset is None:
-                    break
+                    if offset is None:
+                        break
+
+                    iteration += 1
+
+                except Exception as scroll_error:
+                    # Handle Qdrant internal errors gracefully
+                    error_msg = str(scroll_error)
+                    if "500" in error_msg or "Internal Server Error" in error_msg or "panic" in error_msg.lower():
+                        logger.warning(
+                            f"Qdrant internal error during scroll at iteration {iteration}. "
+                            f"Returning {len(all_points)} points collected so far. "
+                            f"Consider clearing the collection if this persists."
+                        )
+                        break
+                    else:
+                        # Re-raise unexpected errors
+                        raise
 
             # Group by source
             sources_map = {}

@@ -102,6 +102,8 @@ def PROMPT_BILANCIO(file_name: str, analysis_text: str) -> str:
     # Per il momento non gestito
     client_adapter_json = None
 
+    logger.info(f"Generating PROMPT_BILANCIO for file '{file_name}'")
+
     from string import Template
 
     PROMPT_TMPL = Template(r"""
@@ -1145,11 +1147,11 @@ def choose_prompt(file_name: str, analysis_text: str) -> tuple[str, str, dict]:
 
     # Sort scores to see the ranking
     sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-    logger.info(f"Prompt router scores for '{file_name}': {sorted_scores}")
 
     # migliore candidato oltre la soglia minima; altrimenti GENERAL
     best_name = max(scores, key=scores.get) if scores else "generale"
 
+    logger.debug(f"Prompt router raw scores for '{file_name}': {best_name}")
     if scores and best_name in ROUTER:
         best_rule = ROUTER[best_name]
         logger.info(

@@ -95,7 +95,10 @@
       "Bash(del /Q package-lock.json)",
       "Bash(for file in Bcdc/bcdc.html Fatturato/fatturato.html Magazzino/Magazzino.html bilancio/bilancio.html cashflow/cashflow.html marginalita/marginalita.html)",
       "Bash(do echo \"Processing: $file\")",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(ng generate service:*)",
+      "Bash(ng generate component:*)",
+      "Bash(del test_qdrant_connection.py)"
     ],
     "deny": [],
     "ask": []

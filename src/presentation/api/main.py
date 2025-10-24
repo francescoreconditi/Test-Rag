@@ -41,6 +41,7 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 import uvicorn
 
+from config.settings import settings
 from services.csv_analyzer import CSVAnalyzer
 
 # Application services
@@ -465,10 +466,10 @@ async def health_check():
         overall_status = "degraded"
 
     try:
-        # Check Qdrant
+        # Check Qdrant (uses /healthz endpoint)
         import requests
 
-        response = requests.get("http://localhost:6333/health", timeout=5)
+        response = requests.get(f"http://{settings.qdrant_host}:{settings.qdrant_port}/healthz", timeout=5)
         services["qdrant"] = "healthy" if response.status_code == 200 else "unhealthy"
     except Exception as e:
         services["qdrant"] = f"unhealthy: {str(e)[:50]}"
@@ -582,6 +583,7 @@ async def analyze_stored_documents(
 
     start_time = datetime.now()
 
+    logger.info("CECCO")
     try:
         if enterprise_mode:
             analysis_response = rag_engine.enterprise_query(
